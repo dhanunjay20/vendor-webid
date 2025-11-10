@@ -1,24 +1,13 @@
-import { useState } from "react";
-import { DollarSign, ShoppingCart, Star, TrendingUp } from "lucide-react";
-import DashboardHeader from "@/components/DashboardHeader";
+import { DollarSign, ShoppingCart, Star, TrendingUp, ArrowUpRight, ArrowDownRight } from "lucide-react";
 import StatsCard from "@/components/StatsCard";
 import OrdersTable from "@/components/OrdersTable";
 import RecentActivity from "@/components/RecentActivity";
 import dashboardHero from "@/assets/dashboard-hero.jpg";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 const Index = () => {
-  const [theme, setTheme] = useState<"light" | "dark">("light");
-
-  const toggleTheme = () => {
-    const newTheme = theme === "light" ? "dark" : "light";
-    setTheme(newTheme);
-    document.documentElement.classList.toggle("dark");
-  };
-
   return (
     <div className="min-h-screen bg-background">
-      <DashboardHeader theme={theme} toggleTheme={toggleTheme} />
-
       {/* Hero Banner */}
       <div className="relative h-48 w-full overflow-hidden">
         <img
@@ -29,7 +18,7 @@ const Index = () => {
         <div className="absolute inset-0 bg-gradient-to-r from-background/90 to-background/50" />
         <div className="absolute inset-0 flex items-center px-8">
           <div>
-            <h2 className="text-4xl font-bold text-foreground">Welcome Back!</h2>
+            <h1 className="text-4xl font-bold text-foreground">Welcome Back!</h1>
             <p className="mt-2 text-lg text-muted-foreground">
               Here's what's happening with your catering business today
             </p>
