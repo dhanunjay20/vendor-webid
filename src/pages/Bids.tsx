@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Plus, Search, Filter } from "lucide-react";
+import { useState, useMemo } from "react";
+import { Plus, Search, Filter, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -54,6 +54,8 @@ const statusConfig = {
 
 export default function Bids() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
 
   const handleSubmitBid = (e: React.FormEvent) => {
     e.preventDefault();
@@ -70,6 +72,19 @@ export default function Bids() {
       description: `You have accepted the order for ${bidId}`,
     });
   };
+
+  const filteredBids = useMemo(() => {
+    return mockBids.filter((bid) => {
+      const matchesSearch = 
+        bid.clientName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        bid.event.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        bid.id.toLowerCase().includes(searchQuery.toLowerCase());
+      
+      const matchesStatus = statusFilter === "all" || bid.status === statusFilter;
+      
+      return matchesSearch && matchesStatus;
+    });
+  }, [searchQuery, statusFilter]);
 
   return (
     <div className="container py-8">
@@ -159,19 +174,51 @@ export default function Bids() {
         </Dialog>
       </div>
 
-      <div className="mb-6 flex gap-4">
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input placeholder="Search bids..." className="pl-10" />
+          <Input 
+            placeholder="Search by client, event, or ID..." 
+            className="pl-10" 
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+          {searchQuery && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2"
+              onClick={() => setSearchQuery("")}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          )}
         </div>
-        <Button variant="outline" className="gap-2">
-          <Filter className="h-4 w-4" />
-          Filters
-        </Button>
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="w-full sm:w-[180px]">
+            <div className="flex items-center gap-2">
+              <Filter className="h-4 w-4" />
+              <SelectValue placeholder="Filter by status" />
+            </div>
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Status</SelectItem>
+            <SelectItem value="pending">Pending</SelectItem>
+            <SelectItem value="accepted">Accepted</SelectItem>
+            <SelectItem value="rejected">Rejected</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       <div className="grid gap-6">
-        {mockBids.map((bid) => (
+        {filteredBids.length === 0 ? (
+          <Card>
+            <CardContent className="py-12 text-center">
+              <p className="text-muted-foreground">No bids found matching your criteria</p>
+            </CardContent>
+          </Card>
+        ) : (
+          filteredBids.map((bid) => (
           <Card key={bid.id} className="overflow-hidden transition-smooth hover:shadow-card-hover">
             <CardHeader className="bg-gradient-card">
               <div className="flex items-start justify-between">
@@ -222,7 +269,8 @@ export default function Bids() {
               </div>
             </CardContent>
           </Card>
-        ))}
+          ))
+        )}
       </div>
     </div>
   );
