@@ -8,6 +8,7 @@ import DashboardLayout from "@/components/DashboardLayout";
 import Index from "./pages/Index";
 import Bids from "./pages/Bids";
 import Orders from "./pages/Orders";
+import Menu from "./pages/Menu";
 import Messaging from "./pages/Messaging";
 import Reviews from "./pages/Reviews";
 import Profile from "./pages/Profile";
@@ -25,9 +26,10 @@ const App = () => (
           <Routes>
             <Route path="/" element={<DashboardLayout />}>
               <Route index element={<Index />} />
-              <Route path="bids" element={<Bids />} />
-              <Route path="orders" element={<Orders />} />
-              <Route path="messaging" element={<Messaging />} />
+          <Route path="bids" element={<Bids />} />
+          <Route path="orders" element={<Orders />} />
+          <Route path="menu" element={<Menu />} />
+          <Route path="messaging" element={<Messaging />} />
               <Route path="reviews" element={<Reviews />} />
               <Route path="profile" element={<Profile />} />
             </Route>

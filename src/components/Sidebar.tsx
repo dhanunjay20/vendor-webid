@@ -1,4 +1,4 @@
-import { LayoutDashboard, FileText, ShoppingCart, MessageSquare, Star, User } from "lucide-react";
+import { LayoutDashboard, FileText, ShoppingCart, MessageSquare, Star, User, Utensils } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { cn } from "@/lib/utils";
 
@@ -6,6 +6,7 @@ const navigation = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
   { name: "Bids", href: "/bids", icon: FileText },
   { name: "Orders", href: "/orders", icon: ShoppingCart },
+  { name: "Menu", href: "/menu", icon: Utensils },
   { name: "Messaging", href: "/messaging", icon: MessageSquare },
   { name: "Reviews", href: "/reviews", icon: Star },
   { name: "Profile", href: "/profile", icon: User },

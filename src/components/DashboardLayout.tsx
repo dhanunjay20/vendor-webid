@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Outlet } from "react-router-dom";
 import { Bell, Moon, Sun, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -13,9 +14,16 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { useTheme } from "@/components/ThemeProvider";
 import Sidebar from "@/components/Sidebar";
+import { startNotificationDemo } from "@/lib/notifications";
 
 export default function DashboardLayout() {
   const { theme, toggleTheme } = useTheme();
+
+  // Start demo notifications on mount
+  useEffect(() => {
+    const cleanup = startNotificationDemo();
+    return cleanup;
+  }, []);
 
   return (
     <div className="min-h-screen bg-background">
