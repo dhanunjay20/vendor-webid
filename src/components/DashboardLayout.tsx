@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Outlet } from "react-router-dom";
 import { Bell, Moon, Sun, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -18,6 +19,26 @@ import { startNotificationDemo } from "@/lib/notifications";
 
 export default function DashboardLayout() {
   const { theme, toggleTheme } = useTheme();
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    try {
+      localStorage.removeItem("authToken");
+      localStorage.removeItem("tokenType");
+    } catch (e) {
+      console.warn("Failed to clear auth storage", e);
+    }
+    try {
+      navigate("/login", { replace: true });
+      setTimeout(() => {
+        if (window.location.pathname !== "/login") {
+          window.location.href = "/login";
+        }
+      }, 150);
+    } catch (e) {
+      window.location.href = "/login";
+    }
+  };
 
   // Start demo notifications on mount
   useEffect(() => {
@@ -74,7 +95,7 @@ export default function DashboardLayout() {
                 <DropdownMenuItem>Profile</DropdownMenuItem>
                 <DropdownMenuItem>Settings</DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem>Logout</DropdownMenuItem>
+                <DropdownMenuItem onClick={handleLogout}>Logout</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
