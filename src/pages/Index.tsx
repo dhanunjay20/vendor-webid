@@ -1,9 +1,12 @@
-import { DollarSign, ShoppingCart, Star, TrendingUp, ArrowUpRight, ArrowDownRight } from "lucide-react";
+import { DollarSign, ShoppingCart, Star, TrendingUp } from "lucide-react";
 import StatsCard from "@/components/StatsCard";
 import OrdersTable from "@/components/OrdersTable";
 import RecentActivity from "@/components/RecentActivity";
+import RevenueChart from "@/components/analytics/RevenueChart";
+import OrderVolumeChart from "@/components/analytics/OrderVolumeChart";
+import MonthlyComparisonChart from "@/components/analytics/MonthlyComparisonChart";
+import PopularMenuChart from "@/components/analytics/PopularMenuChart";
 import dashboardHero from "@/assets/dashboard-hero.jpg";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 const Index = () => {
   return (
@@ -58,6 +61,20 @@ const Index = () => {
             icon={TrendingUp}
             trend="neutral"
           />
+        </div>
+
+        {/* Analytics Section */}
+        <div className="mb-8">
+          <div className="mb-6">
+            <h3 className="text-2xl font-bold text-foreground">Analytics Overview</h3>
+            <p className="text-muted-foreground">Track your business performance and trends</p>
+          </div>
+          <div className="grid gap-6 lg:grid-cols-2">
+            <RevenueChart />
+            <OrderVolumeChart />
+            <MonthlyComparisonChart />
+            <PopularMenuChart />
+          </div>
         </div>
 
         {/* Content Grid */}
