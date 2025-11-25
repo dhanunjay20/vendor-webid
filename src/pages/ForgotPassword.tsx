@@ -81,7 +81,7 @@ export default function ForgotPassword() {
     }
 
     if (!token) {
-      setError("Please enter the reset token sent to your email");
+      setError("Please enter the OTP sent to your contact");
       return;
     }
 
@@ -161,7 +161,7 @@ export default function ForgotPassword() {
           <h1 className="text-4xl font-bold text-gray-900">Reset Password</h1>
           <p className="text-gray-600 mt-2">
             {step === "request" && "We'll send you a password reset link if an account exists"}
-            {step === "reset" && "Enter the token from email and create your new password"}
+            {step === "reset" && "Enter the OTP from your contact and create your new password"}
           </p>
         </div>
 
@@ -173,7 +173,7 @@ export default function ForgotPassword() {
             </CardTitle>
             <CardDescription>
               {step === "request" && "Enter your registered contact information"}
-              {step === "reset" && `Enter the token from the password reset email for ${contact}`}
+              {step === "reset" && `Enter the OTP from the password reset message for ${contact}`}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -268,7 +268,7 @@ export default function ForgotPassword() {
                   </Alert>
                 )}
                 <div className="space-y-2">
-                  <Label htmlFor="token">Reset Token</Label>
+                  <Label htmlFor="token">OTP</Label>
                   <Input
                     id="token"
                     value={token}
@@ -276,7 +276,7 @@ export default function ForgotPassword() {
                       setToken(e.target.value.trim());
                       setError("");
                     }}
-                    placeholder="Enter token from email"
+                    placeholder="Enter OTP"
                     className="h-12"
                   />
                 </div>
