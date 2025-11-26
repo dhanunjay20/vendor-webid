@@ -3,15 +3,26 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Calendar, Users, MapPin, Clock, DollarSign, Package, Utensils } from "lucide-react";
 
+interface MenuItem {
+  itemName: string;
+  quantity: number;
+  pricePerUnit: number;
+  totalPrice: number;
+}
+
 interface Order {
   id: string;
-  client: string;
-  event: string;
-  date: string;
-  guests: number;
+  customerId: string;
+  vendorOrganizationId: string;
+  eventName: string;
+  eventDate: string;
+  eventLocation: string;
+  guestCount: number;
+  menuItems: MenuItem[];
   status: string;
-  amount: string;
-  bidId: string;
+  totalPrice: number;
+  createdAt: string;
+  updatedAt: string;
 }
 
 interface OrderDetailModalProps {
@@ -21,21 +32,25 @@ interface OrderDetailModalProps {
 }
 
 const statusConfig = {
+  pending: {
+    label: "Pending",
+    className: "bg-yellow-500/10 text-yellow-600 border-yellow-500/20",
+  },
   confirmed: {
     label: "Confirmed",
     className: "bg-blue-500/10 text-blue-600 border-blue-500/20",
   },
-  preparing: {
-    label: "Preparing",
-    className: "bg-orange-500/10 text-orange-600 border-orange-500/20",
-  },
-  "in-transit": {
-    label: "In Transit",
+  in_progress: {
+    label: "In Progress",
     className: "bg-purple-500/10 text-purple-600 border-purple-500/20",
   },
-  delivered: {
-    label: "Delivered",
+  completed: {
+    label: "Completed",
     className: "bg-green-500/10 text-green-600 border-green-500/20",
+  },
+  cancelled: {
+    label: "Cancelled",
+    className: "bg-red-500/10 text-red-600 border-red-500/20",
   },
 };
 
@@ -56,7 +71,7 @@ export default function OrderDetailModal({ order, open, onOpenChange }: OrderDet
         <DialogHeader>
           <div className="flex items-start justify-between">
             <div>
-              <DialogTitle className="text-2xl">{order.event}</DialogTitle>
+              <DialogTitle className="text-2xl">{order.eventName}</DialogTitle>
               <p className="text-sm text-muted-foreground mt-1">Order ID: {order.id}</p>
             </div>
             <Badge className={statusConfig[order.status as keyof typeof statusConfig].className}>
@@ -74,12 +89,12 @@ export default function OrderDetailModal({ order, open, onOpenChange }: OrderDet
             </h3>
             <div className="grid gap-2 bg-muted/50 p-4 rounded-lg">
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Name:</span>
-                <span className="font-medium">{order.client}</span>
+                <span className="text-muted-foreground">Customer ID:</span>
+                <span className="font-medium">{order.customerId}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Email:</span>
-                <span className="font-medium">{order.client.toLowerCase().replace(' ', '.')}@email.com</span>
+                <span className="font-medium">{order.customerId}@email.com</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Phone:</span>
@@ -101,7 +116,7 @@ export default function OrderDetailModal({ order, open, onOpenChange }: OrderDet
                 <Calendar className="h-4 w-4 text-muted-foreground mt-0.5" />
                 <div className="flex-1">
                   <p className="text-sm text-muted-foreground">Date</p>
-                  <p className="font-medium">{order.date}</p>
+                  <p className="font-medium">{new Date(order.eventDate).toLocaleDateString()}</p>
                 </div>
               </div>
               <div className="flex items-start gap-3">
@@ -115,15 +130,14 @@ export default function OrderDetailModal({ order, open, onOpenChange }: OrderDet
                 <MapPin className="h-4 w-4 text-muted-foreground mt-0.5" />
                 <div className="flex-1">
                   <p className="text-sm text-muted-foreground">Venue</p>
-                  <p className="font-medium">Grand Ballroom, Hilton Hotel</p>
-                  <p className="text-sm text-muted-foreground">123 Main Street, City, State 12345</p>
+                  <p className="font-medium">{order.eventLocation}</p>
                 </div>
               </div>
               <div className="flex items-start gap-3">
                 <Users className="h-4 w-4 text-muted-foreground mt-0.5" />
                 <div className="flex-1">
                   <p className="text-sm text-muted-foreground">Guest Count</p>
-                  <p className="font-medium">{order.guests} guests</p>
+                  <p className="font-medium">{order.guestCount} guests</p>
                 </div>
               </div>
             </div>
@@ -138,15 +152,19 @@ export default function OrderDetailModal({ order, open, onOpenChange }: OrderDet
               Menu Items
             </h3>
             <div className="space-y-2">
-              {mockMenuItems.map((item, index) => (
-                <div key={index} className="flex justify-between items-center p-3 bg-muted/50 rounded-lg">
-                  <div>
-                    <p className="font-medium">{item.name}</p>
-                    <p className="text-sm text-muted-foreground">Quantity: {item.quantity}</p>
+              {order.menuItems && order.menuItems.length > 0 ? (
+                order.menuItems.map((item, index) => (
+                  <div key={index} className="flex justify-between items-center p-3 bg-muted/50 rounded-lg">
+                    <div>
+                      <p className="font-medium">{item.itemName}</p>
+                      <p className="text-sm text-muted-foreground">Quantity: {item.quantity}</p>
+                    </div>
+                    <p className="font-semibold text-primary">${item.totalPrice.toFixed(2)}</p>
                   </div>
-                  <p className="font-semibold text-primary">{item.price}</p>
-                </div>
-              ))}
+                ))
+              ) : (
+                <p className="text-sm text-muted-foreground">No menu items available</p>
+              )}
             </div>
           </div>
 
@@ -181,8 +199,8 @@ export default function OrderDetailModal({ order, open, onOpenChange }: OrderDet
                   <div className="h-full w-0.5 bg-border" />
                 </div>
                 <div className="pb-3 flex-1">
-                  <p className="font-medium">Bid Accepted</p>
-                  <p className="text-sm text-muted-foreground">March 10, 2024 at 2:30 PM</p>
+                  <p className="font-medium">Order Created</p>
+                  <p className="text-sm text-muted-foreground">{new Date(order.createdAt).toLocaleString()}</p>
                 </div>
               </div>
               <div className="flex gap-3">
@@ -191,8 +209,8 @@ export default function OrderDetailModal({ order, open, onOpenChange }: OrderDet
                   <div className="h-full w-0.5 bg-border" />
                 </div>
                 <div className="pb-3 flex-1">
-                  <p className="font-medium">Order Confirmed</p>
-                  <p className="text-sm text-muted-foreground">March 10, 2024 at 3:15 PM</p>
+                  <p className="font-medium">Last Updated</p>
+                  <p className="text-sm text-muted-foreground">{new Date(order.updatedAt).toLocaleString()}</p>
                 </div>
               </div>
               <div className="flex gap-3">
@@ -200,8 +218,8 @@ export default function OrderDetailModal({ order, open, onOpenChange }: OrderDet
                   <div className="h-2 w-2 rounded-full bg-muted-foreground" />
                 </div>
                 <div className="flex-1">
-                  <p className="font-medium">Scheduled Delivery</p>
-                  <p className="text-sm text-muted-foreground">{order.date} at 5:00 PM</p>
+                  <p className="font-medium">Scheduled Event</p>
+                  <p className="text-sm text-muted-foreground">{new Date(order.eventDate).toLocaleDateString()}</p>
                 </div>
               </div>
             </div>
@@ -218,24 +236,24 @@ export default function OrderDetailModal({ order, open, onOpenChange }: OrderDet
             <div className="bg-muted/50 p-4 rounded-lg space-y-2">
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Subtotal:</span>
-                <span className="font-medium">$5,650</span>
+                <span className="font-medium">${(order.totalPrice * 0.9).toFixed(2)}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Service Fee:</span>
-                <span className="font-medium">$350</span>
+                <span className="font-medium">${(order.totalPrice * 0.05).toFixed(2)}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Tax (8%):</span>
-                <span className="font-medium">$200</span>
+                <span className="text-muted-foreground">Tax (5%):</span>
+                <span className="font-medium">${(order.totalPrice * 0.05).toFixed(2)}</span>
               </div>
               <Separator className="my-2" />
               <div className="flex justify-between text-lg">
                 <span className="font-semibold">Total Amount:</span>
-                <span className="font-bold text-primary">{order.amount}</span>
+                <span className="font-bold text-primary">${order.totalPrice.toFixed(2)}</span>
               </div>
               <div className="pt-2">
                 <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/20">
-                  Deposit Paid: $2,000
+                  Deposit Paid: ${(order.totalPrice * 0.3).toFixed(2)}
                 </Badge>
               </div>
             </div>

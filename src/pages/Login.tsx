@@ -50,6 +50,15 @@ export default function Login() {
         if (convenienceId) localStorage.setItem("id", convenienceId);
         if (profileUrl) localStorage.setItem("profileUrl", profileUrl);
       }
+
+      // store vendor organization id if returned by the API to avoid missing-vendor errors
+      // API responses may use different keys; check common possibilities
+      const vendorOrgId =
+        (res && (res.vendorOrganizationId || res.vendorOrgId || (res.vendorOrganization && res.vendorOrganization.id))) ||
+        null;
+      if (vendorOrgId) {
+        localStorage.setItem("vendorOrganizationId", String(vendorOrgId));
+      }
       // success toast (green)
       toast({ title: "Signed in", description: "Welcome back!", variant: "success" });
       // Always navigate to dashboard after successful login
