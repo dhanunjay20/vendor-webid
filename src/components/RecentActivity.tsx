@@ -54,7 +54,7 @@ export default function RecentActivity() {
         {activities.map((activity) => (
           <div key={activity.id} className="flex items-start gap-3">
             <Avatar className="h-10 w-10">
-              <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${activity.user}`} />
+              <AvatarImage src={undefined} />
               <AvatarFallback>{activity.user.slice(0, 2).toUpperCase()}</AvatarFallback>
             </Avatar>
             <div className="flex-1 space-y-1">

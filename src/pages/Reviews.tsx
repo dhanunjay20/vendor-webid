@@ -10,7 +10,7 @@ const reviews = [
   {
     id: 1,
     client: "Sarah Chen",
-    avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Sarah",
+    avatar: undefined,
     rating: 5,
     date: "2024-03-10",
     event: "Corporate Gala",
@@ -22,7 +22,7 @@ const reviews = [
   {
     id: 2,
     client: "Mike Johnson",
-    avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Mike",
+    avatar: undefined,
     rating: 5,
     date: "2024-03-08",
     event: "Wedding Reception",
@@ -34,7 +34,7 @@ const reviews = [
   {
     id: 3,
     client: "Emma Wilson",
-    avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Emma",
+    avatar: undefined,
     rating: 4,
     date: "2024-03-05",
     event: "Birthday Party",

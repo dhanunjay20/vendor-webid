@@ -35,9 +35,24 @@ export default function Login() {
       if (res?.token) {
         localStorage.setItem("authToken", res.token);
         localStorage.setItem("tokenType", res.tokenType || "Bearer");
+        // store common auth response fields (flexible mapping)
+        const userType = res.userType || res.user?.userType;
+        const userId = res.userId || res.user?.id || res.user?.userId;
+        const vendorId = res.vendorId || res.vendor?.id;
+        const vendorOrgId = res.vendorOrganizationId || res.vendor?.vendorOrganizationId || res.vendorId || res.vendor?.id;
+        const convenienceId = res.id || res._id || (res.vendor ? res.vendor.id : undefined) || (res.user ? res.user.id : undefined);
+        const profileUrl = res.profileUrl || res.user?.profileUrl;
+
+        if (userType) localStorage.setItem("userType", userType);
+        if (userId) localStorage.setItem("userId", userId);
+        if (vendorId) localStorage.setItem("vendorId", vendorId);
+        if (vendorOrgId) localStorage.setItem("vendorOrganizationId", vendorOrgId);
+        if (convenienceId) localStorage.setItem("id", convenienceId);
+        if (profileUrl) localStorage.setItem("profileUrl", profileUrl);
       }
       // success toast (green)
       toast({ title: "Signed in", description: "Welcome back!", variant: "success" });
+      // Always navigate to dashboard after successful login
       navigate("/dashboard");
     } catch (err: any) {
       const msg: string = (err?.message || "").toString();

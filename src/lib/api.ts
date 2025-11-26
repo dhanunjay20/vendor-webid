@@ -204,6 +204,63 @@ export async function loginVendor(payload: any) {
   }
 }
 
+// Menu item endpoints
+export async function getMenuItems(vendorOrganizationId: string) {
+  try {
+    const url = buildUrl(`/api/vendor/${vendorOrganizationId}/menu`);
+    const token = localStorage.getItem("authToken");
+    const tokenType = localStorage.getItem("tokenType") || "Bearer";
+    const res = await axios.get(url, { headers: token ? { Authorization: `${tokenType} ${token}` } : undefined });
+    return res.data;
+  } catch (err: any) {
+    const { message, status } = extractError(err);
+    console.error("getMenuItems error", err);
+    throw { message, status } as ApiError;
+  }
+}
+
+export async function createMenuItem(vendorOrganizationId: string, payload: any) {
+  try {
+    const url = buildUrl(`/api/vendor/${vendorOrganizationId}/menu`);
+    const token = localStorage.getItem("authToken");
+    const tokenType = localStorage.getItem("tokenType") || "Bearer";
+    const res = await axios.post(url, payload, { headers: { "Content-Type": "application/json", ...(token ? { Authorization: `${tokenType} ${token}` } : {}) } });
+    return res.data;
+  } catch (err: any) {
+    const { message, status } = extractError(err);
+    console.error("createMenuItem error", err);
+    throw { message, status } as ApiError;
+  }
+}
+
+export async function updateMenuItem(vendorOrganizationId: string, id: string, payload: any) {
+  try {
+    const url = buildUrl(`/api/vendor/${vendorOrganizationId}/menu/${id}`);
+    const token = localStorage.getItem("authToken");
+    const tokenType = localStorage.getItem("tokenType") || "Bearer";
+    const res = await axios.put(url, payload, { headers: { "Content-Type": "application/json", ...(token ? { Authorization: `${tokenType} ${token}` } : {}) } });
+    return res.data;
+  } catch (err: any) {
+    const { message, status } = extractError(err);
+    console.error("updateMenuItem error", err);
+    throw { message, status } as ApiError;
+  }
+}
+
+export async function deleteMenuItem(vendorOrganizationId: string, id: string) {
+  try {
+    const url = buildUrl(`/api/vendor/${vendorOrganizationId}/menu/${id}`);
+    const token = localStorage.getItem("authToken");
+    const tokenType = localStorage.getItem("tokenType") || "Bearer";
+    const res = await axios.delete(url, { headers: token ? { Authorization: `${tokenType} ${token}` } : undefined });
+    return res.data;
+  } catch (err: any) {
+    const { message, status } = extractError(err);
+    console.error("deleteMenuItem error", err);
+    throw { message, status } as ApiError;
+  }
+}
+
 export default {
   registerUser,
   login,
@@ -212,5 +269,9 @@ export default {
   resetPassword,
   registerVendor,
   loginVendor,
+  getMenuItems,
+  createMenuItem,
+  updateMenuItem,
+  deleteMenuItem,
 };
 
