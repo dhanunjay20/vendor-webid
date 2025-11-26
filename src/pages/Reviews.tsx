@@ -1,63 +1,98 @@
+import { useEffect, useState, useMemo } from "react";
 import { Star, ThumbsUp, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Card, CardContent } from "@/components/ui/card";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { toast } from "@/hooks/use-toast";
+import * as api from "@/lib/api";
 
-const reviews = [
-  {
-    id: 1,
-    client: "Sarah Chen",
-    avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Sarah",
-    rating: 5,
-    date: "2024-03-10",
-    event: "Corporate Gala",
-    orderId: "ORD-1001",
-    comment: "Absolutely fantastic service! The food was delicious and the presentation was impeccable. Our guests couldn't stop raving about it. Will definitely book again!",
-    images: [],
-    helpful: 12,
-  },
-  {
-    id: 2,
-    client: "Mike Johnson",
-    avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Mike",
-    rating: 5,
-    date: "2024-03-08",
-    event: "Wedding Reception",
-    orderId: "ORD-1002",
-    comment: "Made our special day even more memorable. Professional staff, amazing food quality, and perfect timing. Highly recommended!",
-    images: [],
-    helpful: 8,
-  },
-  {
-    id: 3,
-    client: "Emma Wilson",
-    avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Emma",
-    rating: 4,
-    date: "2024-03-05",
-    event: "Birthday Party",
-    orderId: "ORD-1003",
-    comment: "Great experience overall. Food was excellent and service was prompt. Only minor issue was the setup time, but they more than made up for it with quality.",
-    images: [],
-    helpful: 5,
-  },
-];
+interface ReviewItem {
+  id: string;
+  vendorOrganizationId: string;
+  userId?: string;
+  customerName: string;
+  reviewDate: string;
+  description: string;
+  stars: number;
+}
 
-const stats = [
-  { label: "Average Rating", value: "4.8", icon: Star },
-  { label: "Total Reviews", value: "127", icon: MessageCircle },
-  { label: "5-Star Reviews", value: "89%", icon: ThumbsUp },
-];
+const Reviews = () => {
+  const [reviews, setReviews] = useState<ReviewItem[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [query, setQuery] = useState("");
+  
+  const [starFilter, setStarFilter] = useState<number | null>(null); // null = all
+  const [page, setPage] = useState(1);
+  const pageSize = 10;
 
-export default function Reviews() {
-  const handleReply = (reviewId: number) => {
-    toast({
-      title: "Reply Posted",
-      description: "Your response has been published.",
-    });
+  const vendorOrgId = localStorage.getItem("vendorOrganizationId") || "";
+
+  useEffect(() => {
+    const load = async () => {
+      if (!vendorOrgId) {
+        toast({ title: "Error", description: "Vendor organization ID not found. Please log in again.", variant: "destructive" });
+        return;
+      }
+      try {
+        setLoading(true);
+        const data = await api.getVendorReviews(vendorOrgId);
+        setReviews(Array.isArray(data) ? data : []);
+      } catch (err: any) {
+        toast({ title: "Failed to load reviews", description: err?.message || "Please try again later", variant: "destructive" });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    load();
+  }, [vendorOrgId]);
+
+  const stats = useMemo(() => {
+    if (!reviews || !reviews.length) return { avg: "0.0", total: 0, fiveStarPct: "0%" };
+    const total = reviews.length;
+    const sum = reviews.reduce((s, r) => s + (r.stars || 0), 0);
+    const avg = (sum / total) || 0;
+    const fiveStar = reviews.filter(r => r.stars >= 5).length;
+    const fiveStarPct = Math.round((fiveStar / total) * 100);
+    return { avg: avg.toFixed(1), total, fiveStarPct: `${fiveStarPct}%` };
+  }, [reviews]);
+
+  const handleReply = (reviewId: string) => {
+    toast({ title: "Reply Posted", description: "Your response has been published." });
   };
+
+  
+
+  function starBgClass(stars: number | undefined) {
+    const s = stars ?? 0;
+    if (s >= 5) return "bg-yellow-50";
+    if (s === 4) return "bg-emerald-50";
+    if (s === 3) return "bg-sky-50";
+    if (s === 2) return "bg-orange-50";
+    return "bg-rose-50";
+  }
+
+  const filtered = useMemo(() => {
+    const qq = (query || "").trim().toLowerCase();
+    return reviews.filter((r) => {
+      const matchesQuery = !qq || (r.customerName || "").toLowerCase().includes(qq) || (r.description || "").toLowerCase().includes(qq);
+      const matchesStar = starFilter === null || (r.stars || 0) === starFilter;
+      return matchesQuery && matchesStar;
+    });
+  }, [reviews, query, starFilter]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const paginated = useMemo(() => {
+    const p = Math.max(1, Math.min(page, totalPages));
+    const start = (p - 1) * pageSize;
+    return filtered.slice(start, start + pageSize);
+  }, [filtered, page, totalPages]);
+
+  // reset page when filters change
+  useEffect(() => setPage(1), [query, starFilter]);
 
   return (
     <div className="container py-8">
@@ -68,75 +103,140 @@ export default function Reviews() {
 
       {/* Stats */}
       <div className="mb-8 grid gap-4 md:grid-cols-3">
-        {stats.map((stat) => (
-          <Card key={stat.label}>
-            <CardContent className="flex items-center gap-4 p-6">
-              <div className="rounded-lg bg-primary/10 p-3">
-                <stat.icon className="h-6 w-6 text-primary" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">{stat.label}</p>
-                <p className="text-2xl font-bold">{stat.value}</p>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+        <Card className="shadow-sm">
+          <CardContent className="flex items-center gap-4 p-6">
+            <div className="rounded-full bg-primary/10 p-3 flex items-center justify-center">
+              <Star className="h-6 w-6 text-primary" />
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Average Rating</p>
+              <p className="text-2xl font-bold">{stats.avg}</p>
+              <div className="text-xs text-muted-foreground">Based on {stats.total} reviews</div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="shadow-sm">
+          <CardContent className="flex items-center gap-4 p-6">
+            <div className="rounded-full bg-primary/10 p-3 flex items-center justify-center">
+              <MessageCircle className="h-6 w-6 text-primary" />
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Total Reviews</p>
+              <p className="text-2xl font-bold">{stats.total}</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="shadow-sm">
+          <CardContent className="flex items-center gap-4 p-6">
+            <div className="rounded-full bg-primary/10 p-3 flex items-center justify-center">
+              <ThumbsUp className="h-6 w-6 text-primary" />
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">5-Star Reviews</p>
+              <p className="text-2xl font-bold">{stats.fiveStarPct}</p>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Reviews List */}
-      <div className="space-y-6">
-        {reviews.map((review) => (
-          <Card key={review.id}>
-            <CardHeader>
-              <div className="flex items-start justify-between">
-                <div className="flex gap-4">
-                  <Avatar className="h-12 w-12">
-                    <AvatarImage src={review.avatar} />
-                    <AvatarFallback>{review.client[0]}</AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <CardTitle className="text-lg">{review.client}</CardTitle>
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <span>{review.event}</span>
-                      <span>•</span>
-                      <span>{review.orderId}</span>
-                      <span>•</span>
-                      <span>{review.date}</span>
-                    </div>
-                    <div className="mt-1 flex">
-                      {Array.from({ length: 5 }).map((_, i) => (
-                        <Star
-                          key={i}
-                          className={`h-4 w-4 ${
-                            i < review.rating
-                              ? "fill-yellow-400 text-yellow-400"
-                              : "text-muted-foreground"
-                          }`}
-                        />
-                      ))}
+      <div>
+        <div className="mb-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div className="flex items-center gap-3 w-full max-w-2xl">
+            <Input
+              placeholder="Search reviews or customer"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              className="h-11"
+              aria-label="Search reviews"
+            />
+            <Button variant="ghost" onClick={() => setQuery("")}>Clear</Button>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">Filter:</span>
+              <button
+                className={`px-3 py-1 rounded-md text-sm ${starFilter === null ? 'bg-slate-100' : 'bg-white'}`}
+                onClick={() => setStarFilter(null)}
+              >All</button>
+              {[5,4,3,2,1].map((s) => (
+                <button
+                  key={s}
+                  onClick={() => setStarFilter(s)}
+                  className={`px-3 py-1 rounded-md text-sm flex items-center gap-2 ${starFilter === s ? 'bg-slate-100' : 'bg-white'}`}
+                >
+                  <Star className="h-4 w-4 text-yellow-400" /> {s}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {loading ? (
+          <div className="text-center text-sm text-muted-foreground">Loading reviews...</div>
+        ) : filtered.length === 0 ? (
+          <div className="text-center text-sm text-muted-foreground">No reviews match your search.</div>
+        ) : (
+          <div>
+            <div className="grid gap-6 md:grid-cols-2">
+              {paginated.map((review) => (
+                <article key={review.id} className={`rounded-lg shadow-sm hover:shadow-md transition p-6 ${starBgClass(review.stars)}`}>
+                <header className="flex items-start justify-between">
+                  <div className="flex gap-4">
+                    <Avatar className="h-12 w-12">
+                      <AvatarFallback>{review.customerName?.[0] || "U"}</AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <h3 className="text-base font-semibold">{review.customerName}</h3>
+                      <div className="text-xs text-muted-foreground">{new Date(review.reviewDate).toLocaleDateString()}</div>
+                      <div className="mt-2 flex items-center gap-2">
+                        {Array.from({ length: 5 }).map((_, i) => (
+                          <Star
+                            key={i}
+                            className={`h-4 w-4 ${i < (review.stars || 0) ? "fill-current text-yellow-400" : "text-muted-foreground"}`}
+                            style={{ opacity: i < (review.stars || 0) ? 1 : 0.35 }}
+                          />
+                        ))}
+                        <span className="ml-2 text-sm font-medium text-muted-foreground">{(review.stars || 0)} / 5</span>
+                      </div>
                     </div>
                   </div>
+                  <Badge variant="outline" className="self-start">{(review.stars || 0)}.0</Badge>
+                </header>
+
+                <div className="mt-4 text-sm text-foreground">{review.description}</div>
+
+                <footer className="mt-4 flex items-center justify-between">
+                  <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                    <button className="flex items-center gap-2 hover:text-foreground px-3 py-1 rounded-md bg-white/30 transition">
+                      <ThumbsUp className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm">Helpful</span>
+                    </button>
+                  </div>
+                  <div className="text-xs text-muted-foreground"></div>
+                </footer>
+              </article>
+            ))}
+            </div>
+
+            {totalPages > 1 && (
+              <div className="mt-6 flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Showing {Math.min(filtered.length, page * pageSize)} of {filtered.length} reviews</p>
                 </div>
-                <Badge variant="outline">{review.rating}.0</Badge>
+                <div className="flex items-center gap-2">
+                  <Button variant="ghost" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1}>Previous</Button>
+                  <div className="px-3 py-1 rounded-md bg-white text-sm">Page {page} of {totalPages}</div>
+                  <Button variant="ghost" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages}>Next</Button>
+                </div>
               </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <p className="text-foreground">{review.comment}</p>
-              <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                <button className="flex items-center gap-1 hover:text-foreground">
-                  <ThumbsUp className="h-4 w-4" />
-                  Helpful ({review.helpful})
-                </button>
-              </div>
-              <div className="space-y-2 border-t pt-4">
-                <p className="text-sm font-medium">Reply to review</p>
-                <Textarea placeholder="Thank the customer and address their feedback..." rows={3} />
-                <Button onClick={() => handleReply(review.id)}>Post Reply</Button>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
-}
+};
+
+export default Reviews;

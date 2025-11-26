@@ -204,6 +204,106 @@ export async function loginVendor(payload: any) {
   }
 }
 
+// Bid endpoints
+export async function getBidsByVendor(vendorOrgId: string) {
+  try {
+    const url = buildUrl(`/api/vendor/${vendorOrgId}/bids`);
+    const res = await axios.get(url);
+    return res.data;
+  } catch (err: any) {
+    const { message, status } = extractError(err);
+    console.error("getBidsByVendor error", err);
+    throw { message, status } as ApiError;
+  }
+}
+
+export async function submitBidQuote(vendorOrgId: string, bidId: string, payload: { orderId: string; proposedMessage: string; proposedTotalPrice: number; }) {
+  try {
+    const url = buildUrl(`/api/vendor/${vendorOrgId}/bids/${bidId}/quote`);
+    const res = await axios.put(url, payload, { headers: { "Content-Type": "application/json" } });
+    return res.data;
+  } catch (err: any) {
+    const { message, status } = extractError(err);
+    console.error("submitBidQuote error", err);
+    throw { message, status } as ApiError;
+  }
+}
+
+export async function acceptBid(vendorOrgId: string, bidId: string) {
+  try {
+    const url = buildUrl(`/api/vendor/${vendorOrgId}/bids/${bidId}/accept`);
+    const res = await axios.put(url);
+    return res.data;
+  } catch (err: any) {
+    const { message, status } = extractError(err);
+    console.error("acceptBid error", err);
+    throw { message, status } as ApiError;
+  }
+}
+
+// Order endpoints
+export async function getOrdersByVendor(vendorOrgId: string) {
+  try {
+    const url = buildUrl(`/api/vendor/${vendorOrgId}/orders`);
+    const res = await axios.get(url);
+    return res.data;
+  } catch (err: any) {
+    const { message, status } = extractError(err);
+    console.error("getOrdersByVendor error", err);
+    throw { message, status } as ApiError;
+  }
+}
+
+export async function updateOrderStatus(vendorOrgId: string, orderId: string, status: string) {
+  try {
+    const url = buildUrl(`/api/vendor/${vendorOrgId}/orders/${orderId}/status?status=${encodeURIComponent(status)}`);
+    const res = await axios.put(url);
+    return res.data;
+  } catch (err: any) {
+    const { message, status: errStatus } = extractError(err);
+    console.error("updateOrderStatus error", err);
+    throw { message, status: errStatus } as ApiError;
+  }
+}
+
+// Notification endpoints
+export async function getVendorNotifications(vendorOrgId: string) {
+  try {
+    const url = buildUrl(`/api/notifications/vendor/${vendorOrgId}`);
+    const res = await axios.get(url);
+    return res.data;
+  } catch (err: any) {
+    const { message, status } = extractError(err);
+    console.error("getVendorNotifications error", err);
+    throw { message, status } as ApiError;
+  }
+}
+
+// Reviews
+export async function getVendorReviews(vendorOrgId: string) {
+  try {
+    const url = buildUrl(`/api/vendor/${vendorOrgId}/review`);
+    const res = await axios.get(url);
+    return res.data;
+  } catch (err: any) {
+    const { message, status } = extractError(err);
+    console.error("getVendorReviews error", err);
+    throw { message, status } as ApiError;
+  }
+}
+
+export async function markNotificationAsRead(notificationId: string) {
+  try {
+    const url = buildUrl(`/api/notifications/${notificationId}/read`);
+    const res = await axios.put(url);
+    return res.data;
+  } catch (err: any) {
+    const { message, status } = extractError(err);
+    console.error("markNotificationAsRead error", err);
+    throw { message, status } as ApiError;
+  }
+}
+
 export default {
   registerUser,
   login,
@@ -212,5 +312,12 @@ export default {
   resetPassword,
   registerVendor,
   loginVendor,
+  getBidsByVendor,
+  submitBidQuote,
+  acceptBid,
+  getOrdersByVendor,
+  updateOrderStatus,
+  getVendorNotifications,
+  markNotificationAsRead,
 };
 

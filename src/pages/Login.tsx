@@ -36,6 +36,15 @@ export default function Login() {
         localStorage.setItem("authToken", res.token);
         localStorage.setItem("tokenType", res.tokenType || "Bearer");
       }
+
+      // store vendor organization id if returned by the API to avoid missing-vendor errors
+      // API responses may use different keys; check common possibilities
+      const vendorOrgId =
+        (res && (res.vendorOrganizationId || res.vendorOrgId || (res.vendorOrganization && res.vendorOrganization.id))) ||
+        null;
+      if (vendorOrgId) {
+        localStorage.setItem("vendorOrganizationId", String(vendorOrgId));
+      }
       // success toast (green)
       toast({ title: "Signed in", description: "Welcome back!", variant: "success" });
       navigate("/dashboard");

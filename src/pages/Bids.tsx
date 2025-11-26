@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Plus, Search, Filter, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,45 +9,22 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
+import * as api from "@/lib/api";
 
-const mockBids = [
-  {
-    id: "BID-001",
-    clientName: "Sarah Chen",
-    event: "Corporate Gala",
-    requestDate: "2024-03-20",
-    guests: 150,
-    budget: "$5,000 - $7,000",
-    status: "pending",
-    bidAmount: "$6,200",
-    submittedDate: "2024-03-15",
-  },
-  {
-    id: "BID-002",
-    clientName: "Mike Johnson",
-    event: "Wedding Reception",
-    requestDate: "2024-04-10",
-    guests: 200,
-    budget: "$8,000 - $10,000",
-    status: "accepted",
-    bidAmount: "$9,500",
-    submittedDate: "2024-03-10",
-  },
-  {
-    id: "BID-003",
-    clientName: "Emma Wilson",
-    event: "Birthday Party",
-    requestDate: "2024-03-25",
-    guests: 50,
-    budget: "$1,500 - $2,000",
-    status: "rejected",
-    bidAmount: "$1,800",
-    submittedDate: "2024-03-12",
-  },
-];
+interface Bid {
+  id: string;
+  orderId: string;
+  vendorOrganizationId: string;
+  proposedMessage: string;
+  proposedTotalPrice: number;
+  status: string;
+  submittedAt: string;
+  updatedAt: string;
+}
 
 const statusConfig = {
-  pending: { label: "Pending", className: "bg-yellow-500/10 text-yellow-600 border-yellow-500/20" },
+  requested: { label: "Requested", className: "bg-blue-500/10 text-blue-600 border-blue-500/20" },
+  quoted: { label: "Quoted", className: "bg-yellow-500/10 text-yellow-600 border-yellow-500/20" },
   accepted: { label: "Accepted", className: "bg-green-500/10 text-green-600 border-green-500/20" },
   rejected: { label: "Rejected", className: "bg-red-500/10 text-red-600 border-red-500/20" },
 };
@@ -56,35 +33,97 @@ export default function Bids() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [bids, setBids] = useState<Bid[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [bidData, setBidData] = useState({
+    orderId: "",
+    proposedMessage: "",
+    proposedTotalPrice: 0,
+  });
 
-  const handleSubmitBid = (e: React.FormEvent) => {
+  // Get vendorOrgId from localStorage (set during login)
+  const vendorOrgId = localStorage.getItem("vendorOrganizationId") || "";
+
+  useEffect(() => {
+    loadBids();
+  }, []);
+
+  const loadBids = async () => {
+    if (!vendorOrgId) {
+      toast({
+        title: "Error",
+        description: "Vendor organization ID not found. Please log in again.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const data = await api.getBidsByVendor(vendorOrgId);
+      setBids(data || []);
+    } catch (err: any) {
+      toast({
+        title: "Failed to load bids",
+        description: err?.message || "Please try again later",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSubmitBid = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!vendorOrgId) {
+      toast({
+        title: "Error",
+        description: "Vendor organization ID not found",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // This form is for submitting quotes on existing bid requests
+    // In real scenario, bidId would come from selecting a bid request
     toast({
-      title: "Bid Submitted",
-      description: "Your bid has been sent to the client for review.",
+      title: "Feature Coming Soon",
+      description: "Quote submission will be available once backend integration is complete.",
     });
     setIsDialogOpen(false);
   };
 
-  const handleAcceptOrder = (bidId: string) => {
-    toast({
-      title: "Order Accepted",
-      description: `You have accepted the order for ${bidId}`,
-    });
+  const handleAcceptOrder = async (bidId: string) => {
+    if (!vendorOrgId) return;
+
+    try {
+      await api.acceptBid(vendorOrgId, bidId);
+      toast({
+        title: "Order Accepted",
+        description: `You have accepted the order for ${bidId}`,
+      });
+      loadBids(); // Refresh the list
+    } catch (err: any) {
+      toast({
+        title: "Failed to accept order",
+        description: err?.message || "Please try again",
+        variant: "destructive",
+      });
+    }
   };
 
   const filteredBids = useMemo(() => {
-    return mockBids.filter((bid) => {
+    return bids.filter((bid) => {
       const matchesSearch = 
-        bid.clientName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        bid.event.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        bid.id.toLowerCase().includes(searchQuery.toLowerCase());
+        bid.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        bid.orderId.toLowerCase().includes(searchQuery.toLowerCase());
       
       const matchesStatus = statusFilter === "all" || bid.status === statusFilter;
       
       return matchesSearch && matchesStatus;
     });
-  }, [searchQuery, statusFilter]);
+  }, [bids, searchQuery, statusFilter]);
 
   return (
     <div className="container py-8">
@@ -203,75 +242,80 @@ export default function Bids() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Status</SelectItem>
-            <SelectItem value="pending">Pending</SelectItem>
+            <SelectItem value="requested">Requested</SelectItem>
+            <SelectItem value="quoted">Quoted</SelectItem>
             <SelectItem value="accepted">Accepted</SelectItem>
             <SelectItem value="rejected">Rejected</SelectItem>
           </SelectContent>
         </Select>
       </div>
 
-      <div className="grid gap-6">
-        {filteredBids.length === 0 ? (
-          <Card>
-            <CardContent className="py-12 text-center">
-              <p className="text-muted-foreground">No bids found matching your criteria</p>
-            </CardContent>
-          </Card>
-        ) : (
-          filteredBids.map((bid) => (
-          <Card key={bid.id} className="overflow-hidden transition-smooth hover:shadow-card-hover">
-            <CardHeader className="bg-gradient-card">
-              <div className="flex items-start justify-between">
-                <div>
-                  <CardTitle className="mb-2">{bid.event}</CardTitle>
-                  <p className="text-sm text-muted-foreground">Client: {bid.clientName}</p>
-                  <p className="text-xs text-muted-foreground">Bid ID: {bid.id}</p>
+      {loading ? (
+        <Card>
+          <CardContent className="py-12 text-center">
+            <p className="text-muted-foreground">Loading bids...</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid gap-6">
+          {filteredBids.length === 0 ? (
+            <Card>
+              <CardContent className="py-12 text-center">
+                <p className="text-muted-foreground">No bids found matching your criteria</p>
+              </CardContent>
+            </Card>
+          ) : (
+            filteredBids.map((bid) => (
+            <Card key={bid.id} className="overflow-hidden transition-smooth hover:shadow-card-hover">
+              <CardHeader className="bg-gradient-card">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <CardTitle className="mb-2">Bid #{bid.id}</CardTitle>
+                    <p className="text-sm text-muted-foreground">Order: {bid.orderId}</p>
+                    <p className="text-xs text-muted-foreground">Bid ID: {bid.id}</p>
+                  </div>
+                  <Badge className={statusConfig[bid.status as keyof typeof statusConfig]?.className || ""}>
+                    {statusConfig[bid.status as keyof typeof statusConfig]?.label || bid.status}
+                  </Badge>
                 </div>
-                <Badge className={statusConfig[bid.status as keyof typeof statusConfig].className}>
-                  {statusConfig[bid.status as keyof typeof statusConfig].label}
-                </Badge>
-              </div>
-            </CardHeader>
-            <CardContent className="pt-6">
-              <div className="grid gap-4 md:grid-cols-3">
-                <div>
-                  <p className="text-sm text-muted-foreground">Event Date</p>
-                  <p className="font-medium">{bid.requestDate}</p>
+              </CardHeader>
+              <CardContent className="pt-6">
+                <div className="grid gap-4 md:grid-cols-3">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Submitted</p>
+                    <p className="font-medium">{new Date(bid.submittedAt).toLocaleDateString()}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Last Updated</p>
+                    <p className="font-medium">{new Date(bid.updatedAt).toLocaleDateString()}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Your Bid Amount</p>
+                    <p className="text-lg font-bold text-primary">${bid.proposedTotalPrice.toFixed(2)}</p>
+                  </div>
+                  <div className="md:col-span-3">
+                    <p className="text-sm text-muted-foreground">Proposal Message</p>
+                    <p className="font-medium">{bid.proposedMessage || "No message provided"}</p>
+                  </div>
+                  <div className="flex items-end gap-2">
+                    {bid.status === "accepted" && (
+                      <Button onClick={() => handleAcceptOrder(bid.id)} className="w-full">
+                        Confirm Order
+                      </Button>
+                    )}
+                    {bid.status === "requested" && (
+                      <Button variant="outline" className="w-full">
+                        Submit Quote
+                      </Button>
+                    )}
+                  </div>
                 </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Guests</p>
-                  <p className="font-medium">{bid.guests} people</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Client Budget</p>
-                  <p className="font-medium">{bid.budget}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Your Bid</p>
-                  <p className="text-lg font-bold text-primary">{bid.bidAmount}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Submitted</p>
-                  <p className="font-medium">{bid.submittedDate}</p>
-                </div>
-                <div className="flex items-end gap-2">
-                  {bid.status === "accepted" && (
-                    <Button onClick={() => handleAcceptOrder(bid.id)} className="w-full">
-                      Accept Order
-                    </Button>
-                  )}
-                  {bid.status === "pending" && (
-                    <Button variant="outline" className="w-full">
-                      View Details
-                    </Button>
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          ))
-        )}
-      </div>
+              </CardContent>
+            </Card>
+            ))
+          )}
+        </div>
+      )}
     </div>
   );
 }
