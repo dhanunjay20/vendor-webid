@@ -1,15 +1,15 @@
 import { useState, useMemo, useEffect } from "react";
-import { Plus, Search, Filter, X } from "lucide-react";
+import { Plus, Search, Filter, X, CheckCircle2, ArrowRight } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
 import * as api from "@/lib/api";
+import BidQuoteDialog from "@/components/BidQuoteDialog.tsx";
 
 interface Bid {
   id: string;
@@ -20,26 +20,49 @@ interface Bid {
   status: string;
   submittedAt: string;
   updatedAt: string;
+  // Optional UI fields populated from joined/order data
+  eventName?: string;
+  customerName?: string;
+}
+
+interface OrderDetail {
+  id: string;
+  customerId: string;
+  eventName: string;
+  eventDate: string;
+  eventLocation: string;
+  guestCount: number;
+  menuItems: any[];
+  status: string;
+  totalPrice: number;
+  createdAt: string;
+  updatedAt: string;
 }
 
 const statusConfig = {
   requested: { label: "Requested", className: "bg-blue-500/10 text-blue-600 border-blue-500/20" },
   quoted: { label: "Quoted", className: "bg-yellow-500/10 text-yellow-600 border-yellow-500/20" },
   accepted: { label: "Accepted", className: "bg-green-500/10 text-green-600 border-green-500/20" },
+  confirmed: { label: "Confirmed", className: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20" },
   rejected: { label: "Rejected", className: "bg-red-500/10 text-red-600 border-red-500/20" },
 };
 
 export default function Bids() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isQuoteDialogOpen, setIsQuoteDialogOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [bids, setBids] = useState<Bid[]>([]);
   const [loading, setLoading] = useState(true);
-  const [bidData, setBidData] = useState({
-    orderId: "",
+  const [selectedBid, setSelectedBid] = useState<Bid | null>(null);
+  const [orderDetail, setOrderDetail] = useState<OrderDetail | null>(null);
+  const [quoteData, setQuoteData] = useState({
     proposedMessage: "",
     proposedTotalPrice: 0,
   });
+  const [acceptingBidId, setAcceptingBidId] = useState<string | null>(null);
+  const [confirmedBids, setConfirmedBids] = useState<Set<string>>(new Set());
+  const navigate = useNavigate();
 
   // Get vendorOrgId from localStorage (set during login)
   const vendorOrgId = localStorage.getItem("vendorOrganizationId") || "";
@@ -61,8 +84,10 @@ export default function Bids() {
     try {
       setLoading(true);
       const data = await api.getBidsByVendor(vendorOrgId);
+      console.log("Bids API response:", data);
       setBids(data || []);
     } catch (err: any) {
+      console.error("Bids API error:", err);
       toast({
         title: "Failed to load bids",
         description: err?.message || "Please try again later",
@@ -73,43 +98,91 @@ export default function Bids() {
     }
   };
 
-  const handleSubmitBid = async (e: React.FormEvent) => {
+  const handleViewBidDetails = async (bid: Bid) => {
+    try {
+      setSelectedBid(bid);
+      // Fetch order details from vendor-specific endpoint
+      const order = await api.getOrderById(vendorOrgId, bid.orderId);
+      setOrderDetail(order);
+      setQuoteData({
+        proposedMessage: bid.proposedMessage || "",
+        proposedTotalPrice: bid.proposedTotalPrice || 0,
+      });
+      setIsQuoteDialogOpen(true);
+    } catch (err: any) {
+      toast({
+        title: "Failed to load order details",
+        description: err?.message || "Please try again",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleSubmitQuote = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!vendorOrgId) {
+    if (!vendorOrgId || !selectedBid) {
       toast({
         title: "Error",
-        description: "Vendor organization ID not found",
+        description: "Missing required information",
         variant: "destructive",
       });
       return;
     }
 
-    // This form is for submitting quotes on existing bid requests
-    // In real scenario, bidId would come from selecting a bid request
-    toast({
-      title: "Feature Coming Soon",
-      description: "Quote submission will be available once backend integration is complete.",
-    });
-    setIsDialogOpen(false);
+    try {
+      await api.submitBidQuote(vendorOrgId, selectedBid.id, {
+        orderId: selectedBid.orderId,
+        proposedMessage: quoteData.proposedMessage,
+        proposedTotalPrice: quoteData.proposedTotalPrice,
+      });
+      toast({
+        title: "Quote Submitted",
+        description: "Your quote has been sent to the customer.",
+      });
+      setIsQuoteDialogOpen(false);
+      setSelectedBid(null);
+      setOrderDetail(null);
+      loadBids();
+    } catch (err: any) {
+      toast({
+        title: "Failed to submit quote",
+        description: err?.message || "Please try again",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleAcceptOrder = async (bidId: string) => {
-    if (!vendorOrgId) return;
+    if (!vendorOrgId) {
+      toast({ title: "Error", description: "Missing vendor ID", variant: "destructive" });
+      return;
+    }
 
+    setAcceptingBidId(bidId);
     try {
-      await api.acceptBid(vendorOrgId, bidId);
+      const updated = await api.acceptBid(vendorOrgId, bidId);
       toast({
-        title: "Order Accepted",
-        description: `You have accepted the order for ${bidId}`,
+        title: "Order Confirmed",
+        description: "You have successfully confirmed this order!",
       });
-      loadBids(); // Refresh the list
+      // Mark bid as confirmed locally
+      setConfirmedBids((prev) => new Set(prev).add(bidId));
+      // Update local state with returned bid (if backend returns the updated bid)
+      if (updated && updated.id) {
+        setBids((prev) => prev.map((b) => (b.id === bidId ? { ...b, ...updated, status: "confirmed" } : b)));
+      } else {
+        // Update status locally
+        setBids((prev) => prev.map((b) => (b.id === bidId ? { ...b, status: "confirmed" } : b)));
+      }
     } catch (err: any) {
       toast({
         title: "Failed to accept order",
         description: err?.message || "Please try again",
         variant: "destructive",
       });
+    } finally {
+      setAcceptingBidId(null);
     }
   };
 
@@ -143,74 +216,24 @@ export default function Bids() {
             <DialogHeader>
               <DialogTitle>Submit New Bid</DialogTitle>
             </DialogHeader>
-            <form onSubmit={handleSubmitBid} className="space-y-4">
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label>Client Name</Label>
-                  <Input placeholder="Enter client name" required />
-                </div>
-                <div className="space-y-2">
-                  <Label>Event Type</Label>
-                  <Select required>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select event type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="wedding">Wedding</SelectItem>
-                      <SelectItem value="corporate">Corporate Event</SelectItem>
-                      <SelectItem value="birthday">Birthday Party</SelectItem>
-                      <SelectItem value="other">Other</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Number of Guests</Label>
-                  <Input type="number" placeholder="Enter guest count" required />
-                </div>
-                <div className="space-y-2">
-                  <Label>Event Date</Label>
-                  <Input type="date" required />
-                </div>
-                <div className="space-y-2">
-                  <Label>Your Bid Amount ($)</Label>
-                  <Input type="number" placeholder="Enter your bid" required />
-                </div>
-                <div className="space-y-2">
-                  <Label>Service Package</Label>
-                  <Select required>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select package" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="basic">Basic</SelectItem>
-                      <SelectItem value="standard">Standard</SelectItem>
-                      <SelectItem value="premium">Premium</SelectItem>
-                      <SelectItem value="custom">Custom</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label>Proposal Details</Label>
-                <Textarea
-                  placeholder="Describe your catering proposal, menu options, and any special offerings..."
-                  rows={4}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Special Requirements/Notes</Label>
-                <Textarea placeholder="Any dietary restrictions, setup requirements, etc." rows={3} />
-              </div>
-              <div className="flex justify-end gap-2">
-                <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
-                  Cancel
-                </Button>
-                <Button type="submit">Submit Bid</Button>
-              </div>
-            </form>
+            <div className="p-4">
+              <p className="text-sm text-muted-foreground">
+                This feature is coming soon. You can view and respond to bid requests below.
+              </p>
+            </div>
           </DialogContent>
         </Dialog>
+        
+        {/* Quote Submission Dialog */}
+        <BidQuoteDialog
+          open={isQuoteDialogOpen}
+          onOpenChange={setIsQuoteDialogOpen}
+          selectedBid={selectedBid}
+          orderDetail={orderDetail}
+          quoteData={quoteData}
+          onQuoteDataChange={setQuoteData}
+          onSubmit={handleSubmitQuote}
+        />
       </div>
 
       <div className="mb-6 flex flex-col gap-4 sm:flex-row">
@@ -270,8 +293,8 @@ export default function Bids() {
               <CardHeader className="bg-gradient-card">
                 <div className="flex items-start justify-between">
                   <div>
-                    <CardTitle className="mb-2">Bid #{bid.id}</CardTitle>
-                    <p className="text-sm text-muted-foreground">Order: {bid.orderId}</p>
+                    <CardTitle className="mb-2">{bid.eventName || `Bid #${bid.id}`}</CardTitle>
+                    <p className="text-sm text-muted-foreground">Client: { (bid as any).customerName || bid.orderId }</p>
                     <p className="text-xs text-muted-foreground">Bid ID: {bid.id}</p>
                   </div>
                   <Badge className={statusConfig[bid.status as keyof typeof statusConfig]?.className || ""}>
@@ -297,16 +320,37 @@ export default function Bids() {
                     <p className="text-sm text-muted-foreground">Proposal Message</p>
                     <p className="font-medium">{bid.proposedMessage || "No message provided"}</p>
                   </div>
-                  <div className="flex items-end gap-2">
-                    {bid.status === "accepted" && (
-                      <Button onClick={() => handleAcceptOrder(bid.id)} className="w-full">
-                        Confirm Order
-                      </Button>
-                    )}
+                  <div className="flex items-end gap-2 md:col-span-3">
+                    <Button 
+                      variant="outline" 
+                      onClick={() => handleViewBidDetails(bid)} 
+                      className="flex-1"
+                    >
+                      View Details
+                    </Button>
                     {bid.status === "requested" && (
-                      <Button variant="outline" className="w-full">
+                      <Button 
+                        onClick={() => handleViewBidDetails(bid)}
+                        className="flex-1"
+                      >
                         Submit Quote
                       </Button>
+                    )}
+                    {(bid.status === "confirmed" || bid.status === "accepted" || confirmedBids.has(bid.id)) && (
+                      <div className="flex-1 flex items-center gap-3">
+                        <div className="flex-1 flex items-center justify-center gap-2 py-2 px-4 bg-emerald-500/10 text-emerald-600 rounded-md border border-emerald-500/20">
+                          <CheckCircle2 className="h-4 w-4" />
+                          <span className="font-medium">Order Confirmed</span>
+                        </div>
+                        <Button 
+                          onClick={() => navigate("/dashboard/orders")} 
+                          variant="outline"
+                          className="flex-1"
+                        >
+                          View in Orders
+                          <ArrowRight className="ml-2 h-4 w-4" />
+                        </Button>
+                      </div>
                     )}
                   </div>
                 </div>

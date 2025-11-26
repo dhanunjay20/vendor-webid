@@ -154,7 +154,7 @@ const Reviews = () => {
           </div>
 
           <div className="flex items-center gap-2">
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <span className="text-sm text-muted-foreground">Filter:</span>
               <button
                 className={`px-3 py-1 rounded-md text-sm ${starFilter === null ? 'bg-slate-100' : 'bg-white'}`}

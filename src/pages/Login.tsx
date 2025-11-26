@@ -147,7 +147,7 @@ export default function Login() {
                 </div>
               </div>
 
-              <div className="flex items-center justify-between text-sm">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-sm">
                 <button
                   type="button"
                   onClick={() => navigate("/forgot-username")}

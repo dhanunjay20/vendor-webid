@@ -62,7 +62,7 @@ export default function Messaging() {
         <p className="text-muted-foreground">Communicate with your clients in real-time</p>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
+      <div className="grid gap-6 grid-cols-1 lg:grid-cols-3">
         {/* Conversations List */}
         <Card className="lg:col-span-1">
           <CardContent className="p-0">

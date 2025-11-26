@@ -14,6 +14,7 @@ import Index from "./pages/Index";
 import Bids from "./pages/Bids";
 import Orders from "./pages/Orders";
 import Menu from "./pages/Menu";
+import Notifications from "./pages/Notifications";
 import Messaging from "./pages/Messaging";
 import Reviews from "./pages/Reviews";
 import Profile from "./pages/Profile";
@@ -42,6 +43,7 @@ const App = () => (
               <Route path="bids" element={<Bids />} />
               <Route path="orders" element={<Orders />} />
               <Route path="menu" element={<Menu />} />
+              <Route path="notifications" element={<Notifications />} />
               <Route path="messaging" element={<Messaging />} />
               <Route path="reviews" element={<Reviews />} />
               <Route path="profile" element={<Profile />} />

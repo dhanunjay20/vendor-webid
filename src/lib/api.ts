@@ -215,6 +215,10 @@ export async function getMenuItems(vendorOrganizationId: string) {
   } catch (err: any) {
     const { message, status } = extractError(err);
     console.error("getMenuItems error", err);
+    throw { message, status } as ApiError;
+  }
+}
+
 // Bid endpoints
 export async function getBidsByVendor(vendorOrgId: string) {
   try {
@@ -224,6 +228,18 @@ export async function getBidsByVendor(vendorOrgId: string) {
   } catch (err: any) {
     const { message, status } = extractError(err);
     console.error("getBidsByVendor error", err);
+    throw { message, status } as ApiError;
+  }
+}
+
+export async function getBidById(vendorOrgId: string, bidId: string) {
+  try {
+    const url = buildUrl(`/api/vendor/${vendorOrgId}/bids/${bidId}`);
+    const res = await axios.get(url);
+    return res.data;
+  } catch (err: any) {
+    const { message, status } = extractError(err);
+    console.error("getBidById error", err);
     throw { message, status } as ApiError;
   }
 }
@@ -238,6 +254,10 @@ export async function createMenuItem(vendorOrganizationId: string, payload: any)
   } catch (err: any) {
     const { message, status } = extractError(err);
     console.error("createMenuItem error", err);
+    throw { message, status } as ApiError;
+  }
+}
+
 export async function submitBidQuote(vendorOrgId: string, bidId: string, payload: { orderId: string; proposedMessage: string; proposedTotalPrice: number; }) {
   try {
     const url = buildUrl(`/api/vendor/${vendorOrgId}/bids/${bidId}/quote`);
@@ -260,10 +280,16 @@ export async function updateMenuItem(vendorOrganizationId: string, id: string, p
   } catch (err: any) {
     const { message, status } = extractError(err);
     console.error("updateMenuItem error", err);
+    throw { message, status } as ApiError;
+  }
+}
+
 export async function acceptBid(vendorOrgId: string, bidId: string) {
   try {
     const url = buildUrl(`/api/vendor/${vendorOrgId}/bids/${bidId}/accept`);
-    const res = await axios.put(url);
+    const token = localStorage.getItem("authToken");
+    const tokenType = localStorage.getItem("tokenType") || "Bearer";
+    const res = await axios.put(url, undefined, { headers: token ? { Authorization: `${tokenType} ${token}` } : undefined });
     return res.data;
   } catch (err: any) {
     const { message, status } = extractError(err);
@@ -273,6 +299,7 @@ export async function acceptBid(vendorOrgId: string, bidId: string) {
 }
 
 export async function deleteMenuItem(vendorOrganizationId: string, id: string) {
+
   try {
     const url = buildUrl(`/api/vendor/${vendorOrganizationId}/menu/${id}`);
     const token = localStorage.getItem("authToken");
@@ -282,6 +309,10 @@ export async function deleteMenuItem(vendorOrganizationId: string, id: string) {
   } catch (err: any) {
     const { message, status } = extractError(err);
     console.error("deleteMenuItem error", err);
+    throw { message, status } as ApiError;
+  }
+}
+
 // Order endpoints
 export async function getOrdersByVendor(vendorOrgId: string) {
   try {
@@ -291,6 +322,145 @@ export async function getOrdersByVendor(vendorOrgId: string) {
   } catch (err: any) {
     const { message, status } = extractError(err);
     console.error("getOrdersByVendor error", err);
+    throw { message, status } as ApiError;
+  }
+}
+
+export async function getOrderById(vendorOrgId: string, orderId: string) {
+  try {
+    // Use the detailed endpoint that includes full menu item information
+    const url = buildUrl(`/api/vendor/${vendorOrgId}/orders/${orderId}/details`);
+    const token = localStorage.getItem("authToken");
+    const tokenType = localStorage.getItem("tokenType") || "Bearer";
+    const headers: Record<string, string> = { Accept: "application/json" };
+    if (token) headers["Authorization"] = `${tokenType} ${token}`;
+      if (!vendorOrgId) {
+        console.warn("getOrderById called without vendorOrgId");
+      }
+      if (!orderId) {
+        console.warn("getOrderById called without orderId");
+      }
+
+      // Ensure path params are encoded
+      const encVendor = encodeURIComponent(vendorOrgId || "");
+      const encOrder = encodeURIComponent(orderId || "");
+      const finalUrl = buildUrl(`/api/vendor/${encVendor}/orders/${encOrder}/details`);
+      console.debug("getOrderById requesting URL:", finalUrl);
+
+      // Request raw text so we can handle JSON or XML responses robustly
+      const res = await axios.get(finalUrl, { headers, responseType: "text" });
+    const dataText = res.data as string;
+    console.debug("getOrderById response content-type:", res.headers && res.headers["content-type"]);
+
+    // First try JSON
+    try {
+      const parsedJson = JSON.parse(dataText);
+      // Normalize possible wrapper shape: menuItems -> [{ menuItem: {...}, menuItemId, specialRequest }, ...]
+      if (parsedJson && Array.isArray(parsedJson.menuItems) && parsedJson.menuItems.length > 0 && parsedJson.menuItems[0].menuItem) {
+        parsedJson.menuItems = parsedJson.menuItems.map((w: any) => ({ ...(w.menuItem || {}), menuItemId: w.menuItemId, specialRequest: w.specialRequest }));
+      }
+      return parsedJson;
+    } catch (jsonErr) {
+      // Not JSON - try XML
+    }
+
+    const xml = dataText && dataText.trim();
+    if (!xml) return {};
+
+    try {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(xml, "application/xml");
+      const root = doc.documentElement;
+
+      function getText(tag: string, parent: Element = root) {
+        const el = parent.getElementsByTagName(tag)[0];
+        return el ? el.textContent || "" : "";
+      }
+
+      // parse menu items wrapper
+      const menuItemsRoot = root.getElementsByTagName("menuItems")[0];
+      const wrappers: any[] = [];
+      if (menuItemsRoot) {
+        const wrapperNodes = Array.from(menuItemsRoot.childNodes).filter(n => n.nodeType === 1 && (n as Element).tagName === "menuItems") as Element[];
+        for (const w of wrapperNodes) {
+          const menuItemId = getText("menuItemId", w) || undefined;
+          const specialRequest = getText("specialRequest", w) || undefined;
+          const menuItemEl = w.getElementsByTagName("menuItem")[0];
+          const menuItem: any = {};
+          if (menuItemEl) {
+            menuItem.id = getText("id", menuItemEl) || undefined;
+            menuItem.vendorOrganizationId = getText("vendorOrganizationId", menuItemEl) || undefined;
+            menuItem.name = getText("name", menuItemEl) || undefined;
+            menuItem.description = getText("description", menuItemEl) || undefined;
+
+            // images
+            const imagesParent = menuItemEl.getElementsByTagName("images")[0];
+            if (imagesParent) {
+              const imgs = Array.from(imagesParent.getElementsByTagName("images")).map(i => i.textContent || "").filter(Boolean);
+              menuItem.images = imgs;
+            } else {
+              menuItem.images = [];
+            }
+
+            menuItem.category = getText("category", menuItemEl) || undefined;
+            menuItem.subCategory = getText("subCategory", menuItemEl) || undefined;
+
+            // ingredients
+            const ingredientsParent = menuItemEl.getElementsByTagName("ingredients")[0];
+            if (ingredientsParent) {
+              const ings = Array.from(ingredientsParent.getElementsByTagName("ingredients")).map(i => i.textContent || "").filter(Boolean);
+              menuItem.ingredients = ings;
+            } else {
+              menuItem.ingredients = [];
+            }
+
+            // spiceLevels
+            const spiceParent = menuItemEl.getElementsByTagName("spiceLevels")[0];
+            if (spiceParent) {
+              const s = Array.from(spiceParent.getElementsByTagName("spiceLevels")).map(i => i.textContent || "").filter(Boolean);
+              menuItem.spiceLevels = s;
+            } else {
+              menuItem.spiceLevels = [];
+            }
+
+            const availText = getText("available", menuItemEl);
+            menuItem.available = availText === "true" || availText === "1";
+          }
+
+          wrappers.push({ menuItemId, specialRequest, menuItem });
+        }
+      }
+
+      const parsed: any = {
+        id: getText("id"),
+        customerId: getText("customerId"),
+        userName: getText("userName"),
+        userEmail: getText("userEmail"),
+        userPhone: getText("userPhone"),
+        vendorOrganizationId: getText("vendorOrganizationId"),
+        vendorBusinessName: getText("vendorBusinessName"),
+        vendorEmail: getText("vendorEmail"),
+        vendorPhone: getText("vendorPhone"),
+        eventName: getText("eventName"),
+        eventDate: getText("eventDate"),
+        eventLocation: getText("eventLocation"),
+        guestCount: parseInt(getText("guestCount")) || 0,
+        // flatten wrappers to match frontend expected shape: each item is the menuItem with menuItemId and specialRequest
+        menuItems: wrappers.map(w => ({ ...(w.menuItem || {}), menuItemId: w.menuItemId, specialRequest: w.specialRequest })),
+        status: getText("status"),
+        totalPrice: parseFloat(getText("totalPrice")) || 0,
+        createdAt: getText("createdAt"),
+        updatedAt: getText("updatedAt"),
+      };
+
+      return parsed;
+    } catch (e) {
+      console.error("XML parse error for order details", e);
+      return {};
+    }
+  } catch (err: any) {
+    const { message, status } = extractError(err);
+    console.error("getOrderById error", err);
     throw { message, status } as ApiError;
   }
 }
@@ -365,4 +535,3 @@ export default {
   getVendorNotifications,
   markNotificationAsRead,
 };
-
