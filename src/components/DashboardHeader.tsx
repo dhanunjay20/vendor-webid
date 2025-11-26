@@ -1,6 +1,7 @@
 import { Bell, Moon, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useNavigate } from "react-router-dom";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,6 +18,31 @@ interface DashboardHeaderProps {
 }
 
 export default function DashboardHeader({ theme, toggleTheme }: DashboardHeaderProps) {
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    // Clear auth data and navigate to login
+    try {
+      localStorage.removeItem("authToken");
+      localStorage.removeItem("tokenType");
+    } catch (e) {
+      console.warn("Failed to clear auth storage", e);
+    }
+    // Prefer router navigation, but fallback to full redirect if that doesn't work
+    try {
+      navigate("/login", { replace: true });
+      // if router doesn't navigate (rare), force a location change after a short delay
+      setTimeout(() => {
+        if (window.location.pathname !== "/login") {
+          window.location.href = "/login";
+        }
+      }, 150);
+    } catch (e) {
+      // final fallback
+      window.location.href = "/login";
+    }
+  };
+
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center justify-between px-4">
@@ -90,10 +116,14 @@ export default function DashboardHeader({ theme, toggleTheme }: DashboardHeaderP
             <DropdownMenuContent align="end">
               <DropdownMenuLabel>My Account</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem>Profile</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => navigate("/dashboard/profile")}>
+                Profile
+              </DropdownMenuItem>
               <DropdownMenuItem>Settings</DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem>Logout</DropdownMenuItem>
+              <DropdownMenuItem onClick={handleLogout}>
+                Logout
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>

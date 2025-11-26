@@ -3,13 +3,13 @@ import { NavLink } from "react-router-dom";
 import { cn } from "@/lib/utils";
 
 const navigation = [
-  { name: "Dashboard", href: "/", icon: LayoutDashboard },
-  { name: "Bids", href: "/bids", icon: FileText },
-  { name: "Orders", href: "/orders", icon: ShoppingCart },
-  { name: "Menu", href: "/menu", icon: Utensils },
-  { name: "Messaging", href: "/messaging", icon: MessageSquare },
-  { name: "Reviews", href: "/reviews", icon: Star },
-  { name: "Profile", href: "/profile", icon: User },
+  { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+  { name: "Bids", href: "/dashboard/bids", icon: FileText },
+  { name: "Orders", href: "/dashboard/orders", icon: ShoppingCart },
+  { name: "Menu", href: "/dashboard/menu", icon: Utensils },
+  { name: "Messaging", href: "/dashboard/messaging", icon: MessageSquare },
+  { name: "Reviews", href: "/dashboard/reviews", icon: Star },
+  { name: "Profile", href: "/dashboard/profile", icon: User },
 ];
 
 export default function Sidebar() {
@@ -20,7 +20,7 @@ export default function Sidebar() {
           <NavLink
             key={item.name}
             to={item.href}
-            end={item.href === "/"}
+            end={item.href === "/dashboard"}
             className={({ isActive }) =>
               cn(
                 "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-smooth",

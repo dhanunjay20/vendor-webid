@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Camera, MapPin, Phone, Mail, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,6 +11,24 @@ import { toast } from "@/hooks/use-toast";
 
 export default function Profile() {
   const [isEditing, setIsEditing] = useState(false);
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    try {
+      localStorage.removeItem("authToken");
+      localStorage.removeItem("tokenType");
+    } catch (e) {
+      console.warn("Failed to clear auth storage", e);
+    }
+    try {
+      navigate("/login", { replace: true });
+      setTimeout(() => {
+        if (window.location.pathname !== "/login") window.location.href = "/login";
+      }, 150);
+    } catch (e) {
+      window.location.href = "/login";
+    }
+  };
 
   const handleSave = () => {
     toast({
@@ -27,13 +46,17 @@ export default function Profile() {
           <p className="text-muted-foreground">Manage your catering business information</p>
         </div>
         {!isEditing ? (
-          <Button onClick={() => setIsEditing(true)}>Edit Profile</Button>
+          <div className="flex items-center gap-2">
+            <Button onClick={() => setIsEditing(true)}>Edit Profile</Button>
+            <Button variant="ghost" onClick={handleLogout}>Logout</Button>
+          </div>
         ) : (
           <div className="flex gap-2">
             <Button variant="outline" onClick={() => setIsEditing(false)}>
               Cancel
             </Button>
             <Button onClick={handleSave}>Save Changes</Button>
+            <Button variant="ghost" onClick={handleLogout}>Logout</Button>
           </div>
         )}
       </div>
