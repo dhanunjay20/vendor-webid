@@ -23,8 +23,15 @@ export default function DashboardLayout() {
 
   const handleLogout = () => {
     try {
+      // Clear authentication-related storage
       localStorage.removeItem("authToken");
       localStorage.removeItem("tokenType");
+      localStorage.removeItem("vendorOrganizationId");
+      localStorage.removeItem("vendorId");
+      localStorage.removeItem("userType");
+      localStorage.removeItem("userId");
+      localStorage.removeItem("id");
+      localStorage.removeItem("profileUrl");
     } catch (e) {
       console.warn("Failed to clear auth storage", e);
     }
@@ -84,7 +91,7 @@ export default function DashboardLayout() {
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon">
                   <Avatar className="h-8 w-8">
-                    <AvatarImage src="https://api.dicebear.com/7.x/avataaars/svg?seed=vendor" />
+                    <AvatarImage src={localStorage.getItem("profileUrl") || undefined} />
                     <AvatarFallback>JD</AvatarFallback>
                   </Avatar>
                 </Button>

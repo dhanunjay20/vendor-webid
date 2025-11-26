@@ -204,6 +204,17 @@ export async function loginVendor(payload: any) {
   }
 }
 
+// Menu item endpoints
+export async function getMenuItems(vendorOrganizationId: string) {
+  try {
+    const url = buildUrl(`/api/vendor/${vendorOrganizationId}/menu`);
+    const token = localStorage.getItem("authToken");
+    const tokenType = localStorage.getItem("tokenType") || "Bearer";
+    const res = await axios.get(url, { headers: token ? { Authorization: `${tokenType} ${token}` } : undefined });
+    return res.data;
+  } catch (err: any) {
+    const { message, status } = extractError(err);
+    console.error("getMenuItems error", err);
 // Bid endpoints
 export async function getBidsByVendor(vendorOrgId: string) {
   try {
@@ -217,6 +228,16 @@ export async function getBidsByVendor(vendorOrgId: string) {
   }
 }
 
+export async function createMenuItem(vendorOrganizationId: string, payload: any) {
+  try {
+    const url = buildUrl(`/api/vendor/${vendorOrganizationId}/menu`);
+    const token = localStorage.getItem("authToken");
+    const tokenType = localStorage.getItem("tokenType") || "Bearer";
+    const res = await axios.post(url, payload, { headers: { "Content-Type": "application/json", ...(token ? { Authorization: `${tokenType} ${token}` } : {}) } });
+    return res.data;
+  } catch (err: any) {
+    const { message, status } = extractError(err);
+    console.error("createMenuItem error", err);
 export async function submitBidQuote(vendorOrgId: string, bidId: string, payload: { orderId: string; proposedMessage: string; proposedTotalPrice: number; }) {
   try {
     const url = buildUrl(`/api/vendor/${vendorOrgId}/bids/${bidId}/quote`);
@@ -229,6 +250,16 @@ export async function submitBidQuote(vendorOrgId: string, bidId: string, payload
   }
 }
 
+export async function updateMenuItem(vendorOrganizationId: string, id: string, payload: any) {
+  try {
+    const url = buildUrl(`/api/vendor/${vendorOrganizationId}/menu/${id}`);
+    const token = localStorage.getItem("authToken");
+    const tokenType = localStorage.getItem("tokenType") || "Bearer";
+    const res = await axios.put(url, payload, { headers: { "Content-Type": "application/json", ...(token ? { Authorization: `${tokenType} ${token}` } : {}) } });
+    return res.data;
+  } catch (err: any) {
+    const { message, status } = extractError(err);
+    console.error("updateMenuItem error", err);
 export async function acceptBid(vendorOrgId: string, bidId: string) {
   try {
     const url = buildUrl(`/api/vendor/${vendorOrgId}/bids/${bidId}/accept`);
@@ -241,6 +272,16 @@ export async function acceptBid(vendorOrgId: string, bidId: string) {
   }
 }
 
+export async function deleteMenuItem(vendorOrganizationId: string, id: string) {
+  try {
+    const url = buildUrl(`/api/vendor/${vendorOrganizationId}/menu/${id}`);
+    const token = localStorage.getItem("authToken");
+    const tokenType = localStorage.getItem("tokenType") || "Bearer";
+    const res = await axios.delete(url, { headers: token ? { Authorization: `${tokenType} ${token}` } : undefined });
+    return res.data;
+  } catch (err: any) {
+    const { message, status } = extractError(err);
+    console.error("deleteMenuItem error", err);
 // Order endpoints
 export async function getOrdersByVendor(vendorOrgId: string) {
   try {
@@ -312,6 +353,10 @@ export default {
   resetPassword,
   registerVendor,
   loginVendor,
+  getMenuItems,
+  createMenuItem,
+  updateMenuItem,
+  deleteMenuItem,
   getBidsByVendor,
   submitBidQuote,
   acceptBid,

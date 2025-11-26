@@ -11,7 +11,7 @@ const conversations = [
   {
     id: 1,
     name: "Sarah Chen",
-    avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Sarah",
+    avatar: undefined,
     lastMessage: "Thanks for the quick response!",
     time: "2m ago",
     unread: 2,
@@ -20,7 +20,7 @@ const conversations = [
   {
     id: 2,
     name: "Mike Johnson",
-    avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Mike",
+    avatar: undefined,
     lastMessage: "Can we discuss the menu options?",
     time: "1h ago",
     unread: 0,
@@ -29,7 +29,7 @@ const conversations = [
   {
     id: 3,
     name: "Emma Wilson",
-    avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Emma",
+    avatar: undefined,
     lastMessage: "Looking forward to the event!",
     time: "3h ago",
     unread: 1,
