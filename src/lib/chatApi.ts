@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { ChatMessage } from './websocket';
 
-const API_BASE_URL = 'http://localhost:8080/api';
+const API_BASE_URL = `${import.meta.env.VITE_API_BASE || 'http://localhost:8080'}/api`;
 
 /**
  * Chat API Client

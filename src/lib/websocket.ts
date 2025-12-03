@@ -72,8 +72,10 @@ class WebSocketService {
   ) {
     this.userId = userId;
 
+    const WS_BASE_URL = import.meta.env.VITE_API_BASE || 'http://localhost:8080';
+    
     this.client = new Client({
-      webSocketFactory: () => new SockJS('http://localhost:8080/ws'),
+      webSocketFactory: () => new SockJS(`${WS_BASE_URL}/ws`),
       connectHeaders: {},
       debug: (str) => {
         console.log('STOMP: ' + str);

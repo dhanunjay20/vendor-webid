@@ -74,6 +74,9 @@ export default function Login() {
       }
       // Validate vendorId was stored
       const storedVendorId = localStorage.getItem('vendorId');
+      const storedUserType = localStorage.getItem('userType');
+      const userName = res.name || res.vendor?.name || res.username || formData.username;
+      
       if (!storedVendorId) {
         console.warn('⚠️ Warning: Vendor ID not found after login. Chat may not work.');
         toast({ 
@@ -83,8 +86,29 @@ export default function Login() {
         });
       }
       
-      // success toast (green)
-      toast({ title: "Signed in", description: "Welcome back!", variant: "success" });
+      // Play success sound
+      try {
+        const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBTGH0fPTgjMGHm7A7+OZSA0PVKzn77BdGAg+mdr0xnMoBSuAzPLaizsIGGS67OihUBELTKXh8bllHAU2jtX0zoU1Bhxqvu7mnEoODlKq5O+zYBoGPJPY88p1KwYuhM3y3YU2Bhdo');
+        audio.volume = 0.3;
+        audio.play().catch(() => {}); // Ignore if audio play fails
+      } catch (e) {}
+      
+      // Show success notification with user info
+      toast({ 
+        title: `Welcome back, ${userName}! 👋`, 
+        description: `Logged in as ${storedUserType || 'Vendor'}. You're all set!`,
+        variant: "success",
+        duration: 4000,
+      });
+      
+      // Show browser notification
+      if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification('Login Successful', {
+          body: `Welcome back, ${userName}!`,
+          icon: '/favicon.ico',
+          badge: '/favicon.ico',
+        });
+      }
       // Always navigate to dashboard after successful login
       navigate("/dashboard");
     } catch (err: any) {

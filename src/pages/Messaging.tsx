@@ -31,6 +31,7 @@ interface Conversation {
   userId: string;
   status?: 'ONLINE' | 'OFFLINE' | 'AWAY';
   isTyping?: boolean;
+  timestamp?: string; // For sorting
 }
 
 interface Message {
@@ -70,6 +71,15 @@ export default function Messaging() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout>();
 
+  // Request browser notification permission on component mount
+  useEffect(() => {
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission().then(permission => {
+        console.log('Notification permission:', permission);
+      });
+    }
+  }, []);
+
   // Load chat list from backend
   const loadChatList = async () => {
     if (!CURRENT_USER_ID) {
@@ -81,21 +91,30 @@ export default function Messaging() {
       const chatList = await chatNotificationApi.getChatList(CURRENT_USER_ID);
       // Filter out invalid chat entries where participant ID or name is missing
       const conversations: Conversation[] = chatList
-        .filter(chat => chat.otherParticipantId && chat.otherParticipantName)
+        .filter(chat => chat.participantId && chat.participantName)
         .map((chat) => ({
-          id: chat.otherParticipantId,
-          name: chat.otherParticipantName || 'Unknown User',
-          avatar: chat.otherParticipantProfileUrl,
-          lastMessage: chat.lastMessageContent || 'Start a conversation...',
+          id: chat.participantId,
+          name: chat.participantName || 'Unknown User',
+          avatar: chat.participantProfileUrl,
+          lastMessage: chat.lastMessage || 'Start a conversation...',
           time: chat.lastMessageTimestamp 
             ? formatTimestamp(chat.lastMessageTimestamp)
             : 'Now',
           unread: chat.unreadCount || 0,
           orderId: 'Order',
-          userId: chat.otherParticipantId,
+          userId: chat.participantId,
           status: (chat.onlineStatus as 'ONLINE' | 'OFFLINE' | 'AWAY') || 'OFFLINE',
           isTyping: chat.isTyping || false,
+          timestamp: chat.lastMessageTimestamp || new Date().toISOString(),
         }));
+      
+      // Sort by latest message timestamp (most recent first)
+      conversations.sort((a, b) => {
+        const timeA = new Date(a.timestamp || 0).getTime();
+        const timeB = new Date(b.timestamp || 0).getTime();
+        return timeB - timeA;
+      });
+      
       setConversationList(conversations);
     } catch (error) {
       console.error('Error loading chat list:', error);
@@ -146,6 +165,7 @@ export default function Messaging() {
             orderId: "New",
             userId: userId,
             status: 'OFFLINE',
+            timestamp: new Date().toISOString(),
           };
           setConversationList(prev => [newConv, ...prev]);
           existingConv = newConv;
@@ -212,12 +232,34 @@ export default function Messaging() {
       // Get sender name from conversation list
       const senderName = conversationList.find(c => c.userId === notification.senderId)?.name || 'Unknown User';
       
-      // Show notification
+      // Show in-app notification with sound
       notifyNewMessage(
         notification.senderId,
         senderName,
         notification.content.substring(0, 50) + (notification.content.length > 50 ? '...' : '')
       );
+      
+      // Show browser notification (like WhatsApp)
+      if ('Notification' in window && Notification.permission === 'granted') {
+        const browserNotif = new Notification(`New message from ${senderName}`, {
+          body: notification.content,
+          icon: '/favicon.ico',
+          badge: '/favicon.ico',
+          tag: `msg-${notification.senderId}`,
+          requireInteraction: false,
+          silent: false, // Will use system sound
+        });
+        
+        // Navigate to chat when notification is clicked
+        browserNotif.onclick = () => {
+          window.focus();
+          const conv = conversationList.find(c => c.userId === notification.senderId);
+          if (conv) {
+            setSelectedConversation(conv);
+          }
+          browserNotif.close();
+        };
+      }
     };
 
     const handleTypingReceived = (typingStatus: TypingStatus) => {
@@ -398,18 +440,19 @@ export default function Messaging() {
     }
   };
 
-  return (
-    <div className="container py-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-foreground">Messaging</h1>
-        <p className="text-muted-foreground">
-          Communicate with your clients in real-time
-          {isConnected && <span className="ml-2 text-green-500">● Connected</span>}
-          {!isConnected && <span className="ml-2 text-red-500">● Disconnected</span>}
-        </p>
-      </div>
+  // Early return when vendor ID not available to avoid JSX ternary nesting issues
+  if (!CURRENT_USER_ID) {
+    return (
+      <div className="container py-8">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-foreground">Messaging</h1>
+          <p className="text-muted-foreground">
+            Communicate with your clients in real-time
+            {isConnected && <span className="ml-2 text-green-500">● Connected</span>}
+            {!isConnected && <span className="ml-2 text-red-500">● Disconnected</span>}
+          </p>
+        </div>
 
-      {!CURRENT_USER_ID ? (
         <Card>
           <CardContent className="py-12 text-center">
             <MessageSquare className="h-16 w-16 text-red-500 mx-auto mb-4" />
@@ -422,18 +465,32 @@ export default function Messaging() {
             </Button>
           </CardContent>
         </Card>
-      ) : (
-      <div className="grid gap-6 grid-cols-1 lg:grid-cols-3">{/* Conversations List */}
+      </div>
+    );
+  }
+
+  return (
+    <div className="container py-8">
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-foreground">Messaging</h1>
+        <p className="text-muted-foreground">
+          Communicate with your clients in real-time
+          {isConnected && <span className="ml-2 text-green-500">● Connected</span>}
+          {!isConnected && <span className="ml-2 text-red-500">● Disconnected</span>}
+        </p>
+      </div>
+
+      <div className="grid gap-6 grid-cols-1 lg:grid-cols-3 h-full">{/* Conversations List */}
         {/* Conversations List */}
-        <Card className="lg:col-span-1">
-          <CardContent className="p-0">
-            <div className="border-b p-4">
+        <Card className="lg:col-span-1 flex flex-col h-full">
+          <CardContent className="p-0 flex-1 flex flex-col">
+            <div className="border-b p-4 flex-none">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input placeholder="Search conversations..." className="pl-10" />
               </div>
             </div>
-            <ScrollArea className="h-[600px]">
+            <ScrollArea className="flex-1">
               {conversationList.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full p-8 text-center">
                   <MessageSquare className="h-12 w-12 text-muted-foreground mb-4" />
@@ -486,10 +543,10 @@ export default function Messaging() {
 
         {/* Chat Area */}
         {selectedConversation ? (
-          <Card className="lg:col-span-2">
-            <CardContent className="p-0">
-              {/* Chat Header */}
-              <div className="flex items-center justify-between border-b p-4">
+          <Card className="lg:col-span-2 flex flex-col h-[600px] overflow-hidden">
+            <CardContent className="p-0 flex-1 flex flex-col min-h-0">
+              {/* Chat Header - Sticky */}
+              <div className="sticky top-0 z-10 bg-card flex items-center justify-between border-b p-4 shrink-0">
                 <div className="flex items-center gap-3">
                   <div className="relative">
                     <Avatar>
@@ -520,8 +577,8 @@ export default function Messaging() {
                 </div>
               </div>
 
-              {/* Messages */}
-              <ScrollArea className="h-[480px] p-4">
+              {/* Messages - Only this area scrolls */}
+              <div className="flex-1 overflow-y-auto p-4 min-h-0">
                 <div className="space-y-4">
                   {messages.length === 0 ? (
                     <div className="flex items-center justify-center h-full text-center">
@@ -564,10 +621,10 @@ export default function Messaging() {
                   )}
                   <div ref={messagesEndRef} />
                 </div>
-              </ScrollArea>
+              </div>
 
-              {/* Message Input */}
-              <div className="border-t p-4">
+              {/* Message Input - Sticky at bottom */}
+              <div className="sticky bottom-0 z-10 bg-card border-t p-4 shrink-0">
                 <div className="flex gap-2">
                   <Textarea
                     placeholder="Type your message..."
@@ -610,7 +667,6 @@ export default function Messaging() {
           </Card>
         )}
       </div>
-      )}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = 'http://localhost:8080/api';
+const API_BASE_URL = `${import.meta.env.VITE_API_BASE || 'http://localhost:8080'}/api`;
 
 /**
  * Chat Notification API Client
@@ -14,12 +14,12 @@ const API_BASE_URL = 'http://localhost:8080/api';
 
 export interface ChatListItemDto {
   userId: string;
-  otherParticipantId: string;
-  otherParticipantName: string;
-  otherParticipantType: string;
-  otherParticipantProfileUrl?: string;
+  participantId: string;           // Backend uses participantId, not otherParticipantId
+  participantName: string;         // Backend uses participantName, not otherParticipantName
+  participantType: string;         // Backend uses participantType, not otherParticipantType
+  participantProfileUrl?: string;  // Backend uses participantProfileUrl, not otherParticipantProfileUrl
   chatId: string;
-  lastMessageContent: string;
+  lastMessage: string;             // Backend uses lastMessage, not lastMessageContent
   lastMessageSenderId: string;
   lastMessageTimestamp: string;
   unreadCount: number;
