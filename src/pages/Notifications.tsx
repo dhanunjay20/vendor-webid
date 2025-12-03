@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Bell, Check, Trash2, Filter, Package, FileText, Star, MessageSquare, AlertCircle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,6 +7,11 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/hooks/use-toast";
 import * as api from "@/lib/api";
+import { 
+  subscribeToNotifications, 
+  markNotificationAsRead as markLocalNotificationAsRead,
+  StoredNotification 
+} from "@/lib/notifications";
 
 interface Notification {
   id: string;
@@ -42,7 +48,9 @@ const notificationColors: Record<string, string> = {
 };
 
 export default function Notifications() {
+  const navigate = useNavigate();
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [localNotifications, setLocalNotifications] = useState<StoredNotification[]>([]);
   const [filteredNotifications, setFilteredNotifications] = useState<Notification[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -50,8 +58,24 @@ export default function Notifications() {
 
   const vendorOrganizationId = localStorage.getItem("vendorOrganizationId") || "";
 
+  // Subscribe to local notifications (from WebSocket)
+  useEffect(() => {
+    const unsubscribe = subscribeToNotifications((notifs) => {
+      setLocalNotifications(notifs);
+    });
+    
+    return unsubscribe;
+  }, []);
+
   useEffect(() => {
     fetchNotifications();
+    
+    // Set up polling for real-time updates every 30 seconds
+    const pollInterval = setInterval(() => {
+      fetchNotifications();
+    }, 30000);
+    
+    return () => clearInterval(pollInterval);
   }, [vendorOrganizationId]);
 
   useEffect(() => {
@@ -111,6 +135,20 @@ export default function Notifications() {
     }
   };
 
+  const handleLocalNotificationClick = (notification: StoredNotification) => {
+    // Mark as read
+    markLocalNotificationAsRead(notification.id);
+    
+    // Navigate based on type
+    if (notification.type === 'message' && notification.metadata?.userId) {
+      navigate(`/dashboard/messaging?userId=${notification.metadata.userId}&userName=${encodeURIComponent(notification.metadata.userName || 'User')}`);
+    } else if (notification.type === 'order' && notification.metadata?.orderId) {
+      navigate('/dashboard/orders');
+    } else if (notification.type === 'bid' && notification.metadata?.bidId) {
+      navigate('/dashboard/bids');
+    }
+  };
+
   const handleMarkAllAsRead = async () => {
     try {
       const unreadIds = notifications.filter((n) => !n.read).map((n) => n.id);
@@ -149,9 +187,58 @@ export default function Notifications() {
   };
 
   const unreadCount = notifications.filter((n) => !n.read).length;
+  const localUnreadCount = localNotifications.filter((n) => !n.read).length;
+  const totalUnreadCount = unreadCount + localUnreadCount;
 
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-6 px-4 py-8">
+      {/* Local Notifications Section (Real-time WebSocket notifications) */}
+      {localNotifications.length > 0 && (
+        <div className="space-y-3">
+          <h3 className="text-sm font-semibold text-muted-foreground px-2 flex items-center gap-2">
+            <MessageSquare className="h-4 w-4" />
+            Real-time Updates
+          </h3>
+          {localNotifications
+            .filter(n => {
+              if (filter === 'unread') return !n.read;
+              if (filter === 'read') return n.read;
+              return true;
+            })
+            .map((notif) => (
+              <Card
+                key={notif.id}
+                className={`cursor-pointer transition-all hover:shadow-md ${
+                  !notif.read ? "border-l-4 border-l-blue-500 bg-blue-50/30" : "opacity-70"
+                }`}
+                onClick={() => handleLocalNotificationClick(notif)}
+              >
+                <CardContent className="flex items-start gap-4 p-4">
+                  <div className="rounded-full p-2.5 text-cyan-600 bg-cyan-50">
+                    <MessageSquare className="h-5 w-5" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="font-medium text-sm leading-relaxed">
+                        {notif.title}
+                      </p>
+                      {!notif.read && (
+                        <Badge className="shrink-0 bg-blue-500 text-xs">New</Badge>
+                      )}
+                    </div>
+                    <p className="mt-1 text-sm text-muted-foreground line-clamp-2">
+                      {notif.description}
+                    </p>
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      {formatTime(notif.timestamp.toISOString())}
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+        </div>
+      )}
+      
       {/* Header */}
       <Card className="border-none bg-gradient-to-r from-blue-50 via-white to-purple-50 shadow-sm">
         <CardHeader>
@@ -167,10 +254,10 @@ export default function Notifications() {
                 </p>
               </div>
             </div>
-            {unreadCount > 0 && (
+            {totalUnreadCount > 0 && (
               <div className="flex items-center gap-3">
                 <Badge className="h-8 rounded-full bg-red-500 px-4 text-sm font-semibold">
-                  {unreadCount} new
+                  {totalUnreadCount} new
                 </Badge>
                 <Button
                   variant="outline"
@@ -193,13 +280,13 @@ export default function Notifications() {
           <Tabs value={filter} onValueChange={(v) => setFilter(v as any)}>
             <TabsList className="grid w-full grid-cols-3 rounded-full bg-muted/50 p-1">
               <TabsTrigger value="all" className="rounded-full">
-                All ({notifications.length})
+                All ({notifications.length + localNotifications.length})
               </TabsTrigger>
               <TabsTrigger value="unread" className="rounded-full">
-                Unread ({unreadCount})
+                Unread ({totalUnreadCount})
               </TabsTrigger>
               <TabsTrigger value="read" className="rounded-full">
-                Read ({notifications.length - unreadCount})
+                Read ({notifications.length + localNotifications.length - totalUnreadCount})
               </TabsTrigger>
             </TabsList>
           </Tabs>

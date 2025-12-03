@@ -1,5 +1,69 @@
 import { toast } from "@/hooks/use-toast";
 
+// Notification storage interface
+export interface StoredNotification {
+  id: string;
+  type: 'message' | 'bid' | 'order' | 'review';
+  title: string;
+  description: string;
+  timestamp: Date;
+  read: boolean;
+  metadata?: {
+    userId?: string;
+    userName?: string;
+    orderId?: string;
+    bidId?: string;
+  };
+}
+
+// In-memory notification store (in production, use backend API)
+let notificationStore: StoredNotification[] = [];
+let notificationListeners: Array<(notifications: StoredNotification[]) => void> = [];
+
+// Subscribe to notification updates
+export const subscribeToNotifications = (callback: (notifications: StoredNotification[]) => void) => {
+  notificationListeners.push(callback);
+  callback(notificationStore); // Send current notifications
+  
+  return () => {
+    notificationListeners = notificationListeners.filter(cb => cb !== callback);
+  };
+};
+
+// Add a notification to the store
+const addNotification = (notification: Omit<StoredNotification, 'id' | 'timestamp' | 'read'>) => {
+  const newNotification: StoredNotification = {
+    ...notification,
+    id: `notif-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+    timestamp: new Date(),
+    read: false,
+  };
+  
+  notificationStore = [newNotification, ...notificationStore].slice(0, 50); // Keep last 50
+  notificationListeners.forEach(callback => callback(notificationStore));
+  
+  return newNotification;
+};
+
+// Mark notification as read
+export const markNotificationAsRead = (notificationId: string) => {
+  notificationStore = notificationStore.map(notif =>
+    notif.id === notificationId ? { ...notif, read: true } : notif
+  );
+  notificationListeners.forEach(callback => callback(notificationStore));
+};
+
+// Clear all notifications
+export const clearAllNotifications = () => {
+  notificationStore = [];
+  notificationListeners.forEach(callback => callback(notificationStore));
+};
+
+// Get unread count
+export const getUnreadCount = () => {
+  return notificationStore.filter(n => !n.read).length;
+};
+
 // Create audio context for notification sounds
 let audioContext: AudioContext | null = null;
 
@@ -58,8 +122,20 @@ export const notifyBidAccepted = (bidId: string, clientName: string) => {
   });
 };
 
-export const notifyNewMessage = (senderName: string, preview: string) => {
+export const notifyNewMessage = (senderId: string, senderName: string, preview: string) => {
   playNotificationSound('info');
+  
+  // Add to notification store
+  addNotification({
+    type: 'message',
+    title: `💬 New message from ${senderName}`,
+    description: preview,
+    metadata: {
+      userId: senderId,
+      userName: senderName,
+    },
+  });
+  
   toast({
     title: `💬 New message from ${senderName}`,
     description: preview,

@@ -69,6 +69,13 @@ export default function Bids() {
 
   useEffect(() => {
     loadBids();
+    
+    // Set up polling for real-time updates every 30 seconds
+    const pollInterval = setInterval(() => {
+      loadBids();
+    }, 30000);
+    
+    return () => clearInterval(pollInterval);
   }, []);
 
   const loadBids = async () => {

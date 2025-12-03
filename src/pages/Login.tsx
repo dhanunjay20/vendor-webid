@@ -31,34 +31,58 @@ export default function Login() {
     setLoading(true);
     try {
       const res = await api.login({ login: formData.username, password: formData.password });
+      
+      // Debug: Log the entire response to see what backend returns
+      console.log('Login API Response:', JSON.stringify(res, null, 2));
+      
       // store token
       if (res?.token) {
         localStorage.setItem("authToken", res.token);
         localStorage.setItem("tokenType", res.tokenType || "Bearer");
-        // store common auth response fields (flexible mapping)
+        
+        // Extract vendor MongoDB _id (critical for chat system)
+        // Try multiple possible field names from backend
+        const vendorId = res.vendorId || res.vendor?.id || res.vendor?._id || res.id || res._id;
+        const vendorOrgId = res.vendorOrganizationId || res.vendor?.vendorOrganizationId;
         const userType = res.userType || res.user?.userType;
         const userId = res.userId || res.user?.id || res.user?.userId;
-        const vendorId = res.vendorId || res.vendor?.id;
-        const vendorOrgId = res.vendorOrganizationId || res.vendor?.vendorOrganizationId || res.vendorId || res.vendor?.id;
-        const convenienceId = res.id || res._id || (res.vendor ? res.vendor.id : undefined) || (res.user ? res.user.id : undefined);
-        const profileUrl = res.profileUrl || res.user?.profileUrl;
+        const convenienceId = res.id || res._id;
+        const profileUrl = res.profileUrl || res.user?.profileUrl || res.vendor?.profileUrl;
 
+        // Store vendorId (MongoDB _id) - CRITICAL for chat
+        if (vendorId) {
+          localStorage.setItem("vendorId", vendorId);
+          localStorage.setItem("id", vendorId); // Also store as 'id' for fallback
+          console.log('✅ Vendor ID stored:', vendorId);
+        } else {
+          console.error('❌ Vendor ID not found in login response!');
+        }
+        
+        // Store other fields
         if (userType) localStorage.setItem("userType", userType);
         if (userId) localStorage.setItem("userId", userId);
-        if (vendorId) localStorage.setItem("vendorId", vendorId);
         if (vendorOrgId) localStorage.setItem("vendorOrganizationId", vendorOrgId);
-        if (convenienceId) localStorage.setItem("id", convenienceId);
         if (profileUrl) localStorage.setItem("profileUrl", profileUrl);
+        
+        // Debug: Show what was stored
+        console.log('Stored values:', {
+          vendorId: localStorage.getItem('vendorId'),
+          id: localStorage.getItem('id'),
+          vendorOrganizationId: localStorage.getItem('vendorOrganizationId'),
+          userType: localStorage.getItem('userType')
+        });
       }
-
-      // store vendor organization id if returned by the API to avoid missing-vendor errors
-      // API responses may use different keys; check common possibilities
-      const vendorOrgId =
-        (res && (res.vendorOrganizationId || res.vendorOrgId || (res.vendorOrganization && res.vendorOrganization.id))) ||
-        null;
-      if (vendorOrgId) {
-        localStorage.setItem("vendorOrganizationId", String(vendorOrgId));
+      // Validate vendorId was stored
+      const storedVendorId = localStorage.getItem('vendorId');
+      if (!storedVendorId) {
+        console.warn('⚠️ Warning: Vendor ID not found after login. Chat may not work.');
+        toast({ 
+          title: "Login Warning", 
+          description: "Vendor ID missing. Some features may not work. Contact support.", 
+          variant: "destructive" 
+        });
       }
+      
       // success toast (green)
       toast({ title: "Signed in", description: "Welcome back!", variant: "success" });
       // Always navigate to dashboard after successful login

@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Eye, MessageSquare, CheckCircle, Clock, Package, Truck, CheckCheck, Search, X, Calendar, Users, MapPin, DollarSign, Filter } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -64,6 +65,7 @@ const statusConfig = {
 };
 
 export default function Orders() {
+  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
@@ -75,6 +77,13 @@ export default function Orders() {
 
   useEffect(() => {
     loadOrders();
+    
+    // Set up polling for real-time updates every 30 seconds
+    const pollInterval = setInterval(() => {
+      loadOrders();
+    }, 30000);
+    
+    return () => clearInterval(pollInterval);
   }, []);
 
   const handleViewOrder = async (order: Order) => {
@@ -91,6 +100,12 @@ export default function Orders() {
     } finally {
       setLoadingDetail(false);
     }
+  };
+
+  const handleOpenChat = (customerId: string, customerName?: string) => {
+    // Navigate to messaging page with customer MongoDB _id as a query parameter
+    // customerId should be the MongoDB ObjectId from the users collection
+    navigate(`/dashboard/messaging?userId=${customerId}&userName=${encodeURIComponent(customerName || 'Customer')}`);
   };
 
   const loadOrders = async () => {
@@ -231,14 +246,14 @@ export default function Orders() {
               let allowedOptions: string[] = [];
               let canChange = false;
 
-              if (order.status === "confirmed") {
-                // When confirmed, allow full status updates
-                allowedOptions = allOptions;
-                canChange = true;
-              } else {
-                // For pending or any other status, do not allow changes until it's confirmed
+              if (order.status === "pending") {
+                // When pending, do not allow changes until admin confirms
                 allowedOptions = [order.status];
                 canChange = false;
+              } else {
+                // For all other statuses (confirmed, in_progress, etc.), allow full status updates
+                allowedOptions = allOptions;
+                canChange = true;
               }
 
               return (
@@ -316,7 +331,12 @@ export default function Orders() {
                           ))}
                         </SelectContent>
                       </Select>
-                      <Button variant="outline" size="icon">
+                      <Button 
+                        variant="outline" 
+                        size="icon"
+                        onClick={() => handleOpenChat(order.customerId, order.customerName || order.userName)}
+                        title="Message Customer"
+                      >
                         <MessageSquare className="h-4 w-4" />
                       </Button>
                     </div>
