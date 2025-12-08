@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams } from "react-router-dom";
-import { Plus, GripVertical, Pencil, Trash2, ImagePlus } from "lucide-react";
+import { Plus, GripVertical, Pencil, Trash2, ImagePlus, X } from "lucide-react";
 import * as api from "@/lib/api";
 import INGREDIENTS from "@/lib/ingredients";
 import { Button } from "@/components/ui/button";
@@ -113,6 +113,8 @@ export default function Menu() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
   const [draggedItem, setDraggedItem] = useState<string | null>(null);
+  const [showVegOnly, setShowVegOnly] = useState(false);
+  const [showNonVegOnly, setShowNonVegOnly] = useState(false);
 
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [previewImages, setPreviewImages] = useState<string[]>([]);
@@ -418,21 +420,22 @@ export default function Menu() {
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-8">
       {/* Page header */}
-      <Card className="border-none bg-gradient-to-r from-orange-50 via-white to-amber-50 shadow-sm">
-        <CardHeader className="flex flex-row items-center justify-between gap-4">
-          <div>
-            <p className="text-xs uppercase tracking-wide text-orange-500">
-              Vendor menu
-            </p>
-            <CardTitle className="mt-1 text-2xl font-semibold">
-              Menu Management
-            </CardTitle>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Add items, upload photos, and control what is visible to your
-              customers.
-            </p>
-          </div>
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+      <Card className="border-none">
+        <CardHeader className="flex flex-col gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <p className="text-xs uppercase tracking-wide text-orange-500">
+                Vendor menu
+              </p>
+              <CardTitle className="mt-1 text-xl sm:text-2xl font-semibold">
+                Menu Management
+              </CardTitle>
+              <p className="mt-1 text-xs sm:text-sm text-muted-foreground">
+                Add items, upload photos, and control what is visible to your
+                customers.
+              </p>
+            </div>
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
               <Button className="gap-2 rounded-full px-4 py-2" onClick={openAddDialog}>
                 <Plus className="h-4 w-4" />
@@ -797,6 +800,77 @@ export default function Menu() {
               </div>
             </DialogContent>
           </Dialog>
+          </div>
+          
+          {/* Modern Filter Section */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-xl border border-orange-200/50 p-4 backdrop-blur-sm">
+            <div className="flex items-center gap-2">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-orange-100 shrink-0">
+                <svg className="h-5 w-5 text-orange-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold text-foreground">Quick Filters</h3>
+                <p className="text-xs text-muted-foreground">Filter menu by dietary preference</p>
+              </div>
+            </div>
+            
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                variant={showVegOnly ? "default" : "outline"}
+                size="sm"
+                onClick={() => {
+                  setShowVegOnly(!showVegOnly);
+                  if (!showVegOnly) setShowNonVegOnly(false);
+                }}
+                className={`gap-2 rounded-full border-2 transition-all duration-200 ${
+                  showVegOnly 
+                    ? "border-green-600 bg-green-600 text-white shadow-lg shadow-green-600/30 hover:bg-green-700 hover:border-green-700" 
+                    : "border-green-200 bg-white text-green-700 hover:border-green-400 hover:bg-green-50"
+                }`}
+              >
+                <div className="flex h-4 w-4 items-center justify-center rounded border-2 border-current">
+                  <div className="h-2 w-2 rounded-full bg-current"></div>
+                </div>
+                <span className="font-medium">Vegetarian</span>
+              </Button>
+              
+              <Button
+                variant={showNonVegOnly ? "default" : "outline"}
+                size="sm"
+                onClick={() => {
+                  setShowNonVegOnly(!showNonVegOnly);
+                  if (!showNonVegOnly) setShowVegOnly(false);
+                }}
+                className={`gap-2 rounded-full border-2 transition-all duration-200 ${
+                  showNonVegOnly 
+                    ? "border-red-600 bg-red-600 text-white shadow-lg shadow-red-600/30 hover:bg-red-700 hover:border-red-700" 
+                    : "border-red-200 bg-white text-red-700 hover:border-red-400 hover:bg-red-50"
+                }`}
+              >
+                <div className="flex h-4 w-4 items-center justify-center rounded border-2 border-current">
+                  <div className="h-2 w-2 rounded-full bg-current"></div>
+                </div>
+                <span className="font-medium">Non-Veg</span>
+              </Button>
+              
+              {(showVegOnly || showNonVegOnly) && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setShowVegOnly(false);
+                    setShowNonVegOnly(false);
+                  }}
+                  className="rounded-full text-muted-foreground hover:text-foreground"
+                >
+                  <X className="mr-1 h-4 w-4" />
+                  Clear
+                </Button>
+              )}
+            </div>
+          </div>
         </CardHeader>
       </Card>
 
@@ -836,9 +910,22 @@ export default function Menu() {
       {/* Category sections */}
       <div className="space-y-6">
         {categories.map((category) => {
-          const categoryItems = menuItems.filter(
+          let categoryItems = menuItems.filter(
             (item) => item.category === category
           );
+          
+          // Apply veg/non-veg filter
+          if (showVegOnly) {
+            categoryItems = categoryItems.filter((item) => 
+              item.subCategory?.toLowerCase() === "vegetarian" || 
+              item.subCategory?.toLowerCase() === "vegan"
+            );
+          } else if (showNonVegOnly) {
+            categoryItems = categoryItems.filter((item) => 
+              item.subCategory?.toLowerCase() === "non-vegetarian"
+            );
+          }
+          
           if (categoryItems.length === 0) return null;
 
           return (
@@ -853,7 +940,7 @@ export default function Menu() {
                 </span>
               </CardHeader>
               <CardContent>
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
                   {categoryItems.map((item) => (
                     <div
                       key={item.id}
@@ -866,7 +953,7 @@ export default function Menu() {
                         <GripVertical className="h-4 w-4 text-muted-foreground" />
                       </div>
 
-                      <div className="absolute right-2 top-2 z-10 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                      <div className="absolute right-2 top-2 z-10 flex gap-1 opacity-100 sm:opacity-0 transition-opacity group-hover:opacity-100">
                         <Button
                           size="icon"
                           variant="secondary"
@@ -901,30 +988,41 @@ export default function Menu() {
 
                       <div className="flex flex-1 flex-col p-4">
                         <div className="flex items-start justify-between gap-2">
-                          <div>
-                            <h3 className="text-sm font-semibold text-foreground">
-                              {item.name}
-                            </h3>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <h3 className="text-sm font-semibold text-foreground">
+                                {item.name}
+                              </h3>
+                              {/* Veg/Non-Veg indicator */}
+                              {item.subCategory?.toLowerCase() === "vegetarian" || item.subCategory?.toLowerCase() === "vegan" ? (
+                                <div className="flex h-5 w-5 items-center justify-center rounded border-2 border-green-600">
+                                  <div className="h-2 w-2 rounded-full bg-green-600"></div>
+                                </div>
+                              ) : item.subCategory?.toLowerCase() === "non-vegetarian" ? (
+                                <div className="flex h-5 w-5 items-center justify-center rounded border-2 border-red-600">
+                                  <div className="h-2 w-2 rounded-full bg-red-600"></div>
+                                </div>
+                              ) : null}
+                            </div>
                             <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
                               {item.description}
                             </p>
                           </div>
-                          <div className="flex flex-col items-end gap-1">
+                          <div className="flex flex-col items-end gap-2">
                             {item.subCategory && (
                               <Badge
-                                variant="outline"
-                                className="rounded-full px-2 py-0.5 text-[10px]"
+                                variant="secondary"
+                                className={
+                                  item.subCategory.toLowerCase() === "vegetarian" || item.subCategory.toLowerCase() === "vegan"
+                                    ? "bg-green-100 text-green-800 hover:bg-green-200 border border-green-300"
+                                    : item.subCategory.toLowerCase() === "non-vegetarian"
+                                    ? "bg-red-100 text-red-800 hover:bg-red-200 border border-red-300"
+                                    : "bg-amber-100 text-amber-800 hover:bg-amber-200 border border-amber-300"
+                                }
                               >
                                 {item.subCategory}
                               </Badge>
                             )}
-                            <span className="text-[11px] font-medium">
-                              {item.available ? (
-                                <span className="text-green-600">Available</span>
-                              ) : (
-                                <span className="text-red-500">Hidden</span>
-                              )}
-                            </span>
                           </div>
                         </div>
 
@@ -953,7 +1051,7 @@ export default function Menu() {
                           )}
                         </div>
 
-                        <div className="mt-4 flex items-center justify-between text-[11px] text-muted-foreground">
+                        <div className="mt-4 text-[11px] text-muted-foreground">
                           <span>
                             {item.ingredients?.length
                               ? `${item.ingredients.length} ingredient${
@@ -961,13 +1059,18 @@ export default function Menu() {
                                 }`
                               : "No ingredients listed"}
                           </span>
-                          <button
-                            type="button"
-                            className="text-xs font-medium text-orange-600 hover:underline"
-                            onClick={() => openEditDialog(item)}
+                        </div>
+                        {/* Availability pill (bottom-right) */}
+                        <div className="absolute right-3 bottom-3">
+                          <span
+                            className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-medium ring-1 ${
+                              item.available
+                                ? "bg-green-50 text-green-800 ring-green-200"
+                                : "bg-red-50 text-red-800 ring-red-200"
+                            }`}
                           >
-                            Edit details
-                          </button>
+                            {item.available ? "Available" : "Hidden"}
+                          </span>
                         </div>
                       </div>
                     </div>
