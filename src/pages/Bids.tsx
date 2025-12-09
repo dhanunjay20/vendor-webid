@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "@/hooks/use-toast";
 import * as api from "@/lib/api";
 import BidQuoteDialog from "@/components/BidQuoteDialog.tsx";
+import { useNotifications } from "@/contexts/NotificationContext";
 
 interface Bid {
   id: string;
@@ -63,6 +64,9 @@ export default function Bids() {
   const [acceptingBidId, setAcceptingBidId] = useState<string | null>(null);
   const [confirmedBids, setConfirmedBids] = useState<Set<string>>(new Set());
   const navigate = useNavigate();
+  
+  // Use notification context to listen for real-time bid updates
+  const { bidNotifications } = useNotifications();
 
   // Get vendorOrgId from localStorage (set during login)
   const vendorOrgId = localStorage.getItem("vendorOrganizationId") || "";
@@ -70,13 +74,21 @@ export default function Bids() {
   useEffect(() => {
     loadBids();
     
-    // Set up polling for real-time updates every 30 seconds
+    // Set up polling for real-time updates every 30 seconds (as backup)
     const pollInterval = setInterval(() => {
       loadBids();
     }, 30000);
     
     return () => clearInterval(pollInterval);
   }, []);
+  
+  // Listen for real-time bid notifications and refresh the list
+  useEffect(() => {
+    if (bidNotifications.length > 0) {
+      console.log("🔄 Bid notification received, refreshing bids list");
+      loadBids();
+    }
+  }, [bidNotifications]);
 
   const loadBids = async () => {
     if (!vendorOrgId) {

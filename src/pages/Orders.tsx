@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
 import * as api from "@/lib/api";
+import { useNotifications } from "@/contexts/NotificationContext";
 
 interface MenuItem {
   itemName: string;
@@ -72,19 +73,30 @@ export default function Orders() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingDetail, setLoadingDetail] = useState(false);
+  
+  // Use notification context to listen for real-time order updates
+  const { orderNotifications } = useNotifications();
 
   const vendorOrgId = localStorage.getItem("vendorOrganizationId") || "";
 
   useEffect(() => {
     loadOrders();
     
-    // Set up polling for real-time updates every 30 seconds
+    // Set up polling for real-time updates every 30 seconds (as backup)
     const pollInterval = setInterval(() => {
       loadOrders();
     }, 30000);
     
     return () => clearInterval(pollInterval);
   }, []);
+  
+  // Listen for real-time order notifications and refresh the list
+  useEffect(() => {
+    if (orderNotifications.length > 0) {
+      console.log("🔄 Order notification received, refreshing orders list");
+      loadOrders();
+    }
+  }, [orderNotifications]);
 
   const handleViewOrder = async (order: Order) => {
     try {
