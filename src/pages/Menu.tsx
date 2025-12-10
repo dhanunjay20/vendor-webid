@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import { Plus, GripVertical, Pencil, Trash2, ImagePlus, X } from "lucide-react";
 import * as api from "@/lib/api";
 import INGREDIENTS from "@/lib/ingredients";
+import * as XLSX from "xlsx";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -120,6 +121,7 @@ export default function Menu() {
   const [previewImages, setPreviewImages] = useState<string[]>([]);
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const sheetInputRef = useRef<HTMLInputElement | null>(null);
 
   const handleFilesChange = (fileList: FileList | null) => {
     const files = Array.from(fileList || []);
@@ -137,6 +139,102 @@ export default function Menu() {
     )
       .then((urls) => setPreviewImages(urls))
       .catch(() => {});
+  };
+
+  // Excel / CSV upload handling
+  const handleSheetFile = async (file: File | null) => {
+    if (!file) return;
+    if (!vendorOrganizationId) {
+      toast({ title: "Error", description: "Missing vendor organization id", variant: "destructive" });
+      return;
+    }
+
+    try {
+      const ab = await file.arrayBuffer();
+      const workbook = XLSX.read(ab, { type: "array" });
+      const sheetName = workbook.SheetNames[0];
+      const sheet = workbook.Sheets[sheetName];
+      const rows: any[] = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+
+      if (!rows || rows.length === 0) {
+        toast({ title: "No rows", description: "Spreadsheet contains no rows.", variant: "destructive" });
+        return;
+      }
+
+      const createdItems: any[] = [];
+      const errors: string[] = [];
+
+      // Expect columns: name, description, category, subCategory, ingredients, spiceLevels, images, available
+      for (const [idx, r] of rows.entries()) {
+        const name = (r.name || r.Name || r.item || r.Item || "").toString().trim();
+        if (!name) {
+          errors.push(`Row ${idx + 1}: missing name`);
+          continue;
+        }
+        const description = (r.description || r.Description || "").toString();
+        const category = (r.category || r.Category || categories[0]).toString();
+        const subCategory = (r.subCategory || r.SubCategory || r.sub_category || r.Sub_Category || "").toString();
+        const ingredients = (r.ingredients || r.Ingredients || "").toString()
+          .split(/[,;|]/)
+          .map((s: string) => s.trim())
+          .filter(Boolean);
+        const spiceLevels = (r.spiceLevels || r.SpiceLevels || r.spice || r.Spice || "").toString()
+          .split(/[,;|]/)
+          .map((s: string) => s.trim())
+          .filter(Boolean);
+        const images = (r.images || r.Images || "").toString()
+          .split(/[,;|]/)
+          .map((s: string) => s.trim())
+          .filter(Boolean);
+        const availableRaw = (r.available || r.Available || "").toString().toLowerCase();
+        const available = availableRaw === "true" || availableRaw === "1" || availableRaw === "yes";
+
+        const payload: any = {
+          vendorOrganizationId,
+          name,
+          description,
+          images,
+          category,
+          subCategory,
+          ingredients,
+          spiceLevels,
+          available,
+        };
+
+        try {
+          const created = await api.createMenuItem(vendorOrganizationId, payload);
+          const normalized: MenuItem = {
+            id: created.id || created._id || Date.now().toString(),
+            name: created.name || payload.name,
+            description: created.description || payload.description,
+            images: Array.isArray(created.images)
+              ? created.images
+              : created.image
+              ? [created.image]
+              : payload.images,
+            category: created.category || payload.category,
+            subCategory: created.subCategory || created.sub_category || payload.subCategory,
+            ingredients: Array.isArray(created.ingredients) ? created.ingredients : payload.ingredients || [],
+            spiceLevels: Array.isArray(created.spiceLevels) ? created.spiceLevels : payload.spiceLevels || [],
+            available: typeof created.available === "boolean" ? created.available : !!payload.available,
+          };
+          createdItems.push(normalized);
+        } catch (err: any) {
+          errors.push(`Row ${idx + 1}: ${err?.message || "Failed to create item"}`);
+        }
+      }
+
+      if (createdItems.length > 0) {
+        setMenuItems((prev) => [...prev, ...createdItems]);
+        toast({ title: "Upload complete", description: `${createdItems.length} items created.` });
+      }
+      if (errors.length > 0) {
+        toast({ title: "Some rows failed", description: errors.slice(0, 3).join("; ") + (errors.length > 3 ? ` (+${errors.length - 3} more)` : ""), variant: "destructive" });
+      }
+    } catch (e: any) {
+      console.error("sheet parse error", e);
+      toast({ title: "Error", description: e?.message || "Failed to parse sheet", variant: "destructive" });
+    }
   };
 
   // spice
@@ -442,6 +540,29 @@ export default function Menu() {
                 Add menu item
               </Button>
             </DialogTrigger>
+            <input
+              ref={sheetInputRef}
+              type="file"
+              accept=".xlsx,.xls,.csv"
+              onChange={(e) => {
+                const f = e.target.files && e.target.files[0];
+                handleSheetFile(f || null);
+                // reset so same file can be picked again
+                if (e.target) (e.target as HTMLInputElement).value = "";
+              }}
+              className="sr-only"
+            />
+            <Button
+              className="gap-2 rounded-full px-4 py-2 ml-2"
+              variant="outline"
+              onClick={() => sheetInputRef.current?.click()}
+            >
+              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none">
+                <path d="M12 3v12" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
+                <path d="M8 7l4-4 4 4" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              Upload sheet
+            </Button>
             <DialogContent className="max-w-3xl overflow-hidden rounded-2xl border-0 p-0 shadow-2xl">
               <div className="flex max-h-[80vh] flex-col">
                 <DialogHeader className="sticky top-0 z-30 border-b bg-white/90 px-6 py-4 backdrop-blur">
