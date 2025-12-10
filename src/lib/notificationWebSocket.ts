@@ -4,7 +4,8 @@ import { Client, IMessage } from "@stomp/stompjs";
 export interface BidUpdateNotification {
   bidId: string;
   orderId: string;
-  vendorOrganizationId: string;
+  vendorId: string; // MongoDB _id of the vendor
+  vendorOrganizationId: string; // Business organization ID (backward compatibility)
   status: "requested" | "quoted" | "accepted" | "rejected";
   eventType: "BID_CREATED" | "BID_UPDATED" | "BID_DELETED" | "BID_QUOTED" | "BID_ACCEPTED" | "BID_REJECTED";
   message: string;
@@ -18,7 +19,8 @@ export interface BidUpdateNotification {
 export interface OrderUpdateNotification {
   orderId: string;
   customerId: string;
-  vendorOrganizationId: string;
+  vendorId: string; // MongoDB _id of the vendor
+  vendorOrganizationId: string; // Business organization ID (backward compatibility)
   eventName: string;
   eventDate: string;
   eventLocation: string;
@@ -30,8 +32,20 @@ export interface OrderUpdateNotification {
   timestamp: string;
 }
 
+export interface ChatUpdateNotification {
+  messageId: string;
+  chatId: string;
+  senderId: string;
+  recipientId: string;
+  content?: string;
+  eventType: "MESSAGE_SENT" | "MESSAGE_DELIVERED" | "MESSAGE_READ";
+  messageStatus: "SENT" | "DELIVERED" | "READ";
+  timestamp?: string;
+}
+
 type BidNotificationCallback = (notification: BidUpdateNotification) => void;
 type OrderNotificationCallback = (notification: OrderUpdateNotification) => void;
+type ChatNotificationCallback = (notification: ChatUpdateNotification) => void;
 
 class NotificationWebSocketService {
   private client: Client | null = null;
@@ -42,15 +56,17 @@ class NotificationWebSocketService {
 
   private bidCallbacks: BidNotificationCallback[] = [];
   private orderCallbacks: OrderNotificationCallback[] = [];
+  private chatCallbacks: ChatNotificationCallback[] = [];
   
   private onConnectedCallback: (() => void) | null = null;
   private onDisconnectedCallback: (() => void) | null = null;
   private onErrorCallback: ((error: any) => void) | null = null;
 
   connect(
-    vendorOrgId: string,
+    vendorId: string, // MongoDB _id instead of vendorOrganizationId
     onBidUpdate: BidNotificationCallback,
     onOrderUpdate: OrderNotificationCallback,
+    onChatUpdate: ChatNotificationCallback,
     onConnected?: () => void,
     onDisconnected?: () => void,
     onError?: (error: any) => void
@@ -63,6 +79,7 @@ class NotificationWebSocketService {
     this.isConnecting = true;
     this.bidCallbacks.push(onBidUpdate);
     this.orderCallbacks.push(onOrderUpdate);
+    this.chatCallbacks.push(onChatUpdate);
     
     if (onConnected) this.onConnectedCallback = onConnected;
     if (onDisconnected) this.onDisconnectedCallback = onDisconnected;
@@ -85,8 +102,8 @@ class NotificationWebSocketService {
       this.isConnecting = false;
       this.reconnectAttempts = 0;
 
-      // Subscribe to vendor-specific topics
-      this.subscribeToVendorTopics(vendorOrgId);
+      // Subscribe to vendor-specific topics using MongoDB ID
+      this.subscribeToVendorTopics(vendorId);
 
       // Subscribe to broadcast topics
       this.subscribeToBroadcastTopics();
@@ -105,7 +122,7 @@ class NotificationWebSocketService {
         this.onErrorCallback(frame);
       }
 
-      this.handleReconnect(vendorOrgId);
+      this.handleReconnect(vendorId);
     };
 
     this.client.onWebSocketClose = () => {
@@ -116,30 +133,37 @@ class NotificationWebSocketService {
         this.onDisconnectedCallback();
       }
 
-      this.handleReconnect(vendorOrgId);
+      this.handleReconnect(vendorId);
     };
 
     this.client.activate();
   }
 
-  private subscribeToVendorTopics(vendorOrgId: string): void {
+  private subscribeToVendorTopics(vendorId: string): void {
     if (!this.client?.connected) return;
 
-    // Subscribe to vendor-specific bid notifications
-    this.client.subscribe(`/topic/vendor/${vendorOrgId}/bids`, (message: IMessage) => {
+    // Subscribe to vendor-specific bid notifications using MongoDB ID
+    this.client.subscribe(`/topic/vendor/${vendorId}/bids`, (message: IMessage) => {
       const notification: BidUpdateNotification = JSON.parse(message.body);
       console.log("Bid notification received:", notification);
       this.bidCallbacks.forEach((callback) => callback(notification));
     });
 
-    // Subscribe to vendor-specific order notifications
-    this.client.subscribe(`/topic/vendor/${vendorOrgId}/orders`, (message: IMessage) => {
+    // Subscribe to vendor-specific order notifications using MongoDB ID
+    this.client.subscribe(`/topic/vendor/${vendorId}/orders`, (message: IMessage) => {
       const notification: OrderUpdateNotification = JSON.parse(message.body);
       console.log("Order notification received:", notification);
       this.orderCallbacks.forEach((callback) => callback(notification));
     });
 
-    console.log(`Subscribed to vendor topics for: ${vendorOrgId}`);
+    // Subscribe to vendor-specific chat notifications using MongoDB ID
+    this.client.subscribe(`/topic/vendor/${vendorId}/chats`, (message: IMessage) => {
+      const notification: ChatUpdateNotification = JSON.parse(message.body);
+      console.log("Chat notification received:", notification);
+      this.chatCallbacks.forEach((callback) => callback(notification));
+    });
+
+    console.log(`Subscribed to vendor topics for: ${vendorId}`);
   }
 
   private subscribeToBroadcastTopics(): void {
@@ -159,10 +183,17 @@ class NotificationWebSocketService {
       this.orderCallbacks.forEach((callback) => callback(notification));
     });
 
+    // Subscribe to broadcast chat updates
+    this.client.subscribe("/topic/chats", (message: IMessage) => {
+      const notification: ChatUpdateNotification = JSON.parse(message.body);
+      console.log("Broadcast chat notification:", notification);
+      this.chatCallbacks.forEach((callback) => callback(notification));
+    });
+
     console.log("Subscribed to broadcast topics");
   }
 
-  private handleReconnect(vendorOrgId: string): void {
+  private handleReconnect(vendorId: string): void {
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
       console.error("Max reconnection attempts reached");
       return;
@@ -175,9 +206,10 @@ class NotificationWebSocketService {
       if (!this.client?.connected) {
         this.isConnecting = false;
         this.connect(
-          vendorOrgId,
+          vendorId,
           this.bidCallbacks[0],
           this.orderCallbacks[0],
+          this.chatCallbacks[0],
           this.onConnectedCallback || undefined,
           this.onDisconnectedCallback || undefined,
           this.onErrorCallback || undefined
@@ -194,6 +226,7 @@ class NotificationWebSocketService {
     this.isConnecting = false;
     this.bidCallbacks = [];
     this.orderCallbacks = [];
+    this.chatCallbacks = [];
     this.reconnectAttempts = 0;
     console.log("Notification WebSocket disconnected");
   }

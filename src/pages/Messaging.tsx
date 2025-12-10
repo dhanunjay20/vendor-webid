@@ -8,6 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
+import { useNotifications } from "@/contexts/NotificationContext";
 import {
   webSocketService,
   ChatMessage as WSChatMessage,
@@ -340,6 +341,63 @@ const Messaging: React.FC = () => {
     // Only re-run when currentUserId changes (we want to connect once we have an id)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUserId]);
+
+  // Listen for chat notifications from the notification context
+  const { chatNotifications } = useNotifications();
+  useEffect(() => {
+    if (chatNotifications.length === 0) return;
+
+    // Get the latest chat notification
+    const latestNotification = chatNotifications[0];
+
+    // Only process MESSAGE_SENT events (new messages)
+    if (latestNotification.eventType === "MESSAGE_SENT") {
+      console.log("💬 Processing chat notification from context:", latestNotification);
+
+      // If this notification is for the currently selected conversation, add it to messages
+      if (selectedConversation && latestNotification.senderId === selectedConversation.userId) {
+        const newMessage: Message = {
+          id: latestNotification.messageId,
+          sender: selectedConversation.name,
+          senderId: latestNotification.senderId,
+          recipientId: latestNotification.recipientId,
+          text: latestNotification.content || "",
+          time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          status: MessageStatus.DELIVERED,
+        };
+
+        setMessages((prev) => {
+          // Avoid duplicate messages by checking if message already exists
+          if (prev.find((m) => m.id === newMessage.id)) {
+            return prev;
+          }
+          return [...prev, newMessage];
+        });
+
+        // Mark as delivered via API
+        chatApi.markAsDelivered(latestNotification.senderId, currentUserId).catch(console.error);
+      } else {
+        // Message is from a different conversation, just reload chat list
+        loadChatList();
+      }
+    } else if (latestNotification.eventType === "MESSAGE_DELIVERED") {
+      // Update message status in UI
+      console.log("✓ Message delivered:", latestNotification.messageId);
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === latestNotification.messageId ? { ...msg, status: MessageStatus.DELIVERED } : msg
+        )
+      );
+    } else if (latestNotification.eventType === "MESSAGE_READ") {
+      // Update message status in UI
+      console.log("✓✓ Message read:", latestNotification.messageId);
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === latestNotification.messageId ? { ...msg, status: MessageStatus.READ } : msg
+        )
+      );
+    }
+  }, [chatNotifications, selectedConversation, currentUserId]);
 
   // Load chat history when conversation changes
   useEffect(() => {

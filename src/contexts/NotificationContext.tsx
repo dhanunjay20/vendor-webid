@@ -4,6 +4,7 @@ import {
   notificationWebSocketService,
   BidUpdateNotification,
   OrderUpdateNotification,
+  ChatUpdateNotification,
 } from "@/lib/notificationWebSocket";
 import { notificationSound } from "@/lib/notificationSound";
 
@@ -11,8 +12,10 @@ interface NotificationContextType {
   isConnected: boolean;
   bidNotifications: BidUpdateNotification[];
   orderNotifications: OrderUpdateNotification[];
+  chatNotifications: ChatUpdateNotification[];
   clearBidNotifications: () => void;
   clearOrderNotifications: () => void;
+  clearChatNotifications: () => void;
   toggleSoundMute: () => boolean;
   isSoundMuted: boolean;
 }
@@ -35,16 +38,16 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
   const [isConnected, setIsConnected] = useState(false);
   const [bidNotifications, setBidNotifications] = useState<BidUpdateNotification[]>([]);
   const [orderNotifications, setOrderNotifications] = useState<OrderUpdateNotification[]>([]);
+  const [chatNotifications, setChatNotifications] = useState<ChatUpdateNotification[]>([]);
   const [isSoundMuted, setIsSoundMuted] = useState(notificationSound.isSoundMuted());
   const { toast } = useToast();
 
   useEffect(() => {
-    // Get vendor ID from localStorage
-    const vendorOrgId = localStorage.getItem("vendorOrganizationId");
+    // Get vendor ID from localStorage - use MongoDB _id for WebSocket subscriptions
     const vendorId = localStorage.getItem("vendorId");
 
-    if (!vendorOrgId || !vendorId) {
-      console.warn("Vendor information not found. Notifications will not be enabled.");
+    if (!vendorId) {
+      console.warn("Vendor ID not found. Notifications will not be enabled.");
       return;
     }
 
@@ -129,11 +132,57 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
       }
     };
 
-    // Connect to WebSocket
+    // Handle chat updates
+    const handleChatUpdate = (notification: ChatUpdateNotification) => {
+      console.log("💬 Chat notification received:", notification);
+
+      // Add to notification list
+      setChatNotifications((prev) => [notification, ...prev].slice(0, 50)); // Keep last 50
+
+      // Show toast for MESSAGE_SENT only (for new messages)
+      if (notification.eventType === "MESSAGE_SENT") {
+        // Play sound
+        notificationSound.play();
+
+        toast({
+          title: "💬 New Message",
+          description: notification.content || "You have a new message",
+          duration: 5000,
+        });
+
+        // Show browser notification
+        if ("Notification" in window && Notification.permission === "granted") {
+          const browserNotif = new Notification("New Message", {
+            body: notification.content || "You have a new message",
+            icon: "/favicon.ico",
+            badge: "/favicon.ico",
+            tag: `chat-${notification.chatId}`,
+            requireInteraction: false,
+            silent: false,
+          });
+
+          browserNotif.onclick = () => {
+            window.focus();
+            // Navigate to messaging page
+            window.location.href = "/dashboard/messaging";
+            browserNotif.close();
+          };
+        }
+      }
+      // Handle MESSAGE_DELIVERED and MESSAGE_READ silently (no sound/toast)
+      else if (notification.eventType === "MESSAGE_DELIVERED") {
+        console.log("✓ Message delivered:", notification.messageId);
+      } else if (notification.eventType === "MESSAGE_READ") {
+        console.log("✓✓ Message read:", notification.messageId);
+      }
+    };
+
+    // Connect to WebSocket using vendorId (MongoDB _id)
     notificationWebSocketService.connect(
-      vendorOrgId,
+      vendorId,
       handleBidUpdate,
       handleOrderUpdate,
+      handleChatUpdate,
       () => {
         setIsConnected(true);
         console.log("✅ Notification service connected");
@@ -170,6 +219,10 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
     setOrderNotifications([]);
   };
 
+  const clearChatNotifications = () => {
+    setChatNotifications([]);
+  };
+
   const toggleSoundMute = () => {
     const newMutedState = notificationSound.toggleMute();
     setIsSoundMuted(newMutedState);
@@ -180,8 +233,10 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
     isConnected,
     bidNotifications,
     orderNotifications,
+    chatNotifications,
     clearBidNotifications,
     clearOrderNotifications,
+    clearChatNotifications,
     toggleSoundMute,
     isSoundMuted,
   };
