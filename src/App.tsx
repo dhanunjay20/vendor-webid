@@ -6,8 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import DashboardLayout from "@/components/DashboardLayout";
 import Landing from "./pages/Landing";
-import Register from "./pages/Register";
-import Login from "./pages/Login";
+import Auth from "./pages/Auth";
 import ForgotUsername from "./pages/ForgotUsername";
 import ForgotPassword from "./pages/ForgotPassword";
 import Index from "./pages/Index";
@@ -32,8 +31,7 @@ const App = () => (
           <Routes>
             {/* Public Routes */}
             <Route path="/" element={<Landing />} />
-            <Route path="/register" element={<Register />} />
-            <Route path="/login" element={<Login />} />
+            <Route path="/auth" element={<Auth />} />
             <Route path="/forgot-username" element={<ForgotUsername />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
             
