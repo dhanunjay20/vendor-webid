@@ -5,11 +5,10 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { NotificationProvider } from "@/contexts/NotificationContext";
+import AutoLogout from "@/components/AutoLogout";
 import DashboardLayout from "@/components/DashboardLayout";
 import Landing from "./pages/Landing";
 import Auth from "./pages/Auth";
-import ForgotUsername from "./pages/ForgotUsername";
-import ForgotPassword from "./pages/ForgotPassword";
 import Index from "./pages/Index";
 import Bids from "./pages/Bids";
 import Orders from "./pages/Orders";
@@ -30,13 +29,11 @@ const App = () => (
           <Toaster />
           <Sonner />
           <BrowserRouter future={{ v7_relativeSplatPath: true, v7_startTransition: true }}>
+            <AutoLogout />
             <Routes>
             {/* Public Routes */}
             <Route path="/" element={<Landing />} />
-            <Route path="/auth" element={<Auth />} />
-            <Route path="/forgot-username" element={<ForgotUsername />} />
-            <Route path="/forgot-password" element={<ForgotPassword />} />
-            
+            <Route path="/auth" element={<Auth />} />            
             {/* Dashboard Routes */}
             <Route path="/dashboard" element={<DashboardLayout />}>
               <Route index element={<Index />} />

@@ -84,16 +84,30 @@ export async function registerUser(payload: any) {
     }
 
     if (!vendorPayload.vendorOrganizationId) {
-      const bizPart = firstTwoLettersPerWord(payload.businessName || payload.businessName || "");
-      const ownerPart = firstTwoLettersPerWord(payload.contactName || payload.ownerName || `${payload.firstName || ""} ${payload.lastName || ""}`);
+      const bizPart = firstTwoLettersPerWord(payload.businessName || "").toUpperCase();
+      const ownerPart = firstTwoLettersPerWord(payload.ownerName || `${payload.firstName || ""} ${payload.lastName || ""}`).toUpperCase();
+      
+      // Use hash-based algorithm (same as frontend) for consistent ID generation
+      const seedStr = (payload.businessName || "") + "|" + (payload.ownerName || `${payload.firstName || ""} ${payload.lastName || ""}`);
+      let hash = 0;
+      for (let i = 0; i < seedStr.length; i++) {
+        hash = (hash << 5) - hash + seedStr.charCodeAt(i);
+        hash |= 0;
+      }
+      
       const minDigits = 4;
       const maxDigits = 9;
-      const digits = Math.floor(Math.random() * (maxDigits - minDigits + 1)) + minDigits;
+      const digitsCount = Math.abs(hash) % (maxDigits - minDigits + 1) + minDigits;
       let rand = "";
-      for (let i = 0; i < digits; i++) rand += Math.floor(Math.random() * 10).toString();
+      let h = Math.abs(hash) || 1;
+      for (let i = 0; i < digitsCount; i++) {
+        rand += String(h % 10);
+        h = Math.floor(h / 10) || (h + 7);
+      }
+      
       const parts = [] as string[];
-      if (bizPart) parts.push(bizPart.toUpperCase());
-      if (ownerPart) parts.push(ownerPart.toUpperCase());
+      if (bizPart) parts.push(bizPart);
+      if (ownerPart) parts.push(ownerPart);
       parts.push(rand);
       vendorPayload.vendorOrganizationId = parts.join("-");
     }
@@ -200,6 +214,151 @@ export async function loginVendor(payload: any) {
   } catch (err: any) {
     const { message, status } = extractError(err);
     console.error("loginVendor error", err);
+    throw { message, status } as ApiError;
+  }
+}
+
+// Get vendor profile by organization ID
+export async function getVendorProfile(vendorOrganizationId: string) {
+  try {
+    const url = buildUrl(`/api/vendor/org/${vendorOrganizationId}`);
+    const token = localStorage.getItem("authToken");
+    const headers: any = { "Content-Type": "application/json" };
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+    const res = await axios.get(url, { headers });
+    return res.data;
+  } catch (err: any) {
+    const { message, status } = extractError(err);
+    console.error("getVendorProfile error", err);
+    throw { message, status } as ApiError;
+  }
+}
+
+// Update vendor profile
+export async function updateVendorProfile(vendorId: string, payload: any) {
+  try {
+    const url = buildUrl(`/api/vendor/${vendorId}`);
+    const token = localStorage.getItem("authToken");
+    const headers: any = { "Content-Type": "application/json" };
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+    const res = await axios.put(url, payload, { headers });
+    return res.data;
+  } catch (err: any) {
+    const { message, status } = extractError(err);
+    console.error("updateVendorProfile error", err);
+    throw { message, status } as ApiError;
+  }
+}
+
+// Service Details endpoints
+export async function createOrUpdateServiceDetails(vendorId: string, payload: any) {
+  try {
+    const url = buildUrl(`/api/service-details/${vendorId}`);
+    const token = localStorage.getItem("authToken");
+    const headers: any = { "Content-Type": "application/json" };
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+    // Log payload for debugging
+    console.log('Service Details Payload:', payload);
+    const res = await axios.post(url, payload, { headers });
+    console.log('Service Details Response:', res.data);
+    return res.data;
+  } catch (err: any) {
+    const { message, status } = extractError(err);
+    console.error("createOrUpdateServiceDetails error", err);
+    console.error("Error details:", err.response?.data || err.message);
+    throw { message, status } as ApiError;
+  }
+}
+
+export async function getServiceDetailsByVendorId(vendorId: string) {
+  try {
+    const url = buildUrl(`/api/service-details/vendor/${vendorId}`);
+    const token = localStorage.getItem("authToken");
+    const headers: any = {};
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+    const res = await axios.get(url, { headers });
+    return res.data;
+  } catch (err: any) {
+    const { message, status } = extractError(err);
+    console.error("getServiceDetailsByVendorId error", err);
+    throw { message, status } as ApiError;
+  }
+}
+
+export async function getServiceDetailsByVendorOrgId(vendorOrgId: string) {
+  try {
+    const url = buildUrl(`/api/service-details/org/${vendorOrgId}`);
+    const token = localStorage.getItem("authToken");
+    const headers: any = {};
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+    const res = await axios.get(url, { headers });
+    return res.data;
+  } catch (err: any) {
+    const { message, status } = extractError(err);
+    console.error("getServiceDetailsByVendorOrgId error", err);
+    throw { message, status } as ApiError;
+  }
+}
+
+export async function searchServicesByServiceType(serviceType: string) {
+  try {
+    const url = buildUrl(`/api/service-details/search/service-type`);
+    const res = await axios.get(url, { params: { type: serviceType } });
+    return res.data;
+  } catch (err: any) {
+    const { message, status } = extractError(err);
+    console.error("searchServicesByServiceType error", err);
+    throw { message, status } as ApiError;
+  }
+}
+
+export async function searchServicesByCuisine(cuisine: string) {
+  try {
+    const url = buildUrl(`/api/service-details/search/cuisine`);
+    const res = await axios.get(url, { params: { cuisine } });
+    return res.data;
+  } catch (err: any) {
+    const { message, status } = extractError(err);
+    console.error("searchServicesByCuisine error", err);
+    throw { message, status } as ApiError;
+  }
+}
+
+export async function searchServicesByArea(area: string) {
+  try {
+    const url = buildUrl(`/api/service-details/search/area`);
+    const res = await axios.get(url, { params: { area } });
+    return res.data;
+  } catch (err: any) {
+    const { message, status } = extractError(err);
+    console.error("searchServicesByArea error", err);
+    throw { message, status } as ApiError;
+  }
+}
+
+export async function deleteServiceDetails(vendorId: string) {
+  try {
+    const url = buildUrl(`/api/service-details/vendor/${vendorId}`);
+    const token = localStorage.getItem("authToken");
+    const headers: any = {};
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+    const res = await axios.delete(url, { headers });
+    return res.data;
+  } catch (err: any) {
+    const { message, status } = extractError(err);
+    console.error("deleteServiceDetails error", err);
     throw { message, status } as ApiError;
   }
 }
@@ -523,6 +682,15 @@ export default {
   resetPassword,
   registerVendor,
   loginVendor,
+  getVendorProfile,
+  updateVendorProfile,
+  createOrUpdateServiceDetails,
+  getServiceDetailsByVendorId,
+  getServiceDetailsByVendorOrgId,
+  searchServicesByServiceType,
+  searchServicesByCuisine,
+  searchServicesByArea,
+  deleteServiceDetails,
   getMenuItems,
   createMenuItem,
   updateMenuItem,

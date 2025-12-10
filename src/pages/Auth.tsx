@@ -8,6 +8,8 @@ import { Mail, Lock, Eye, EyeOff, ArrowRight, Loader2 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import * as api from "@/lib/api";
 import heroImg from "@/assets/dashboard-hero.jpg";
+import ForgotPasswordModal from "@/components/modals/ForgotPasswordModal";
+import ForgotUsernameModal from "@/components/modals/ForgotUsernameModal";
 
 // --- Animation variants ---
 const pageVariants: Variants = {
@@ -44,7 +46,9 @@ const Auth: React.FC = () => {
   const navigate = useNavigate();
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [direction, setDirection] = useState(1);
-
+  const [showForgotPasswordModal, setShowForgotPasswordModal] = useState(false);
+  const [showForgotUsernameModal, setShowForgotUsernameModal] = useState(false);
+        
   // Sign in fields
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -106,25 +110,13 @@ const Auth: React.FC = () => {
     return parts.join("-");
   }
 
-  function regenerateOrgId() {
-    const bizPart = firstTwoLettersPerWord(formData.businessName || "").toUpperCase();
-    const ownerPart = firstTwoLettersPerWord(formData.ownerName || "").toUpperCase();
-    const min = 4;
-    const max = 9;
-    const digits = Math.floor(Math.random() * (max - min + 1)) + min;
-    let rand = "";
-    for (let i = 0; i < digits; i++) rand += Math.floor(Math.random() * 10).toString();
-    const parts: string[] = [];
-    if (bizPart) parts.push(bizPart);
-    if (ownerPart) parts.push(ownerPart);
-    parts.push(rand);
-    setVendorOrgId(parts.join("-"));
-  }
+
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData((prev: any) => ({ ...prev, [name]: value }));
     if (name === "businessName" || name === "ownerName") {
+      // Use the NEW value that was just entered, not the old formData
       const nextBiz = name === "businessName" ? value : formData.businessName;
       const nextOwner = name === "ownerName" ? value : formData.ownerName;
       setVendorOrgId(computeVendorOrgId(nextBiz, nextOwner));
@@ -198,6 +190,17 @@ const Auth: React.FC = () => {
   const handleSignUp = async (e?: React.FormEvent) => {
     e?.preventDefault();
     if (!validateForm()) return;
+    
+    // Log form data before processing
+    console.log('Form Data:', formData);
+    console.log('Current vendorOrgId in state:', vendorOrgId);
+    
+    // Use the vendorOrgId shown in the input field (state)
+    if (!vendorOrgId || vendorOrgId.trim() === "") {
+      toast({ title: "Error", description: "Please fill in business name and owner name to generate Organization ID", variant: "destructive" });
+      return;
+    }
+    
     setLoading(true);
     setServerError("");
     try {
@@ -205,13 +208,13 @@ const Auth: React.FC = () => {
       const [firstName, ...rest] = owner.split(" ");
       const lastName = rest.join(" ") || "";
       const payload = {
+        vendorOrganizationId: vendorOrgId,
         businessName: formData.businessName,
         ownerName: formData.ownerName,
         username: formData.username,
         email: formData.email,
         mobile: formData.mobile,
         password: formData.password,
-        vendorOrganizationId: vendorOrgId,
         firstName: firstName || formData.ownerName,
         lastName,
         addressLine1: formData.addressLine1,
@@ -221,9 +224,27 @@ const Auth: React.FC = () => {
         country: formData.country,
         zipCode: formData.zipCode,
       };
+      console.log('Sending payload:', payload);
       await api.registerUser(payload);
       toast({ title: "Registration successful!", description: "Please sign in." });
       switchMode("signin");
+      setFormData({
+        businessName: "",
+        ownerName: "",
+        username: "",
+        email: "",
+        mobile: "",
+        password: "",
+        confirmPassword: "",
+        addressLine1: "",
+        addressLine2: "",
+        city: "",
+        state: "",
+        country: "",
+        zipCode: "",
+      });
+      setVendorOrgId("");
+      setErrors({});
     } catch (err: any) {
       setServerError(err?.message || "Registration failed. Please try again.");
       toast({ title: "Registration failed", description: err?.message || "Network error while registering", variant: "destructive" });
@@ -233,11 +254,11 @@ const Auth: React.FC = () => {
   };
 
   return (
-    <motion.section variants={pageVariants} initial="initial" animate="animate" className="relative h-screen flex items-center justify-center overflow-hidden bg-background px-4 md:px-6">
+    <motion.section variants={pageVariants} initial="initial" animate="animate" className="relative h-screen flex items-center justify-center overflow-hidden bg-gradient-to-br from-orange-600 via-orange-400 to-orange-500 px-4 md:px-6">
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <motion.div variants={blobVariants} animate="animate" className="absolute -top-32 -left-24 h-80 w-80 rounded-full bg-primary/10 blur-3xl" />
-        <motion.div variants={blobVariants} animate="animate" transition={{ delay: 3, duration: 16 }} className="absolute -bottom-40 -right-24 h-96 w-96 rounded-full bg-muted/40 blur-3xl" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(148,163,184,0.25),transparent_55%),radial-gradient(circle_at_bottom,_rgba(15,23,42,0.95),transparent_55%)] opacity-40" />
+        <motion.div variants={blobVariants} animate="animate" className="absolute -top-32 -left-24 h-80 w-80 rounded-full bg-orange-400/20 blur-3xl" />
+        <motion.div variants={blobVariants} animate="animate" transition={{ delay: 3, duration: 16 }} className="absolute -bottom-40 -right-24 h-96 w-96 rounded-full bg-amber-400/15 blur-3xl" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(251,146,60,0.15),transparent_55%),radial-gradient(circle_at_bottom,_rgba(245,158,11,0.1),transparent_55%)] opacity-60" />
       </div>
 
       <div className="relative z-10 grid h-[520px] w-full max-w-5xl items-stretch gap-6 md:h-[580px] lg:h-[620px] lg:grid-cols-12">
@@ -306,7 +327,16 @@ const Auth: React.FC = () => {
                       <div className="flex-1 overflow-auto pr-2">
                         <motion.div variants={formContainerVariants} initial="hidden" animate="visible" className="space-y-5 p-1">
                           <motion.div variants={fieldVariants} className="space-y-2">
-                            <Label className="ml-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">Email or Mobile</Label>
+                            <div className="ml-1 flex items-center justify-between">
+                              <Label className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">Email or Mobile</Label>
+                              <button 
+                                type="button"
+                                onClick={() => setShowForgotUsernameModal(true)}
+                                className="text-[11px] font-semibold text-primary hover:brightness-110"
+                              >
+                                Forgot Username?
+                              </button>
+                            </div>
                             <div className="group relative">
                               <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors" />
                               <Input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" className="h-10 rounded-xl border-border bg-background/60 pl-10 text-sm font-medium text-foreground placeholder:text-muted-foreground" required />
@@ -316,7 +346,13 @@ const Auth: React.FC = () => {
                           <motion.div variants={fieldVariants} className="space-y-2">
                             <div className="ml-1 flex items-center justify-between">
                               <Label className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">Password</Label>
-                              <Link to="/forgot-password" className="text-[11px] font-semibold text-primary hover:brightness-110">Forgot?</Link>
+                              <button 
+                                type="button"
+                                onClick={() => setShowForgotPasswordModal(true)}
+                                className="text-[11px] font-semibold text-primary hover:brightness-110"
+                              >
+                                Forgot?
+                              </button>
                             </div>
                             <div className="group relative">
                               <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors" />
@@ -354,11 +390,8 @@ const Auth: React.FC = () => {
 
                           <motion.div variants={fieldVariants} className="space-y-2 md:col-span-2">
                             <Label htmlFor="vendorOrgId">Organization ID</Label>
-                            <div className="flex items-center space-x-2">
-                              <Input id="vendorOrgId" name="vendorOrgId" value={vendorOrgId} readOnly className="w-full bg-gray-100" />
-                              <Button type="button" onClick={regenerateOrgId} className="h-10">Regenerate</Button>
-                            </div>
-                            <p className="text-xs text-gray-500">Auto-generated from business & owner name. You can regenerate.</p>
+                            <Input id="vendorOrgId" name="vendorOrgId" value={vendorOrgId} readOnly className="w-full bg-gray-100" />
+                            <p className="text-xs text-gray-500">Auto-generated from business name & owner name.</p>
                           </motion.div>
 
                           <div className="grid grid-cols-2 gap-4">
@@ -472,12 +505,30 @@ const Auth: React.FC = () => {
                   )}
                 </AnimatePresence>
               </div>
-
-              
             </div>
           </div>
         </motion.div>
       </div>
+
+      {/* Modals - Outside main container to avoid z-index stacking issues */}
+      <ForgotPasswordModal 
+        isOpen={showForgotPasswordModal}
+        onClose={() => setShowForgotPasswordModal(false)}
+        onLoginClick={() => {}}
+        onForgotUsernameClick={() => {
+          setShowForgotPasswordModal(false);
+          setShowForgotUsernameModal(true);
+        }}
+      />
+      <ForgotUsernameModal 
+        isOpen={showForgotUsernameModal}
+        onClose={() => setShowForgotUsernameModal(false)}
+        onLoginClick={() => {}}
+        onForgotPasswordClick={() => {
+          setShowForgotUsernameModal(false);
+          setShowForgotPasswordModal(true);
+        }}
+      />
     </motion.section>
   );
 };

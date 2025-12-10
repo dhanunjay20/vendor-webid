@@ -23,27 +23,20 @@ export default function DashboardLayout() {
 
   const handleLogout = () => {
     try {
-      // Clear authentication-related storage
-      localStorage.removeItem("authToken");
-      localStorage.removeItem("tokenType");
-      localStorage.removeItem("vendorOrganizationId");
-      localStorage.removeItem("vendorId");
-      localStorage.removeItem("userType");
-      localStorage.removeItem("userId");
-      localStorage.removeItem("id");
-      localStorage.removeItem("profileUrl");
+      // Clear all local storage on logout
+      localStorage.clear();
     } catch (e) {
       console.warn("Failed to clear auth storage", e);
     }
     try {
-      navigate("/login", { replace: true });
+      navigate("/", { replace: true });
       setTimeout(() => {
-        if (window.location.pathname !== "/login") {
-          window.location.href = "/login";
+        if (window.location.pathname !== "/") {
+          window.location.href = "/";
         }
       }, 150);
     } catch (e) {
-      window.location.href = "/login";
+      window.location.href = "/";
     }
   };
 
