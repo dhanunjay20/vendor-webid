@@ -112,9 +112,20 @@ class WebSocketService {
 
       // Subscribe to user status updates
       this.client?.subscribe('/topic/status', (message) => {
-        const userStatus: UserStatus = JSON.parse(message.body);
-        console.log('User status received:', userStatus);
-        onUserStatusReceived(userStatus);
+        try {
+          const raw = JSON.parse(message.body);
+
+          // Normalize payload: backend may send different field names (userId, participantId, vendorId, id)
+          const normalized: UserStatus = {
+            userId: raw.userId || raw.participantId || raw.vendorId || raw.user || raw.id || "",
+            status: (raw.status || raw.onlineStatus || raw.state || raw.connectionStatus || 'OFFLINE') as 'ONLINE' | 'OFFLINE' | 'AWAY',
+          };
+
+          console.log('User status received (normalized):', normalized, 'raw:', raw);
+          if (onUserStatusReceived) onUserStatusReceived(normalized);
+        } catch (err) {
+          console.error('Failed to parse user status message:', err, message.body);
+        }
       });
 
       // Send online status
