@@ -31,13 +31,85 @@ export default function Login() {
     setLoading(true);
     try {
       const res = await api.login({ login: formData.username, password: formData.password });
+      
+      // Debug: Log the entire response to see what backend returns
+      console.log('Login API Response:', JSON.stringify(res, null, 2));
+      
       // store token
       if (res?.token) {
         localStorage.setItem("authToken", res.token);
         localStorage.setItem("tokenType", res.tokenType || "Bearer");
+        
+        // Extract vendor MongoDB _id (critical for chat system)
+        // Try multiple possible field names from backend
+        const vendorId = res.vendorId || res.vendor?.id || res.vendor?._id || res.id || res._id;
+        const vendorOrgId = res.vendorOrganizationId || res.vendor?.vendorOrganizationId;
+        const userType = res.userType || res.user?.userType;
+        const userId = res.userId || res.user?.id || res.user?.userId;
+        const convenienceId = res.id || res._id;
+        const profileUrl = res.profileUrl || res.user?.profileUrl || res.vendor?.profileUrl;
+
+        // Store vendorId (MongoDB _id) - CRITICAL for chat
+        if (vendorId) {
+          localStorage.setItem("vendorId", vendorId);
+          localStorage.setItem("id", vendorId); // Also store as 'id' for fallback
+          console.log('✅ Vendor ID stored:', vendorId);
+        } else {
+          console.error('❌ Vendor ID not found in login response!');
+        }
+        
+        // Store other fields
+        if (userType) localStorage.setItem("userType", userType);
+        if (userId) localStorage.setItem("userId", userId);
+        if (vendorOrgId) localStorage.setItem("vendorOrganizationId", vendorOrgId);
+        if (profileUrl) localStorage.setItem("profileUrl", profileUrl);
+        
+        // Debug: Show what was stored
+        console.log('Stored values:', {
+          vendorId: localStorage.getItem('vendorId'),
+          id: localStorage.getItem('id'),
+          vendorOrganizationId: localStorage.getItem('vendorOrganizationId'),
+          userType: localStorage.getItem('userType')
+        });
       }
-      // success toast (green)
-      toast({ title: "Signed in", description: "Welcome back!", variant: "success" });
+      // Validate vendorId was stored
+      const storedVendorId = localStorage.getItem('vendorId');
+      const storedUserType = localStorage.getItem('userType');
+      const userName = res.name || res.vendor?.name || res.username || formData.username;
+      
+      if (!storedVendorId) {
+        console.warn('⚠️ Warning: Vendor ID not found after login. Chat may not work.');
+        toast({ 
+          title: "Login Warning", 
+          description: "Vendor ID missing. Some features may not work. Contact support.", 
+          variant: "destructive" 
+        });
+      }
+      
+      // Play success sound
+      try {
+        const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBTGH0fPTgjMGHm7A7+OZSA0PVKzn77BdGAg+mdr0xnMoBSuAzPLaizsIGGS67OihUBELTKXh8bllHAU2jtX0zoU1Bhxqvu7mnEoODlKq5O+zYBoGPJPY88p1KwYuhM3y3YU2Bhdo');
+        audio.volume = 0.3;
+        audio.play().catch(() => {}); // Ignore if audio play fails
+      } catch (e) {}
+      
+      // Show success notification with user info
+      toast({ 
+        title: `Welcome back, ${userName}! 👋`, 
+        description: `Logged in as ${storedUserType || 'Vendor'}. You're all set!`,
+        variant: "success",
+        duration: 4000,
+      });
+      
+      // Show browser notification
+      if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification('Login Successful', {
+          body: `Welcome back, ${userName}!`,
+          icon: '/favicon.ico',
+          badge: '/favicon.ico',
+        });
+      }
+      // Always navigate to dashboard after successful login
       navigate("/dashboard");
     } catch (err: any) {
       const msg: string = (err?.message || "").toString();
@@ -123,7 +195,7 @@ export default function Login() {
                 </div>
               </div>
 
-              <div className="flex items-center justify-between text-sm">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-sm">
                 <button
                   type="button"
                   onClick={() => navigate("/forgot-username")}

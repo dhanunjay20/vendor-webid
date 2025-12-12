@@ -1,113 +1,203 @@
-import { useState, useMemo } from "react";
-import { Eye, MessageSquare, CheckCircle, Clock, Package, Truck, CheckCheck, Search, X } from "lucide-react";
+import { useState, useMemo, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { Eye, MessageSquare, CheckCircle, Clock, Package, Truck, CheckCheck, Search, X, Calendar, Users, MapPin, DollarSign, Filter } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import OrderDetailModal from "@/components/OrderDetailModal";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { toast } from "@/hooks/use-toast";
+import * as api from "@/lib/api";
+import { useNotifications } from "@/contexts/NotificationContext";
 
-const orders = [
-  {
-    id: "ORD-1001",
-    client: "Sarah Chen",
-    event: "Corporate Gala",
-    date: "2024-03-20",
-    guests: 150,
-    status: "confirmed",
-    amount: "$6,200",
-    bidId: "BID-002",
-  },
-  {
-    id: "ORD-1002",
-    client: "Mike Johnson",
-    event: "Wedding Reception",
-    date: "2024-04-10",
-    guests: 200,
-    status: "preparing",
-    amount: "$9,500",
-    bidId: "BID-005",
-  },
-  {
-    id: "ORD-1003",
-    client: "Lisa Martinez",
-    event: "Birthday Celebration",
-    date: "2024-03-18",
-    guests: 80,
-    status: "in-transit",
-    amount: "$3,800",
-    bidId: "BID-008",
-  },
-  {
-    id: "ORD-1004",
-    client: "David Lee",
-    event: "Anniversary Dinner",
-    date: "2024-03-15",
-    guests: 120,
-    status: "delivered",
-    amount: "$5,400",
-    bidId: "BID-011",
-  },
-];
+interface MenuItem {
+  itemName: string;
+  quantity: number;
+  pricePerUnit: number;
+  totalPrice: number;
+}
+
+interface Order {
+  id: string;
+  customerId: string;
+  vendorOrganizationId: string;
+  eventName: string;
+  eventDate: string;
+  eventLocation: string;
+  guestCount: number;
+  menuItems: MenuItem[];
+  status: string;
+  totalPrice: number;
+  createdAt: string;
+  updatedAt: string;
+  userName?: string;
+  customerName?: string;
+  userPhone?: string;
+  customerPhone?: string;
+}
 
 const statusConfig = {
+  pending: {
+    label: "Pending",
+    icon: Clock,
+    className: "bg-yellow-500/10 text-yellow-600 border-yellow-500/20",
+  },
   confirmed: {
     label: "Confirmed",
     icon: CheckCircle,
     className: "bg-blue-500/10 text-blue-600 border-blue-500/20",
   },
-  preparing: {
-    label: "Preparing",
+  in_progress: {
+    label: "In Progress",
     icon: Package,
     className: "bg-orange-500/10 text-orange-600 border-orange-500/20",
   },
-  "in-transit": {
-    label: "In Transit",
-    icon: Truck,
-    className: "bg-purple-500/10 text-purple-600 border-purple-500/20",
-  },
-  delivered: {
-    label: "Delivered",
+  completed: {
+    label: "Completed",
     icon: CheckCheck,
     className: "bg-green-500/10 text-green-600 border-green-500/20",
+  },
+  cancelled: {
+    label: "Cancelled",
+    icon: X,
+    className: "bg-red-500/10 text-red-600 border-red-500/20",
   },
 };
 
 export default function Orders() {
+  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeTab, setActiveTab] = useState("all");
-  const [selectedOrder, setSelectedOrder] = useState<typeof orders[0] | null>(null);
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadingDetail, setLoadingDetail] = useState(false);
+  
+  // Use notification context to listen for real-time order updates
+  const { orderNotifications } = useNotifications();
+
+  const vendorOrgId = localStorage.getItem("vendorOrganizationId") || "";
+
+  useEffect(() => {
+    loadOrders();
+    
+    // Set up polling for real-time updates every 30 seconds (as backup)
+    const pollInterval = setInterval(() => {
+      loadOrders();
+    }, 30000);
+    
+    return () => clearInterval(pollInterval);
+  }, []);
+  
+  // Listen for real-time order notifications and refresh the list
+  useEffect(() => {
+    if (orderNotifications.length > 0) {
+      console.log("🔄 Order notification received, refreshing orders list");
+      loadOrders();
+    }
+  }, [orderNotifications]);
+
+  const handleViewOrder = async (order: Order) => {
+    try {
+      setLoadingDetail(true);
+      const fullOrder = await api.getOrderById(vendorOrgId, order.id);
+      setSelectedOrder(fullOrder);
+    } catch (err: any) {
+      toast({
+        title: "Failed to load order details",
+        description: err?.message || "Please try again",
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingDetail(false);
+    }
+  };
+
+  const handleOpenChat = (customerId: string, customerName?: string) => {
+    // Navigate to messaging page with customer MongoDB _id as a query parameter
+    // customerId should be the MongoDB ObjectId from the users collection
+    navigate(`/dashboard/messaging?userId=${customerId}&userName=${encodeURIComponent(customerName || 'Customer')}`);
+  };
+
+  const loadOrders = async () => {
+    if (!vendorOrgId) {
+      toast({
+        title: "Error",
+        description: "Vendor organization ID not found. Please log in again.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const data = await api.getOrdersByVendor(vendorOrgId);
+      console.log("Orders API response:", data);
+      setOrders(data || []);
+    } catch (err: any) {
+      console.error("Orders API error:", err);
+      toast({
+        title: "Failed to load orders",
+        description: err?.message || "Please try again later",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUpdateStatus = async (orderId: string, newStatus: string) => {
+    if (!vendorOrgId) return;
+
+    try {
+      await api.updateOrderStatus(vendorOrgId, orderId, newStatus);
+      toast({
+        title: "Status Updated",
+        description: `Order ${orderId} status updated to ${newStatus}`,
+      });
+      loadOrders(); // Refresh the list
+    } catch (err: any) {
+      toast({
+        title: "Failed to update status",
+        description: err?.message || "Please try again",
+        variant: "destructive",
+      });
+    }
+  };
 
   const filteredOrders = useMemo(() => {
     return orders.filter((order) => {
       const matchesSearch = 
-        order.client.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        order.event.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        order.customerId.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        order.eventName.toLowerCase().includes(searchQuery.toLowerCase()) ||
         order.id.toLowerCase().includes(searchQuery.toLowerCase());
       
-      const matchesTab = activeTab === "all" || order.status === activeTab;
+      const matchesStatus = statusFilter === "all" || order.status === statusFilter;
       
-      return matchesSearch && matchesTab;
+      return matchesSearch && matchesStatus;
     });
-  }, [searchQuery, activeTab]);
+  }, [orders, searchQuery, statusFilter]);
 
   return (
-    <div className="container py-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-foreground">Order Management</h1>
-        <p className="text-muted-foreground">Track and manage your accepted catering orders</p>
+    <div className="container px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+      <div className="mb-6 sm:mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Order Management</h1>
+          <p className="text-sm sm:text-base text-muted-foreground">Track and manage your accepted catering orders</p>
+        </div>
+        <div className="flex gap-2">
+          <Badge variant="outline" className="text-sm">
+            {orders.length} Total Orders
+          </Badge>
+          <Badge variant="outline" className="text-sm bg-green-500/10 text-green-600 border-green-500/20">
+            {orders.filter(o => o.status === "completed").length} Completed
+          </Badge>
+        </div>
       </div>
 
-      <div className="mb-6">
-        <div className="relative">
+      <div className="mb-6 flex flex-col sm:flex-row gap-4">
+        <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input 
             placeholder="Search by client, event, or order ID..." 
@@ -126,163 +216,157 @@ export default function Orders() {
             </Button>
           )}
         </div>
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="w-full sm:w-[180px]">
+            <div className="flex items-center gap-2">
+              <Filter className="h-4 w-4" />
+              <SelectValue placeholder="Filter by status" />
+            </div>
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Status</SelectItem>
+            <SelectItem value="pending">Pending</SelectItem>
+            <SelectItem value="confirmed">Confirmed</SelectItem>
+            <SelectItem value="in_progress">In Progress</SelectItem>
+            <SelectItem value="completed">Completed</SelectItem>
+            <SelectItem value="delivered">Delivered</SelectItem>
+            <SelectItem value="cancelled">Cancelled</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList>
-          <TabsTrigger value="all">All Orders</TabsTrigger>
-          <TabsTrigger value="confirmed">Confirmed</TabsTrigger>
-          <TabsTrigger value="preparing">Preparing</TabsTrigger>
-          <TabsTrigger value="in-transit">In Transit</TabsTrigger>
-          <TabsTrigger value="delivered">Delivered</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="all" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>All Orders</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Order ID</TableHead>
-                    <TableHead>Client</TableHead>
-                    <TableHead>Event</TableHead>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Guests</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Amount</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredOrders.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                        No orders found matching your criteria
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    filteredOrders.map((order) => {
-                    const StatusIcon = statusConfig[order.status as keyof typeof statusConfig].icon;
-                    return (
-                      <TableRow key={order.id}>
-                        <TableCell className="font-medium">{order.id}</TableCell>
-                        <TableCell>{order.client}</TableCell>
-                        <TableCell>{order.event}</TableCell>
-                        <TableCell>{order.date}</TableCell>
-                        <TableCell>{order.guests}</TableCell>
-                        <TableCell>
-                          <Badge
-                            className={statusConfig[order.status as keyof typeof statusConfig].className}
-                          >
-                            <StatusIcon className="mr-1 h-3 w-3" />
-                            {statusConfig[order.status as keyof typeof statusConfig].label}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="font-semibold text-primary">{order.amount}</TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex justify-end gap-2">
-                            <Button 
-                              variant="ghost" 
-                              size="icon"
-                              onClick={() => setSelectedOrder(order)}
-                            >
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                            <Button variant="ghost" size="icon">
-                              <MessageSquare className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    );
-                    })
-                  )}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {Object.keys(statusConfig).map((status) => (
-          <TabsContent key={status} value={status}>
+      {loading ? (
+        <Card>
+          <CardContent className="py-12 text-center">
+            <p className="text-muted-foreground">Loading orders...</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid gap-6">
+          {filteredOrders.length === 0 ? (
             <Card>
-              <CardHeader>
-                <CardTitle>
-                  {statusConfig[status as keyof typeof statusConfig].label} Orders
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Order ID</TableHead>
-                      <TableHead>Client</TableHead>
-                      <TableHead>Event</TableHead>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Guests</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Amount</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredOrders.filter(o => o.status === status).length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                          No {statusConfig[status as keyof typeof statusConfig].label.toLowerCase()} orders
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      filteredOrders.filter(o => o.status === status).map((order) => {
-                        const StatusIcon = statusConfig[order.status as keyof typeof statusConfig].icon;
-                        return (
-                          <TableRow key={order.id}>
-                            <TableCell className="font-medium">{order.id}</TableCell>
-                            <TableCell>{order.client}</TableCell>
-                            <TableCell>{order.event}</TableCell>
-                            <TableCell>{order.date}</TableCell>
-                            <TableCell>{order.guests}</TableCell>
-                            <TableCell>
-                              <Badge className={statusConfig[order.status as keyof typeof statusConfig].className}>
-                                <StatusIcon className="mr-1 h-3 w-3" />
-                                {statusConfig[order.status as keyof typeof statusConfig].label}
-                              </Badge>
-                            </TableCell>
-                            <TableCell className="font-semibold text-primary">{order.amount}</TableCell>
-                            <TableCell className="text-right">
-                              <div className="flex justify-end gap-2">
-                                <Button 
-                                  variant="ghost" 
-                                  size="icon"
-                                  onClick={() => setSelectedOrder(order)}
-                                >
-                                  <Eye className="h-4 w-4" />
-                                </Button>
-                                <Button variant="ghost" size="icon">
-                                  <MessageSquare className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })
-                    )}
-                  </TableBody>
-                </Table>
+              <CardContent className="py-12 text-center">
+                <p className="text-muted-foreground">No orders found matching your criteria</p>
               </CardContent>
             </Card>
-          </TabsContent>
-        ))}
-      </Tabs>
+          ) : (
+            filteredOrders.map((order) => {
+              const StatusIcon = statusConfig[order.status as keyof typeof statusConfig]?.icon || Clock;
 
-      <OrderDetailModal 
-        order={selectedOrder}
-        open={!!selectedOrder}
-        onOpenChange={(open) => !open && setSelectedOrder(null)}
-      />
+              // Determine allowed status options and whether the select should be enabled
+              const allOptions = ["pending", "confirmed", "in_progress", "completed", "cancelled"];
+              let allowedOptions: string[] = [];
+              let canChange = false;
+
+              if (order.status === "pending") {
+                // When pending, do not allow changes until admin confirms
+                allowedOptions = [order.status];
+                canChange = false;
+              } else {
+                // For all other statuses (confirmed, in_progress, etc.), allow full status updates
+                allowedOptions = allOptions;
+                canChange = true;
+              }
+
+              return (
+                <Card key={order.id} className="overflow-hidden transition-smooth hover:shadow-lg">
+                  <CardHeader className="bg-gradient-card pb-4">
+                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                      <div className="flex-1">
+                        <CardTitle className="text-xl mb-2">{order.eventName}</CardTitle>
+                        <p className="text-sm text-muted-foreground">Order ID: {order.id}</p>
+                      </div>
+                      <Badge className={statusConfig[order.status as keyof typeof statusConfig]?.className || ""}>
+                        <StatusIcon className="mr-1 h-3 w-3" />
+                        {statusConfig[order.status as keyof typeof statusConfig]?.label || order.status}
+                      </Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="pt-6">
+                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-6">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-blue-500/10 rounded-lg">
+                          <Calendar className="h-4 w-4 text-blue-600" />
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">Event Date</p>
+                          <p className="font-medium">{new Date(order.eventDate).toLocaleDateString()}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-purple-500/10 rounded-lg">
+                          <Users className="h-4 w-4 text-purple-600" />
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">Guest Count</p>
+                          <p className="font-medium">{order.guestCount} guests</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-orange-500/10 rounded-lg">
+                          <MapPin className="h-4 w-4 text-orange-600" />
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">Location</p>
+                          <p className="font-medium truncate" title={order.eventLocation}>
+                            {order.eventLocation}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-green-500/10 rounded-lg">
+                          <DollarSign className="h-4 w-4 text-green-600" />
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">Total Amount</p>
+                          <p className="text-lg font-bold text-primary">${order.totalPrice.toFixed(2)}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row gap-2 pt-4 border-t">
+                      <Button 
+                        onClick={() => handleViewOrder(order)}
+                        disabled={loadingDetail}
+                        className="flex-1"
+                      >
+                        <Eye className="mr-2 h-4 w-4" />
+                        View Details
+                      </Button>
+                      <Select value={order.status} onValueChange={(newStatus) => handleUpdateStatus(order.id, newStatus)} disabled={!canChange}>
+                        <SelectTrigger className={`flex-1 ${!canChange ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                          <SelectValue placeholder="Update Status" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {allowedOptions.map((s) => (
+                            <SelectItem key={s} value={s}>{statusConfig[s as keyof typeof statusConfig]?.label || s}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Button 
+                        variant="outline" 
+                        size="icon"
+                        onClick={() => handleOpenChat(order.customerId, order.customerName || order.userName)}
+                        title="Message Customer"
+                      >
+                        <MessageSquare className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })
+          )}
+        </div>
+      )}
+
+      {selectedOrder && (
+        <OrderDetailModal 
+          order={selectedOrder}
+          open={!!selectedOrder}
+          onOpenChange={(open) => !open && setSelectedOrder(null)}
+        />
+      )}
     </div>
   );
 }

@@ -84,16 +84,30 @@ export async function registerUser(payload: any) {
     }
 
     if (!vendorPayload.vendorOrganizationId) {
-      const bizPart = firstTwoLettersPerWord(payload.businessName || payload.businessName || "");
-      const ownerPart = firstTwoLettersPerWord(payload.contactName || payload.ownerName || `${payload.firstName || ""} ${payload.lastName || ""}`);
+      const bizPart = firstTwoLettersPerWord(payload.businessName || "").toUpperCase();
+      const ownerPart = firstTwoLettersPerWord(payload.ownerName || `${payload.firstName || ""} ${payload.lastName || ""}`).toUpperCase();
+      
+      // Use hash-based algorithm (same as frontend) for consistent ID generation
+      const seedStr = (payload.businessName || "") + "|" + (payload.ownerName || `${payload.firstName || ""} ${payload.lastName || ""}`);
+      let hash = 0;
+      for (let i = 0; i < seedStr.length; i++) {
+        hash = (hash << 5) - hash + seedStr.charCodeAt(i);
+        hash |= 0;
+      }
+      
       const minDigits = 4;
       const maxDigits = 9;
-      const digits = Math.floor(Math.random() * (maxDigits - minDigits + 1)) + minDigits;
+      const digitsCount = Math.abs(hash) % (maxDigits - minDigits + 1) + minDigits;
       let rand = "";
-      for (let i = 0; i < digits; i++) rand += Math.floor(Math.random() * 10).toString();
+      let h = Math.abs(hash) || 1;
+      for (let i = 0; i < digitsCount; i++) {
+        rand += String(h % 10);
+        h = Math.floor(h / 10) || (h + 7);
+      }
+      
       const parts = [] as string[];
-      if (bizPart) parts.push(bizPart.toUpperCase());
-      if (ownerPart) parts.push(ownerPart.toUpperCase());
+      if (bizPart) parts.push(bizPart);
+      if (ownerPart) parts.push(ownerPart);
       parts.push(rand);
       vendorPayload.vendorOrganizationId = parts.join("-");
     }
@@ -204,6 +218,462 @@ export async function loginVendor(payload: any) {
   }
 }
 
+// Get vendor profile by organization ID
+export async function getVendorProfile(vendorOrganizationId: string) {
+  try {
+    const url = buildUrl(`/api/vendor/org/${vendorOrganizationId}`);
+    const token = localStorage.getItem("authToken");
+    const headers: any = { "Content-Type": "application/json" };
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+    const res = await axios.get(url, { headers });
+    return res.data;
+  } catch (err: any) {
+    const { message, status } = extractError(err);
+    console.error("getVendorProfile error", err);
+    throw { message, status } as ApiError;
+  }
+}
+
+// Update vendor profile
+export async function updateVendorProfile(vendorId: string, payload: any) {
+  try {
+    const url = buildUrl(`/api/vendor/${vendorId}`);
+    const token = localStorage.getItem("authToken");
+    const headers: any = { "Content-Type": "application/json" };
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+    const res = await axios.put(url, payload, { headers });
+    return res.data;
+  } catch (err: any) {
+    const { message, status } = extractError(err);
+    console.error("updateVendorProfile error", err);
+    throw { message, status } as ApiError;
+  }
+}
+
+// Service Details endpoints
+export async function createOrUpdateServiceDetails(vendorId: string, payload: any) {
+  try {
+    const url = buildUrl(`/api/service-details/${vendorId}`);
+    const token = localStorage.getItem("authToken");
+    const headers: any = { "Content-Type": "application/json" };
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+    // Log payload for debugging
+    console.log('Service Details Payload:', payload);
+    const res = await axios.post(url, payload, { headers });
+    console.log('Service Details Response:', res.data);
+    return res.data;
+  } catch (err: any) {
+    const { message, status } = extractError(err);
+    console.error("createOrUpdateServiceDetails error", err);
+    console.error("Error details:", err.response?.data || err.message);
+    throw { message, status } as ApiError;
+  }
+}
+
+export async function getServiceDetailsByVendorId(vendorId: string) {
+  try {
+    const url = buildUrl(`/api/service-details/vendor/${vendorId}`);
+    const token = localStorage.getItem("authToken");
+    const headers: any = {};
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+    const res = await axios.get(url, { headers });
+    return res.data;
+  } catch (err: any) {
+    const { message, status } = extractError(err);
+    console.error("getServiceDetailsByVendorId error", err);
+    throw { message, status } as ApiError;
+  }
+}
+
+export async function getServiceDetailsByVendorOrgId(vendorOrgId: string) {
+  try {
+    const url = buildUrl(`/api/service-details/org/${vendorOrgId}`);
+    const token = localStorage.getItem("authToken");
+    const headers: any = {};
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+    const res = await axios.get(url, { headers });
+    return res.data;
+  } catch (err: any) {
+    const { message, status } = extractError(err);
+    console.error("getServiceDetailsByVendorOrgId error", err);
+    throw { message, status } as ApiError;
+  }
+}
+
+export async function searchServicesByServiceType(serviceType: string) {
+  try {
+    const url = buildUrl(`/api/service-details/search/service-type`);
+    const res = await axios.get(url, { params: { type: serviceType } });
+    return res.data;
+  } catch (err: any) {
+    const { message, status } = extractError(err);
+    console.error("searchServicesByServiceType error", err);
+    throw { message, status } as ApiError;
+  }
+}
+
+export async function searchServicesByCuisine(cuisine: string) {
+  try {
+    const url = buildUrl(`/api/service-details/search/cuisine`);
+    const res = await axios.get(url, { params: { cuisine } });
+    return res.data;
+  } catch (err: any) {
+    const { message, status } = extractError(err);
+    console.error("searchServicesByCuisine error", err);
+    throw { message, status } as ApiError;
+  }
+}
+
+export async function searchServicesByArea(area: string) {
+  try {
+    const url = buildUrl(`/api/service-details/search/area`);
+    const res = await axios.get(url, { params: { area } });
+    return res.data;
+  } catch (err: any) {
+    const { message, status } = extractError(err);
+    console.error("searchServicesByArea error", err);
+    throw { message, status } as ApiError;
+  }
+}
+
+export async function deleteServiceDetails(vendorId: string) {
+  try {
+    const url = buildUrl(`/api/service-details/vendor/${vendorId}`);
+    const token = localStorage.getItem("authToken");
+    const headers: any = {};
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+    const res = await axios.delete(url, { headers });
+    return res.data;
+  } catch (err: any) {
+    const { message, status } = extractError(err);
+    console.error("deleteServiceDetails error", err);
+    throw { message, status } as ApiError;
+  }
+}
+
+// Menu item endpoints
+export async function getMenuItems(vendorOrganizationId: string) {
+  try {
+    const url = buildUrl(`/api/vendor/${vendorOrganizationId}/menu`);
+    const token = localStorage.getItem("authToken");
+    const tokenType = localStorage.getItem("tokenType") || "Bearer";
+    const res = await axios.get(url, { headers: token ? { Authorization: `${tokenType} ${token}` } : undefined });
+    return res.data;
+  } catch (err: any) {
+    const { message, status } = extractError(err);
+    console.error("getMenuItems error", err);
+    throw { message, status } as ApiError;
+  }
+}
+
+// Bid endpoints
+export async function getBidsByVendor(vendorOrgId: string) {
+  try {
+    const url = buildUrl(`/api/vendor/${vendorOrgId}/bids`);
+    const res = await axios.get(url);
+    return res.data;
+  } catch (err: any) {
+    const { message, status } = extractError(err);
+    console.error("getBidsByVendor error", err);
+    throw { message, status } as ApiError;
+  }
+}
+
+export async function getBidById(vendorOrgId: string, bidId: string) {
+  try {
+    const url = buildUrl(`/api/vendor/${vendorOrgId}/bids/${bidId}`);
+    const res = await axios.get(url);
+    return res.data;
+  } catch (err: any) {
+    const { message, status } = extractError(err);
+    console.error("getBidById error", err);
+    throw { message, status } as ApiError;
+  }
+}
+
+export async function createMenuItem(vendorOrganizationId: string, payload: any) {
+  try {
+    const url = buildUrl(`/api/vendor/${vendorOrganizationId}/menu`);
+    const token = localStorage.getItem("authToken");
+    const tokenType = localStorage.getItem("tokenType") || "Bearer";
+    const res = await axios.post(url, payload, { headers: { "Content-Type": "application/json", ...(token ? { Authorization: `${tokenType} ${token}` } : {}) } });
+    return res.data;
+  } catch (err: any) {
+    const { message, status } = extractError(err);
+    console.error("createMenuItem error", err);
+    throw { message, status } as ApiError;
+  }
+}
+
+export async function submitBidQuote(vendorOrgId: string, bidId: string, payload: { orderId: string; proposedMessage: string; proposedTotalPrice: number; }) {
+  try {
+    const url = buildUrl(`/api/vendor/${vendorOrgId}/bids/${bidId}/quote`);
+    const res = await axios.put(url, payload, { headers: { "Content-Type": "application/json" } });
+    return res.data;
+  } catch (err: any) {
+    const { message, status } = extractError(err);
+    console.error("submitBidQuote error", err);
+    throw { message, status } as ApiError;
+  }
+}
+
+export async function updateMenuItem(vendorOrganizationId: string, id: string, payload: any) {
+  try {
+    const url = buildUrl(`/api/vendor/${vendorOrganizationId}/menu/${id}`);
+    const token = localStorage.getItem("authToken");
+    const tokenType = localStorage.getItem("tokenType") || "Bearer";
+    const res = await axios.put(url, payload, { headers: { "Content-Type": "application/json", ...(token ? { Authorization: `${tokenType} ${token}` } : {}) } });
+    return res.data;
+  } catch (err: any) {
+    const { message, status } = extractError(err);
+    console.error("updateMenuItem error", err);
+    throw { message, status } as ApiError;
+  }
+}
+
+export async function acceptBid(vendorOrgId: string, bidId: string) {
+  try {
+    const url = buildUrl(`/api/vendor/${vendorOrgId}/bids/${bidId}/accept`);
+    const token = localStorage.getItem("authToken");
+    const tokenType = localStorage.getItem("tokenType") || "Bearer";
+    const res = await axios.put(url, undefined, { headers: token ? { Authorization: `${tokenType} ${token}` } : undefined });
+    return res.data;
+  } catch (err: any) {
+    const { message, status } = extractError(err);
+    console.error("acceptBid error", err);
+    throw { message, status } as ApiError;
+  }
+}
+
+export async function deleteMenuItem(vendorOrganizationId: string, id: string) {
+
+  try {
+    const url = buildUrl(`/api/vendor/${vendorOrganizationId}/menu/${id}`);
+    const token = localStorage.getItem("authToken");
+    const tokenType = localStorage.getItem("tokenType") || "Bearer";
+    const res = await axios.delete(url, { headers: token ? { Authorization: `${tokenType} ${token}` } : undefined });
+    return res.data;
+  } catch (err: any) {
+    const { message, status } = extractError(err);
+    console.error("deleteMenuItem error", err);
+    throw { message, status } as ApiError;
+  }
+}
+
+// Order endpoints
+export async function getOrdersByVendor(vendorOrgId: string) {
+  try {
+    const url = buildUrl(`/api/vendor/${vendorOrgId}/orders`);
+    const res = await axios.get(url);
+    return res.data;
+  } catch (err: any) {
+    const { message, status } = extractError(err);
+    console.error("getOrdersByVendor error", err);
+    throw { message, status } as ApiError;
+  }
+}
+
+export async function getOrderById(vendorOrgId: string, orderId: string) {
+  try {
+    // Use the detailed endpoint that includes full menu item information
+    const url = buildUrl(`/api/vendor/${vendorOrgId}/orders/${orderId}/details`);
+    const token = localStorage.getItem("authToken");
+    const tokenType = localStorage.getItem("tokenType") || "Bearer";
+    const headers: Record<string, string> = { Accept: "application/json" };
+    if (token) headers["Authorization"] = `${tokenType} ${token}`;
+      if (!vendorOrgId) {
+        console.warn("getOrderById called without vendorOrgId");
+      }
+      if (!orderId) {
+        console.warn("getOrderById called without orderId");
+      }
+
+      // Ensure path params are encoded
+      const encVendor = encodeURIComponent(vendorOrgId || "");
+      const encOrder = encodeURIComponent(orderId || "");
+      const finalUrl = buildUrl(`/api/vendor/${encVendor}/orders/${encOrder}/details`);
+      console.debug("getOrderById requesting URL:", finalUrl);
+
+      // Request raw text so we can handle JSON or XML responses robustly
+      const res = await axios.get(finalUrl, { headers, responseType: "text" });
+    const dataText = res.data as string;
+    console.debug("getOrderById response content-type:", res.headers && res.headers["content-type"]);
+
+    // First try JSON
+    try {
+      const parsedJson = JSON.parse(dataText);
+      // Normalize possible wrapper shape: menuItems -> [{ menuItem: {...}, menuItemId, specialRequest }, ...]
+      if (parsedJson && Array.isArray(parsedJson.menuItems) && parsedJson.menuItems.length > 0 && parsedJson.menuItems[0].menuItem) {
+        parsedJson.menuItems = parsedJson.menuItems.map((w: any) => ({ ...(w.menuItem || {}), menuItemId: w.menuItemId, specialRequest: w.specialRequest }));
+      }
+      return parsedJson;
+    } catch (jsonErr) {
+      // Not JSON - try XML
+    }
+
+    const xml = dataText && dataText.trim();
+    if (!xml) return {};
+
+    try {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(xml, "application/xml");
+      const root = doc.documentElement;
+
+      function getText(tag: string, parent: Element = root) {
+        const el = parent.getElementsByTagName(tag)[0];
+        return el ? el.textContent || "" : "";
+      }
+
+      // parse menu items wrapper
+      const menuItemsRoot = root.getElementsByTagName("menuItems")[0];
+      const wrappers: any[] = [];
+      if (menuItemsRoot) {
+        const wrapperNodes = Array.from(menuItemsRoot.childNodes).filter(n => n.nodeType === 1 && (n as Element).tagName === "menuItems") as Element[];
+        for (const w of wrapperNodes) {
+          const menuItemId = getText("menuItemId", w) || undefined;
+          const specialRequest = getText("specialRequest", w) || undefined;
+          const menuItemEl = w.getElementsByTagName("menuItem")[0];
+          const menuItem: any = {};
+          if (menuItemEl) {
+            menuItem.id = getText("id", menuItemEl) || undefined;
+            menuItem.vendorOrganizationId = getText("vendorOrganizationId", menuItemEl) || undefined;
+            menuItem.name = getText("name", menuItemEl) || undefined;
+            menuItem.description = getText("description", menuItemEl) || undefined;
+
+            // images
+            const imagesParent = menuItemEl.getElementsByTagName("images")[0];
+            if (imagesParent) {
+              const imgs = Array.from(imagesParent.getElementsByTagName("images")).map(i => i.textContent || "").filter(Boolean);
+              menuItem.images = imgs;
+            } else {
+              menuItem.images = [];
+            }
+
+            menuItem.category = getText("category", menuItemEl) || undefined;
+            menuItem.subCategory = getText("subCategory", menuItemEl) || undefined;
+
+            // ingredients
+            const ingredientsParent = menuItemEl.getElementsByTagName("ingredients")[0];
+            if (ingredientsParent) {
+              const ings = Array.from(ingredientsParent.getElementsByTagName("ingredients")).map(i => i.textContent || "").filter(Boolean);
+              menuItem.ingredients = ings;
+            } else {
+              menuItem.ingredients = [];
+            }
+
+            // spiceLevels
+            const spiceParent = menuItemEl.getElementsByTagName("spiceLevels")[0];
+            if (spiceParent) {
+              const s = Array.from(spiceParent.getElementsByTagName("spiceLevels")).map(i => i.textContent || "").filter(Boolean);
+              menuItem.spiceLevels = s;
+            } else {
+              menuItem.spiceLevels = [];
+            }
+
+            const availText = getText("available", menuItemEl);
+            menuItem.available = availText === "true" || availText === "1";
+          }
+
+          wrappers.push({ menuItemId, specialRequest, menuItem });
+        }
+      }
+
+      const parsed: any = {
+        id: getText("id"),
+        customerId: getText("customerId"),
+        userName: getText("userName"),
+        userEmail: getText("userEmail"),
+        userPhone: getText("userPhone"),
+        vendorOrganizationId: getText("vendorOrganizationId"),
+        vendorBusinessName: getText("vendorBusinessName"),
+        vendorEmail: getText("vendorEmail"),
+        vendorPhone: getText("vendorPhone"),
+        eventName: getText("eventName"),
+        eventDate: getText("eventDate"),
+        eventLocation: getText("eventLocation"),
+        guestCount: parseInt(getText("guestCount")) || 0,
+        // flatten wrappers to match frontend expected shape: each item is the menuItem with menuItemId and specialRequest
+        menuItems: wrappers.map(w => ({ ...(w.menuItem || {}), menuItemId: w.menuItemId, specialRequest: w.specialRequest })),
+        status: getText("status"),
+        totalPrice: parseFloat(getText("totalPrice")) || 0,
+        createdAt: getText("createdAt"),
+        updatedAt: getText("updatedAt"),
+      };
+
+      return parsed;
+    } catch (e) {
+      console.error("XML parse error for order details", e);
+      return {};
+    }
+  } catch (err: any) {
+    const { message, status } = extractError(err);
+    console.error("getOrderById error", err);
+    throw { message, status } as ApiError;
+  }
+}
+
+export async function updateOrderStatus(vendorOrgId: string, orderId: string, status: string) {
+  try {
+    const url = buildUrl(`/api/vendor/${vendorOrgId}/orders/${orderId}/status?status=${encodeURIComponent(status)}`);
+    const res = await axios.put(url);
+    return res.data;
+  } catch (err: any) {
+    const { message, status: errStatus } = extractError(err);
+    console.error("updateOrderStatus error", err);
+    throw { message, status: errStatus } as ApiError;
+  }
+}
+
+// Notification endpoints
+export async function getVendorNotifications(vendorOrgId: string) {
+  try {
+    const url = buildUrl(`/api/notifications/vendor/${vendorOrgId}`);
+    const res = await axios.get(url);
+    return res.data;
+  } catch (err: any) {
+    const { message, status } = extractError(err);
+    console.error("getVendorNotifications error", err);
+    throw { message, status } as ApiError;
+  }
+}
+
+// Reviews
+export async function getVendorReviews(vendorOrgId: string) {
+  try {
+    const url = buildUrl(`/api/vendor/${vendorOrgId}/review`);
+    const res = await axios.get(url);
+    return res.data;
+  } catch (err: any) {
+    const { message, status } = extractError(err);
+    console.error("getVendorReviews error", err);
+    throw { message, status } as ApiError;
+  }
+}
+
+export async function markNotificationAsRead(notificationId: string) {
+  try {
+    const url = buildUrl(`/api/notifications/${notificationId}/read`);
+    const res = await axios.put(url);
+    return res.data;
+  } catch (err: any) {
+    const { message, status } = extractError(err);
+    console.error("markNotificationAsRead error", err);
+    throw { message, status } as ApiError;
+  }
+}
+
 export default {
   registerUser,
   login,
@@ -212,5 +682,24 @@ export default {
   resetPassword,
   registerVendor,
   loginVendor,
+  getVendorProfile,
+  updateVendorProfile,
+  createOrUpdateServiceDetails,
+  getServiceDetailsByVendorId,
+  getServiceDetailsByVendorOrgId,
+  searchServicesByServiceType,
+  searchServicesByCuisine,
+  searchServicesByArea,
+  deleteServiceDetails,
+  getMenuItems,
+  createMenuItem,
+  updateMenuItem,
+  deleteMenuItem,
+  getBidsByVendor,
+  submitBidQuote,
+  acceptBid,
+  getOrdersByVendor,
+  updateOrderStatus,
+  getVendorNotifications,
+  markNotificationAsRead,
 };
-

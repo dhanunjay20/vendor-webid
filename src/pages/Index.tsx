@@ -12,17 +12,17 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-background">
       {/* Hero Banner */}
-      <div className="relative h-48 w-full overflow-hidden">
+      <div className="relative h-40 sm:h-48 w-full overflow-hidden">
         <img
           src={dashboardHero}
           alt="Dashboard Hero"
           className="h-full w-full object-cover"
         />
         <div className="absolute inset-0 bg-gradient-to-r from-background/90 to-background/50" />
-        <div className="absolute inset-0 flex items-center px-8">
+        <div className="absolute inset-0 flex items-center px-4 sm:px-8">
           <div>
-            <h1 className="text-4xl font-bold text-foreground">Welcome Back!</h1>
-            <p className="mt-2 text-lg text-muted-foreground">
+            <h1 className="text-2xl sm:text-4xl font-bold text-foreground">Welcome Back!</h1>
+            <p className="mt-1 sm:mt-2 text-sm sm:text-lg text-muted-foreground">
               Here's what's happening with your catering business today
             </p>
           </div>
