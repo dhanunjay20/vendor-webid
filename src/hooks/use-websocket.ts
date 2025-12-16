@@ -60,7 +60,10 @@ export function useWebSocket({
   }, []);
 
   const sendTypingStatus = useCallback((recipientId: string, isTyping: boolean) => {
-    webSocketService.sendTypingStatus(recipientId, isTyping);
+    // Infer sender type from local storage (vendor app uses `vendorId`)
+    const vendorId = localStorage.getItem("vendorId");
+    const senderType: 'VENDOR' | 'USER' = vendorId ? 'VENDOR' : 'USER';
+    webSocketService.sendTypingStatus(recipientId, isTyping, senderType);
   }, []);
 
   const sendReadReceipt = useCallback((senderId: string, messageId: string) => {

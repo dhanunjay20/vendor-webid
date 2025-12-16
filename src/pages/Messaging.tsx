@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { useNotifications } from "@/contexts/NotificationContext";
+import { WebSocketDebugPanel } from "@/components/WebSocketDebugPanel";
 import {
   webSocketService,
   ChatMessage as WSChatMessage,
@@ -32,6 +33,7 @@ interface Conversation {
   userId: string;
   status?: "ONLINE" | "OFFLINE" | "AWAY";
   isTyping?: boolean;
+  typingSenderType?: "VENDOR" | "USER" | string;
   timestamp?: string; // For sorting
 }
 
@@ -56,6 +58,12 @@ const Messaging: React.FC = () => {
   const { toast } = useToast();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Per-sender typing timeouts to auto-clear indicators when backend misses a stop event
+  const typingTimeoutsRef = useRef<Record<string, ReturnType<typeof setTimeout> | null>>({});
+
+  // Debug state
+  const [debugEvents, setDebugEvents] = useState<Array<{timestamp: string; type: string; data: any}>>([]);
+  const [debugTypingStates, setDebugTypingStates] = useState<Record<string, boolean>>({});
 
   // Instead of module-level read, read user id into state so the component reacts
   const [currentUserId, setCurrentUserId] = useState<string>(
@@ -191,13 +199,12 @@ const Messaging: React.FC = () => {
 
   // Load chat list on mount and poll every 10 seconds
   useEffect(() => {
+    // Initial load — subsequent updates come from WebSocket events
     loadChatList();
 
-    const pollInterval = setInterval(() => {
-      loadChatList();
-    }, 10000);
-
-    return () => clearInterval(pollInterval);
+    // NOTE: polling removed to avoid frequent backend hits; WebSocket events
+    // (message/typing/status) will trigger `loadChatList` when needed.
+    return () => {};
     // we intentionally do not include currentUserId here to avoid rapid re-creation; loadChatList internally uses currentUserId
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -267,13 +274,70 @@ const Messaging: React.FC = () => {
     };
 
     const handleTypingReceived = (typingStatus: TypingStatus) => {
-      if (selectedConversation && typingStatus.senderId === selectedConversation.userId) {
-        setIsTyping(typingStatus.typing);
+      // Debug logging
+      const debugEvent = {
+        timestamp: new Date().toLocaleTimeString(),
+        type: 'TYPING_RECEIVED',
+        data: { ...typingStatus, currentUserId, matches: typingStatus.recipientId === currentUserId }
+      };
+      setDebugEvents(prev => [...prev, debugEvent]);
+      console.log('🔔 TYPING EVENT RECEIVED:', debugEvent);
+
+      // Only handle typing notifications that are intended for this vendor
+      if (typingStatus.recipientId && typingStatus.recipientId !== currentUserId) {
+        console.warn('⚠️ Typing event ignored - not for this user', { recipientId: typingStatus.recipientId, currentUserId });
+        return;
       }
 
-      setConversationList((prev) =>
-        prev.map((conv) => (conv.userId === typingStatus.senderId ? { ...conv, isTyping: typingStatus.typing } : conv))
-      );
+      const sender = typingStatus.senderId;
+      const senderType = typingStatus.senderType || undefined;
+      const isTypingFlag = typeof (typingStatus as any).isTyping !== 'undefined'
+        ? Boolean((typingStatus as any).isTyping)
+        : Boolean(typingStatus.typing);
+
+      // Clear any previous auto-clear timeout for this sender
+      if (typingTimeoutsRef.current[sender]) {
+        clearTimeout(typingTimeoutsRef.current[sender] as ReturnType<typeof setTimeout>);
+        typingTimeoutsRef.current[sender] = null;
+      }
+
+      if (isTypingFlag) {
+        console.log('✅ Showing typing indicator for:', sender);
+        // Update debug state
+        setDebugTypingStates(prev => ({ ...prev, [sender]: true }));
+
+        // Show typing indicator for this sender
+        if (selectedConversation && sender === selectedConversation.userId) {
+          console.log('✅ Setting isTyping=true for selected conversation');
+          setIsTyping(true);
+          setSelectedConversation((prev) => (prev ? { ...prev, isTyping: true, typingSenderType: senderType } : prev));
+        }
+
+        setConversationList((prev) =>
+          prev.map((conv) => (conv.userId === sender ? { ...conv, isTyping: true, typingSenderType: senderType } : conv))
+        );
+
+        // Auto-clear typing indicator after 4s if no further typing events arrive
+        typingTimeoutsRef.current[sender] = setTimeout(() => {
+          typingTimeoutsRef.current[sender] = null;
+          setConversationList((prev) => prev.map((conv) => (conv.userId === sender ? { ...conv, isTyping: false, typingSenderType: undefined } : conv)));
+          setSelectedConversation((prev) => (prev && prev.userId === sender ? { ...prev, isTyping: false, typingSenderType: undefined } : prev));
+          if (selectedConversation && selectedConversation.userId === sender) {
+            setIsTyping(false);
+          }
+        }, 4000);
+      } else {
+        console.log('🛑 Hiding typing indicator for:', sender);
+        // Update debug state
+        setDebugTypingStates(prev => ({ ...prev, [sender]: false }));
+
+        // Explicit stop typing: clear timeout and hide indicator
+        setConversationList((prev) => prev.map((conv) => (conv.userId === sender ? { ...conv, isTyping: false, typingSenderType: undefined } : conv)));
+        setSelectedConversation((prev) => (prev && prev.userId === sender ? { ...prev, isTyping: false, typingSenderType: undefined } : prev));
+        if (selectedConversation && selectedConversation.userId === sender) {
+          setIsTyping(false);
+        }
+      }
     };
 
     const handleReadReceived = (notification: ChatNotification) => {
@@ -464,14 +528,14 @@ const Messaging: React.FC = () => {
       setMessageText("");
 
       // Stop typing indicator
-      webSocketService.sendTypingStatus(selectedConversation.userId, false);
+      webSocketService.sendTypingStatus(selectedConversation.userId, false, 'VENDOR');
     }
   };
 
   const handleTyping = () => {
     if (!isConnected || !selectedConversation) return;
 
-    webSocketService.sendTypingStatus(selectedConversation.userId, true);
+    webSocketService.sendTypingStatus(selectedConversation.userId, true, 'VENDOR');
 
     if (typingTimeoutRef.current) {
       clearTimeout(typingTimeoutRef.current);
@@ -479,7 +543,7 @@ const Messaging: React.FC = () => {
 
     typingTimeoutRef.current = setTimeout(() => {
       if (selectedConversation) {
-        webSocketService.sendTypingStatus(selectedConversation.userId, false);
+        webSocketService.sendTypingStatus(selectedConversation.userId, false, 'VENDOR');
       }
     }, 3000);
   };
@@ -658,7 +722,11 @@ const Messaging: React.FC = () => {
                   {isTyping && (
                     <div className="flex justify-start">
                       <div className="max-w-[70%] rounded-lg bg-muted p-3">
-                        <p className="text-sm text-muted-foreground italic">typing...</p>
+                        <p className="text-sm text-muted-foreground italic">
+                          {selectedConversation?.typingSenderType === 'VENDOR'
+                            ? `${selectedConversation?.name || 'Vendor'} is typing...`
+                            : `${selectedConversation?.name || 'User'} is typing...`}
+                        </p>
                       </div>
                     </div>
                   )}
@@ -705,6 +773,14 @@ const Messaging: React.FC = () => {
           </Card>
         )}
       </div>
+
+      {/* WebSocket Debug Panel */}
+      <WebSocketDebugPanel
+        isConnected={isConnected}
+        currentUserId={currentUserId}
+        typingStatus={debugTypingStates}
+        events={debugEvents}
+      />
     </div>
   );
 };

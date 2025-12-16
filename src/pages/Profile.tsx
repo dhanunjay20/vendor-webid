@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { LocationTracker } from "@/components/LocationTracker";
 import { toast } from "@/hooks/use-toast";
 import * as api from "@/lib/api";
 
@@ -29,6 +30,11 @@ interface VendorProfile {
   yearsInBusiness?: number;
   aboutBusiness?: string;
   profileUrl?: string;
+  isOnline?: boolean;
+  lastSeenAt?: string;
+  latitude?: number;
+  longitude?: number;
+  lastLocationUpdatedAt?: string;
 }
 
 interface ServiceDetails {
@@ -532,6 +538,17 @@ export default function Profile() {
             </div>
           </CardContent>
         </Card>
+      </div>
+
+      {/* Location Tracking Section */}
+      <div className="mt-6">
+        <LocationTracker 
+          vendorId={vendorProfile?.id || localStorage.getItem("vendorId") || null}
+          currentLatitude={vendorProfile?.latitude}
+          currentLongitude={vendorProfile?.longitude}
+          lastUpdated={vendorProfile?.lastLocationUpdatedAt}
+          onLocationUpdated={fetchData}
+        />
       </div>
     </div>
   );

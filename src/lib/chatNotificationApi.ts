@@ -2,6 +2,29 @@ import axios from 'axios';
 
 const API_BASE_URL = `${import.meta.env.VITE_API_BASE || 'http://localhost:8080'}/api`;
 
+// Create an axios instance that injects Authorization header from localStorage
+const axiosInstance = axios.create({
+  baseURL: API_BASE_URL,
+  timeout: 10000,
+});
+
+axiosInstance.interceptors.request.use((config) => {
+  try {
+    const token =
+      localStorage.getItem('token') ||
+      localStorage.getItem('accessToken') ||
+      localStorage.getItem('idToken') ||
+      localStorage.getItem('jwt');
+    if (token) {
+      config.headers = config.headers || {};
+      config.headers['Authorization'] = `Bearer ${token}`;
+    }
+  } catch (e) {
+    // ignore (e.g., SSR or storage not available)
+  }
+  return config;
+});
+
 /**
  * Chat Notification API Client
  * 
@@ -39,8 +62,8 @@ export const chatNotificationApi = {
    */
   getChatList: async (userId: string): Promise<ChatListItemDto[]> => {
     try {
-      const response = await axios.get<ChatListItemDto[]>(
-        `${API_BASE_URL}/chat-notifications/${userId}/chats`
+      const response = await axiosInstance.get<ChatListItemDto[]>(
+        `/chat-notifications/${userId}/chats`
       );
       return response.data;
     } catch (error) {
@@ -54,8 +77,8 @@ export const chatNotificationApi = {
    */
   getUnreadCount: async (userId: string): Promise<UnreadCountDto> => {
     try {
-      const response = await axios.get<UnreadCountDto>(
-        `${API_BASE_URL}/chat-notifications/${userId}/unread-count`
+      const response = await axiosInstance.get<UnreadCountDto>(
+        `/chat-notifications/${userId}/unread-count`
       );
       return response.data;
     } catch (error) {
@@ -69,8 +92,8 @@ export const chatNotificationApi = {
    */
   markChatAsRead: async (userId: string, otherParticipantId: string): Promise<void> => {
     try {
-      await axios.put(
-        `${API_BASE_URL}/chat-notifications/${userId}/mark-read/${otherParticipantId}`
+      await axiosInstance.put(
+        `/chat-notifications/${userId}/mark-read/${otherParticipantId}`
       );
     } catch (error) {
       console.error('Error marking chat as read:', error);
@@ -83,8 +106,8 @@ export const chatNotificationApi = {
    */
   deleteChat: async (userId: string, otherParticipantId: string): Promise<void> => {
     try {
-      await axios.delete(
-        `${API_BASE_URL}/chat-notifications/${userId}/chats/${otherParticipantId}`
+      await axiosInstance.delete(
+        `/chat-notifications/${userId}/chats/${otherParticipantId}`
       );
     } catch (error) {
       console.error('Error deleting chat:', error);
@@ -97,8 +120,8 @@ export const chatNotificationApi = {
    */
   updateOnlineStatus: async (userId: string, status: string): Promise<void> => {
     try {
-      await axios.put(
-        `${API_BASE_URL}/chat-notifications/${userId}/status`,
+      await axiosInstance.put(
+        `/chat-notifications/${userId}/status`,
         null,
         { params: { status } }
       );
@@ -113,8 +136,8 @@ export const chatNotificationApi = {
    */
   refreshParticipantInfo: async (participantId: string): Promise<void> => {
     try {
-      await axios.put(
-        `${API_BASE_URL}/chat-notifications/${participantId}/refresh`
+      await axiosInstance.put(
+        `/chat-notifications/${participantId}/refresh`
       );
     } catch (error) {
       console.error('Error refreshing participant info:', error);
