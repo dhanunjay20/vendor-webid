@@ -33,7 +33,7 @@ const LandingHero: React.FC = () => {
   ];
 
   return (
-    <section className="relative bg-gradient-to-br from-orange-600 via-orange-500 to-orange-600 py-20 text-white overflow-hidden">
+    <section className="relative bg-gradient-to-br from-orange-600 via-orange-500 to-orange-600 py-12 sm:py-16 md:py-20 text-white overflow-hidden">
       {/* Animated background elements */}
       <div className="absolute inset-0 overflow-hidden">
         <motion.div
@@ -55,10 +55,10 @@ const LandingHero: React.FC = () => {
       </div>
 
       <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 gap-12 lg:grid-cols-2 lg:items-center">
+        <div className="grid grid-cols-1 gap-8 md:gap-12 lg:grid-cols-2 lg:items-center">
           {/* Left Content */}
           <motion.div
-            className="space-y-6 z-10"
+            className="space-y-4 sm:space-y-6 z-10"
             variants={containerVariants}
             initial="hidden"
             animate="visible"
@@ -71,7 +71,7 @@ const LandingHero: React.FC = () => {
             </motion.div>
 
             <motion.h1 
-              className="text-4xl font-bold leading-tight sm:text-5xl md:text-6xl"
+              className="text-3xl font-bold leading-tight sm:text-4xl md:text-5xl lg:text-6xl"
               variants={itemVariants}
             >
               Manage teams, tasks and orders{" "}
@@ -87,7 +87,7 @@ const LandingHero: React.FC = () => {
             </motion.h1>
 
             <motion.p 
-              className="max-w-xl text-lg opacity-95 leading-relaxed"
+              className="max-w-xl text-base sm:text-lg opacity-95 leading-relaxed"
               variants={itemVariants}
             >
               VendorBid connects caterers with event organizers. Smart bidding, order automation and analytics all in one platform.
@@ -117,13 +117,13 @@ const LandingHero: React.FC = () => {
 
             {/* Stats */}
             <motion.div 
-              className="grid grid-cols-3 gap-4 pt-8"
+              className="grid grid-cols-3 gap-2 sm:gap-4 pt-6 sm:pt-8"
               variants={itemVariants}
             >
               {stats.map((stat, index) => (
                 <motion.div
                   key={stat.label}
-                  className="rounded-lg bg-white/10 p-4 backdrop-blur border border-white/20"
+                  className="rounded-lg bg-white/10 p-3 sm:p-4 backdrop-blur border border-white/20"
                   whileHover={{ 
                     scale: 1.05, 
                     backgroundColor: "rgba(255,255,255,0.2)",
@@ -134,14 +134,14 @@ const LandingHero: React.FC = () => {
                   transition={{ delay: 1 + index * 0.1 }}
                 >
                   <motion.div 
-                    className="text-2xl font-bold"
+                    className="text-xl sm:text-2xl font-bold"
                     initial={{ scale: 0 }}
                     animate={{ scale: 1 }}
                     transition={{ delay: 1.2 + index * 0.1, type: "spring", stiffness: 200 }}
                   >
                     {stat.value}
                   </motion.div>
-                  <div className="text-sm opacity-90">{stat.label}</div>
+                  <div className="text-xs sm:text-sm opacity-90">{stat.label}</div>
                 </motion.div>
               ))}
             </motion.div>
@@ -149,20 +149,20 @@ const LandingHero: React.FC = () => {
 
           {/* Right Image */}
           <motion.div
-            className="flex justify-center lg:justify-end z-10 items-center"
+            className="flex justify-center lg:justify-end z-10 items-center mt-8 lg:mt-0"
             initial={{ opacity: 0, x: 100, rotate: -5 }}
             animate={{ opacity: 1, x: 0, rotate: 0 }}
             transition={{ duration: 0.8, delay: 0.3, type: "spring", stiffness: 80 }}
           >
             <motion.div 
-              className="w-full max-w-md transform lg:translate-x-6 flex items-center justify-center"
+              className="w-full max-w-sm sm:max-w-md transform lg:translate-x-6 flex items-center justify-center"
               whileHover={{ scale: 1.02, rotate: 1 }}
               transition={{ type: "spring", stiffness: 300 }}
             >
               <motion.img 
                 src={HeroArt} 
                 alt="Hero" 
-                className="w-full rounded-lg object-contain h-auto max-h-[520px]"
+                className="w-full rounded-lg object-contain h-auto max-h-[400px] sm:max-h-[520px]"
                 animate={{
                   y: [0, -10, 0],
                 }}

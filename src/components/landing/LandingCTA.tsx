@@ -7,7 +7,7 @@ const LandingCTA: React.FC = () => {
   const navigate = useNavigate();
 
   return (
-    <section className="relative py-24 overflow-hidden">
+    <section className="relative py-12 sm:py-16 md:py-20 lg:py-24 overflow-hidden">
       {/* Animated gradient background */}
       <motion.div
         className="absolute inset-0 bg-gradient-to-br from-orange-600 via-orange-500 to-orange-600"
@@ -75,7 +75,7 @@ const LandingCTA: React.FC = () => {
 
           {/* Heading */}
           <motion.h2
-            className="text-4xl font-bold sm:text-5xl md:text-6xl mb-6 leading-tight"
+            className="text-3xl font-bold sm:text-4xl md:text-5xl lg:text-6xl mb-6 leading-tight"
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
@@ -105,7 +105,7 @@ const LandingCTA: React.FC = () => {
           </motion.h2>
 
           <motion.p
-            className="mt-6 text-xl opacity-95 max-w-2xl mx-auto leading-relaxed"
+            className="mt-6 text-base sm:text-lg lg:text-xl opacity-95 max-w-2xl mx-auto leading-relaxed"
             initial={{ opacity: 0 }}
             whileInView={{ opacity: 0.95 }}
             viewport={{ once: true }}
@@ -126,7 +126,7 @@ const LandingCTA: React.FC = () => {
           >
             <motion.button
               onClick={() => navigate("/auth?mode=register")}
-              className="group relative rounded-xl bg-white px-8 py-4 font-bold text-orange-600 hover:bg-orange-50 transition shadow-2xl overflow-hidden"
+              className="group relative rounded-xl bg-white px-6 sm:px-8 py-3 sm:py-4 font-bold text-orange-600 hover:bg-orange-50 transition shadow-2xl overflow-hidden w-full sm:w-auto"
               whileHover={{ scale: 1.05, boxShadow: "0 25px 50px rgba(0,0,0,0.3)" }}
               whileTap={{ scale: 0.95 }}
             >
@@ -134,7 +134,7 @@ const LandingCTA: React.FC = () => {
                 className="absolute inset-0 bg-gradient-to-r from-orange-100 to-orange-200 opacity-0 group-hover:opacity-100 transition-opacity"
                 initial={false}
               />
-              <span className="relative flex items-center justify-center gap-2 text-lg">
+              <span className="relative flex items-center justify-center gap-2 text-base sm:text-lg">
                 Start Free Trial
                 <motion.span
                   animate={{ x: [0, 4, 0] }}
@@ -147,7 +147,7 @@ const LandingCTA: React.FC = () => {
 
             <motion.button
               onClick={() => navigate("/auth?mode=login")}
-              className="rounded-xl border-2 border-white px-8 py-4 font-bold text-white hover:bg-white/10 transition text-lg backdrop-blur"
+              className="rounded-xl border-2 border-white px-6 sm:px-8 py-3 sm:py-4 font-bold text-white hover:bg-white/10 transition text-base sm:text-lg backdrop-blur w-full sm:w-auto"
               whileHover={{ scale: 1.05, backgroundColor: "rgba(255,255,255,0.15)" }}
               whileTap={{ scale: 0.95 }}
             >

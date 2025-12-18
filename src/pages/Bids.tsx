@@ -218,24 +218,24 @@ export default function Bids() {
   }, [bids, searchQuery, statusFilter]);
 
   return (
-    <div className="container py-8">
-      <div className="mb-8 flex items-center justify-between">
+    <div className="container px-3 sm:px-4 md:px-6 py-4 sm:py-6">
+      <div className="mb-6 sm:mb-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Bid Management</h1>
-          <p className="text-muted-foreground">Create and track your catering bids</p>
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-foreground">Bid Management</h1>
+          <p className="text-sm sm:text-base text-muted-foreground">Create and track your catering bids</p>
         </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
-            <Button className="gap-2">
+            <Button className="gap-2 h-10 sm:h-11 w-full sm:w-auto">
               <Plus className="h-4 w-4" />
               Create New Bid
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-2xl">
+          <DialogContent className="max-w-[95vw] sm:max-w-2xl mx-3 sm:mx-auto">
             <DialogHeader>
-              <DialogTitle>Submit New Bid</DialogTitle>
+              <DialogTitle className="text-lg sm:text-xl">Submit New Bid</DialogTitle>
             </DialogHeader>
-            <div className="p-4">
+            <div className="p-3 sm:p-4">
               <p className="text-sm text-muted-foreground">
                 This feature is coming soon. You can view and respond to bid requests below.
               </p>
@@ -255,12 +255,12 @@ export default function Bids() {
         />
       </div>
 
-      <div className="mb-6 flex flex-col gap-4 sm:flex-row">
+      <div className="mb-4 sm:mb-6 flex flex-col gap-3 sm:gap-4 sm:flex-row">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input 
             placeholder="Search by client, event, or ID..." 
-            className="pl-10" 
+            className="pl-10 h-10 sm:h-11" 
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
@@ -268,7 +268,7 @@ export default function Bids() {
             <Button
               variant="ghost"
               size="icon"
-              className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2"
+              className="absolute right-1 top-1/2 h-7 w-7 sm:h-8 sm:w-8 -translate-y-1/2"
               onClick={() => setSearchQuery("")}
             >
               <X className="h-4 w-4" />
@@ -276,7 +276,7 @@ export default function Bids() {
           )}
         </div>
         <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-full sm:w-[180px]">
+          <SelectTrigger className="w-full sm:w-[200px] h-10 sm:h-11">
             <div className="flex items-center gap-2">
               <Filter className="h-4 w-4" />
               <SelectValue placeholder="Filter by status" />
@@ -294,77 +294,77 @@ export default function Bids() {
 
       {loading ? (
         <Card>
-          <CardContent className="py-12 text-center">
-            <p className="text-muted-foreground">Loading bids...</p>
+          <CardContent className="py-8 sm:py-12 text-center">
+            <p className="text-sm sm:text-base text-muted-foreground">Loading bids...</p>
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-6">
+        <div className="grid gap-4 sm:gap-6">
           {filteredBids.length === 0 ? (
             <Card>
-              <CardContent className="py-12 text-center">
-                <p className="text-muted-foreground">No bids found matching your criteria</p>
+              <CardContent className="py-8 sm:py-12 text-center">
+                <p className="text-sm sm:text-base text-muted-foreground">No bids found matching your criteria</p>
               </CardContent>
             </Card>
           ) : (
             filteredBids.map((bid) => (
             <Card key={bid.id} className="overflow-hidden transition-smooth hover:shadow-card-hover">
-              <CardHeader className="bg-gradient-card">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <CardTitle className="mb-2">{bid.eventName || `Bid #${bid.id}`}</CardTitle>
-                    <p className="text-sm text-muted-foreground">Client: { (bid as any).customerName || bid.orderId }</p>
+              <CardHeader className="bg-gradient-card p-4 sm:p-6">
+                <div className="flex flex-col sm:flex-row items-start justify-between gap-3 sm:gap-0">
+                  <div className="flex-1">
+                    <CardTitle className="mb-2 text-lg sm:text-xl">{bid.eventName || `Bid #${bid.id}`}</CardTitle>
+                    <p className="text-xs sm:text-sm text-muted-foreground">Client: { (bid as any).customerName || bid.orderId }</p>
                     <p className="text-xs text-muted-foreground">Bid ID: {bid.id}</p>
                   </div>
-                  <Badge className={statusConfig[bid.status as keyof typeof statusConfig]?.className || ""}>
+                  <Badge className={`${statusConfig[bid.status as keyof typeof statusConfig]?.className || ""} shrink-0 text-xs sm:text-sm`}>
                     {statusConfig[bid.status as keyof typeof statusConfig]?.label || bid.status}
                   </Badge>
                 </div>
               </CardHeader>
-              <CardContent className="pt-6">
-                <div className="grid gap-4 md:grid-cols-3">
+              <CardContent className="pt-4 sm:pt-6 p-4 sm:p-6">
+                <div className="grid gap-3 sm:gap-4 grid-cols-2 sm:grid-cols-3">
                   <div>
-                    <p className="text-sm text-muted-foreground">Submitted</p>
-                    <p className="font-medium">{new Date(bid.submittedAt).toLocaleDateString()}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Last Updated</p>
-                    <p className="font-medium">{new Date(bid.updatedAt).toLocaleDateString()}</p>
+                    <p className="text-xs sm:text-sm text-muted-foreground">Submitted</p>
+                    <p className="text-sm sm:text-base font-medium">{new Date(bid.submittedAt).toLocaleDateString()}</p>
                   </div>
                   <div>
-                    <p className="text-sm text-muted-foreground">Your Bid Amount</p>
-                    <p className="text-lg font-bold text-primary">${bid.proposedTotalPrice.toFixed(2)}</p>
+                    <p className="text-xs sm:text-sm text-muted-foreground">Last Updated</p>
+                    <p className="text-sm sm:text-base font-medium">{new Date(bid.updatedAt).toLocaleDateString()}</p>
                   </div>
-                  <div className="md:col-span-3">
-                    <p className="text-sm text-muted-foreground">Proposal Message</p>
-                    <p className="font-medium">{bid.proposedMessage || "No message provided"}</p>
+                  <div className="col-span-2 sm:col-span-1">
+                    <p className="text-xs sm:text-sm text-muted-foreground">Your Bid Amount</p>
+                    <p className="text-base sm:text-lg font-bold text-primary">${bid.proposedTotalPrice.toFixed(2)}</p>
                   </div>
-                  <div className="flex items-end gap-2 md:col-span-3">
+                  <div className="col-span-2 sm:col-span-3">
+                    <p className="text-xs sm:text-sm text-muted-foreground">Proposal Message</p>
+                    <p className="text-sm sm:text-base font-medium break-words">{bid.proposedMessage || "No message provided"}</p>
+                  </div>
+                  <div className="flex flex-col sm:flex-row items-stretch gap-2 col-span-2 sm:col-span-3">
                     <Button 
                       variant="outline" 
                       onClick={() => handleViewBidDetails(bid)} 
-                      className="flex-1"
+                      className="flex-1 h-10 sm:h-11"
                     >
                       View Details
                     </Button>
                     {bid.status === "requested" && (
                       <Button 
                         onClick={() => handleViewBidDetails(bid)}
-                        className="flex-1"
+                        className="flex-1 h-10 sm:h-11"
                       >
                         Submit Quote
                       </Button>
                     )}
                     {(bid.status === "confirmed" || bid.status === "accepted" || confirmedBids.has(bid.id)) && (
-                      <div className="flex-1 flex items-center gap-3">
-                        <div className="flex-1 flex items-center justify-center gap-2 py-2 px-4 bg-emerald-500/10 text-emerald-600 rounded-md border border-emerald-500/20">
-                          <CheckCircle2 className="h-4 w-4" />
-                          <span className="font-medium">Order Confirmed</span>
+                      <div className="flex-1 flex flex-col sm:flex-row items-stretch gap-2 sm:gap-3">
+                        <div className="flex-1 flex items-center justify-center gap-2 py-2 px-3 sm:px-4 bg-emerald-500/10 text-emerald-600 rounded-md border border-emerald-500/20 min-h-[2.5rem] sm:min-h-[2.75rem]">
+                          <CheckCircle2 className="h-4 w-4 shrink-0" />
+                          <span className="text-sm sm:text-base font-medium">Order Confirmed</span>
                         </div>
                         <Button 
                           onClick={() => navigate("/dashboard/orders")} 
                           variant="outline"
-                          className="flex-1"
+                          className="flex-1 h-10 sm:h-11"
                         >
                           View in Orders
                           <ArrowRight className="ml-2 h-4 w-4" />

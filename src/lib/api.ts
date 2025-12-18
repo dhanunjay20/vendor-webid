@@ -662,6 +662,30 @@ export async function getVendorReviews(vendorOrgId: string) {
   }
 }
 
+export async function getLatestVendorReviews(vendorOrgId: string) {
+  try {
+    const url = buildUrl(`/api/vendor/${vendorOrgId}/review/latest`);
+    const res = await axios.get(url);
+    return res.data;
+  } catch (err: any) {
+    const { message, status } = extractError(err);
+    console.error("getLatestVendorReviews error", err);
+    throw { message, status } as ApiError;
+  }
+}
+
+export async function deleteVendorReview(vendorOrgId: string, reviewId: string) {
+  try {
+    const url = buildUrl(`/api/vendor/${vendorOrgId}/review/${reviewId}`);
+    const res = await axios.delete(url);
+    return res.data;
+  } catch (err: any) {
+    const { message, status } = extractError(err);
+    console.error("deleteVendorReview error", err);
+    throw { message, status } as ApiError;
+  }
+}
+
 export async function markNotificationAsRead(notificationId: string) {
   try {
     const url = buildUrl(`/api/notifications/${notificationId}/read`);

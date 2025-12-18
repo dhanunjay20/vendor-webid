@@ -67,7 +67,7 @@ const LandingFeatures: React.FC = () => {
   };
 
   return (
-    <section className="py-24 bg-gradient-to-b from-white to-gray-50">
+    <section className="py-12 sm:py-16 md:py-20 lg:py-24 bg-gradient-to-b from-white to-gray-50">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <motion.div
           className="mb-16 text-center"
@@ -87,10 +87,10 @@ const LandingFeatures: React.FC = () => {
               Features
             </span>
           </motion.div>
-          <h2 className="text-4xl font-bold text-gray-900 sm:text-5xl mb-4">
+          <h2 className="text-3xl font-bold text-gray-900 sm:text-4xl lg:text-5xl mb-4">
             Why Caterers Love VendorBid
           </h2>
-          <p className="mt-4 text-xl text-gray-600 max-w-2xl mx-auto">
+          <p className="mt-4 text-base sm:text-lg lg:text-xl text-gray-600 max-w-2xl mx-auto">
             Powerful features designed to help you win more bids and grow your business
           </p>
         </motion.div>
@@ -112,7 +112,7 @@ const LandingFeatures: React.FC = () => {
               }}
               className="group relative"
             >
-              <div className="h-full rounded-2xl border border-gray-200 bg-white p-8 shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden">
+              <div className="h-full rounded-2xl border border-gray-200 bg-white p-6 sm:p-8 shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden">
                 {/* Animated gradient background on hover */}
                 <motion.div
                   className={`absolute inset-0 bg-gradient-to-br ${feature.gradient} opacity-0 group-hover:opacity-5 transition-opacity duration-300`}

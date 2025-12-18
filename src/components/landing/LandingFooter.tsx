@@ -86,7 +86,7 @@ const LandingFooter: React.FC = () => {
         />
       </div>
 
-      <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-12">
+      <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8 sm:py-10 lg:py-12">
         <motion.div
           className="grid grid-cols-1 gap-8 lg:grid-cols-12"
           variants={containerVariants}
@@ -134,7 +134,7 @@ const LandingFooter: React.FC = () => {
           </motion.div>
 
           {/* Links Columns */}
-          <motion.div className="lg:col-span-8 grid grid-cols-2 gap-8 sm:grid-cols-4" variants={itemVariants}>
+          <motion.div className="lg:col-span-8 grid grid-cols-2 gap-6 sm:gap-8 md:grid-cols-4" variants={itemVariants}>
             {Object.entries(footerLinks).map(([category, links]) => (
               <div key={category}>
                 <h3 className="text-sm font-semibold text-white uppercase tracking-wider mb-4">

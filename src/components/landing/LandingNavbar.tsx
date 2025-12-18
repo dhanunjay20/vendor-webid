@@ -34,10 +34,10 @@ const LandingNavbar: React.FC = () => {
             <span className="text-2xl font-bold text-white">VendorBid</span>
           </motion.div>
           
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 sm:gap-4">
             <motion.button
               onClick={() => navigate("/auth?mode=login")}
-              className="px-4 py-2 text-white font-medium hover:opacity-90 transition"
+              className="px-3 sm:px-4 py-2 text-white font-medium hover:opacity-90 transition text-sm sm:text-base"
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
             >
@@ -45,7 +45,7 @@ const LandingNavbar: React.FC = () => {
             </motion.button>
             <motion.button
               onClick={() => navigate("/auth?mode=register")}
-              className="px-6 py-2 bg-white text-orange-600 font-semibold rounded-lg hover:bg-orange-50 transition shadow-md"
+              className="px-4 sm:px-6 py-2 bg-white text-orange-600 font-semibold rounded-lg hover:bg-orange-50 transition shadow-md text-sm sm:text-base"
               whileHover={{ scale: 1.05, boxShadow: "0 10px 25px rgba(0,0,0,0.2)" }}
               whileTap={{ scale: 0.95 }}
             >

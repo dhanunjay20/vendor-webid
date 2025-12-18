@@ -191,12 +191,12 @@ export default function Notifications() {
   const totalUnreadCount = unreadCount + localUnreadCount;
 
   return (
-    <div className="mx-auto flex max-w-5xl flex-col gap-6 px-4 py-8">
+    <div className="mx-auto flex max-w-5xl flex-col gap-4 sm:gap-6 px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8">
       {/* Local Notifications Section (Real-time WebSocket notifications) */}
       {localNotifications.length > 0 && (
-        <div className="space-y-3">
-          <h3 className="text-sm font-semibold text-muted-foreground px-2 flex items-center gap-2">
-            <MessageSquare className="h-4 w-4" />
+        <div className="space-y-2 sm:space-y-3">
+          <h3 className="text-xs sm:text-sm font-semibold text-muted-foreground px-2 flex items-center gap-2">
+            <MessageSquare className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             Real-time Updates
           </h3>
           {localNotifications
@@ -209,27 +209,27 @@ export default function Notifications() {
               <Card
                 key={notif.id}
                 className={`cursor-pointer transition-all hover:shadow-md ${
-                  !notif.read ? "border-l-4 border-l-blue-500 bg-blue-50/30" : "opacity-70"
+                  !notif.read ? "border-l-2 sm:border-l-4 border-l-blue-500 bg-blue-50/30" : "opacity-70"
                 }`}
                 onClick={() => handleLocalNotificationClick(notif)}
               >
-                <CardContent className="flex items-start gap-4 p-4">
-                  <div className="rounded-full p-2.5 text-cyan-600 bg-cyan-50">
-                    <MessageSquare className="h-5 w-5" />
+                <CardContent className="flex items-start gap-3 sm:gap-4 p-3 sm:p-4">
+                  <div className="rounded-full p-2 sm:p-2.5 text-cyan-600 bg-cyan-50">
+                    <MessageSquare className="h-4 w-4 sm:h-5 sm:w-5" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-2">
-                      <p className="font-medium text-sm leading-relaxed">
+                      <p className="font-medium text-xs sm:text-sm leading-relaxed">
                         {notif.title}
                       </p>
                       {!notif.read && (
-                        <Badge className="shrink-0 bg-blue-500 text-xs">New</Badge>
+                        <Badge className="shrink-0 bg-blue-500 text-[10px] sm:text-xs px-1.5 sm:px-2 h-5 sm:h-auto">New</Badge>
                       )}
                     </div>
-                    <p className="mt-1 text-sm text-muted-foreground line-clamp-2">
+                    <p className="mt-1 text-xs sm:text-sm text-muted-foreground line-clamp-2">
                       {notif.description}
                     </p>
-                    <p className="mt-2 text-xs text-muted-foreground">
+                    <p className="mt-1.5 sm:mt-2 text-[10px] sm:text-xs text-muted-foreground">
                       {formatTime(notif.timestamp.toISOString())}
                     </p>
                   </div>
@@ -241,32 +241,33 @@ export default function Notifications() {
       
       {/* Header */}
       <Card className="border-none bg-gradient-to-r from-blue-50 via-white to-purple-50 shadow-sm">
-        <CardHeader>
-          <div className="flex items-center justify-between">
+        <CardHeader className="p-4 sm:p-6">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div className="flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-600 to-purple-600 shadow-lg">
-                <Bell className="h-6 w-6 text-white" />
+              <div className="flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-xl sm:rounded-2xl bg-gradient-to-br from-blue-600 to-purple-600 shadow-lg">
+                <Bell className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
               </div>
               <div>
-                <CardTitle className="text-2xl font-bold">Notifications</CardTitle>
-                <p className="mt-1 text-sm text-muted-foreground">
+                <CardTitle className="text-xl sm:text-2xl md:text-3xl font-bold">Notifications</CardTitle>
+                <p className="mt-0.5 sm:mt-1 text-xs sm:text-sm text-muted-foreground">
                   Stay updated with your latest activities
                 </p>
               </div>
             </div>
             {totalUnreadCount > 0 && (
-              <div className="flex items-center gap-3">
-                <Badge className="h-8 rounded-full bg-red-500 px-4 text-sm font-semibold">
+              <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
+                <Badge className="h-7 sm:h-8 rounded-full bg-red-500 px-3 sm:px-4 text-xs sm:text-sm font-semibold">
                   {totalUnreadCount} new
                 </Badge>
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={handleMarkAllAsRead}
-                  className="gap-2 rounded-full"
+                  className="gap-1.5 sm:gap-2 rounded-full h-10 sm:h-11 text-xs sm:text-sm px-3 sm:px-4"
                 >
-                  <Check className="h-4 w-4" />
-                  Mark all read
+                  <Check className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                  <span className="hidden sm:inline">Mark all read</span>
+                  <span className="sm:hidden">Mark all</span>
                 </Button>
               </div>
             )}
@@ -276,17 +277,20 @@ export default function Notifications() {
 
       {/* Filter Tabs */}
       <Card className="border-none shadow-sm">
-        <CardContent className="p-4">
+        <CardContent className="p-3 sm:p-4">
           <Tabs value={filter} onValueChange={(v) => setFilter(v as any)}>
-            <TabsList className="grid w-full grid-cols-3 rounded-full bg-muted/50 p-1">
-              <TabsTrigger value="all" className="rounded-full">
-                All ({notifications.length + localNotifications.length})
+            <TabsList className="grid w-full grid-cols-3 rounded-full bg-muted/50 p-0.5 sm:p-1">
+              <TabsTrigger value="all" className="rounded-full text-xs sm:text-sm h-8 sm:h-10">
+                <span className="hidden sm:inline">All ({notifications.length + localNotifications.length})</span>
+                <span className="sm:hidden">All</span>
               </TabsTrigger>
-              <TabsTrigger value="unread" className="rounded-full">
-                Unread ({totalUnreadCount})
+              <TabsTrigger value="unread" className="rounded-full text-xs sm:text-sm h-8 sm:h-10">
+                <span className="hidden sm:inline">Unread ({totalUnreadCount})</span>
+                <span className="sm:hidden">Unread</span>
               </TabsTrigger>
-              <TabsTrigger value="read" className="rounded-full">
-                Read ({notifications.length + localNotifications.length - totalUnreadCount})
+              <TabsTrigger value="read" className="rounded-full text-xs sm:text-sm h-8 sm:h-10">
+                <span className="hidden sm:inline">Read ({notifications.length + localNotifications.length - totalUnreadCount})</span>
+                <span className="sm:hidden">Read</span>
               </TabsTrigger>
             </TabsList>
           </Tabs>
@@ -296,10 +300,10 @@ export default function Notifications() {
       {/* Loading & Error States */}
       {isLoading && (
         <Card>
-          <CardContent className="flex items-center justify-center py-12">
-            <div className="flex flex-col items-center gap-3">
-              <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-              <p className="text-sm text-muted-foreground">Loading notifications...</p>
+          <CardContent className="flex items-center justify-center py-8 sm:py-12">
+            <div className="flex flex-col items-center gap-2 sm:gap-3">
+              <div className="h-6 w-6 sm:h-8 sm:w-8 animate-spin rounded-full border-3 sm:border-4 border-primary border-t-transparent" />
+              <p className="text-xs sm:text-sm text-muted-foreground">Loading notifications...</p>
             </div>
           </CardContent>
         </Card>
@@ -307,9 +311,9 @@ export default function Notifications() {
 
       {error && (
         <Card className="border-red-200 bg-red-50">
-          <CardContent className="flex items-center gap-3 py-4">
-            <AlertCircle className="h-5 w-5 text-red-600" />
-            <p className="text-sm text-red-800">{error}</p>
+          <CardContent className="flex items-center gap-2 sm:gap-3 py-3 sm:py-4 px-3 sm:px-6">
+            <AlertCircle className="h-4 w-4 sm:h-5 sm:w-5 text-red-600 shrink-0" />
+            <p className="text-xs sm:text-sm text-red-800">{error}</p>
           </CardContent>
         </Card>
       )}
@@ -317,13 +321,13 @@ export default function Notifications() {
       {/* Notifications List */}
       {!isLoading && !error && filteredNotifications.length === 0 && (
         <Card className="border-dashed">
-          <CardContent className="flex flex-col items-center justify-center gap-4 py-16">
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted">
-              <Bell className="h-8 w-8 text-muted-foreground" />
+          <CardContent className="flex flex-col items-center justify-center gap-3 sm:gap-4 py-12 sm:py-16 px-4">
+            <div className="flex h-12 w-12 sm:h-16 sm:w-16 items-center justify-center rounded-full bg-muted">
+              <Bell className="h-6 w-6 sm:h-8 sm:w-8 text-muted-foreground" />
             </div>
             <div className="text-center">
-              <h3 className="font-semibold">No notifications</h3>
-              <p className="mt-1 text-sm text-muted-foreground">
+              <h3 className="font-semibold text-sm sm:text-base">No notifications</h3>
+              <p className="mt-1 text-xs sm:text-sm text-muted-foreground max-w-xs">
                 {filter === "unread"
                   ? "You're all caught up! No unread notifications."
                   : "You don't have any notifications yet."}
@@ -334,7 +338,7 @@ export default function Notifications() {
       )}
 
       {!isLoading && !error && filteredNotifications.length > 0 && (
-        <div className="space-y-3">
+        <div className="space-y-2 sm:space-y-3">
           {filteredNotifications.map((notification) => {
             const Icon = notificationIcons[notification.type] || notificationIcons.default;
             const colorClass = notificationColors[notification.type] || notificationColors.default;
@@ -344,39 +348,39 @@ export default function Notifications() {
                 key={notification.id}
                 className={`transition-all duration-200 hover:shadow-md ${
                   !notification.read
-                    ? "border-l-4 border-l-blue-500 bg-blue-50/30"
-                    : "border-l-4 border-l-transparent"
+                    ? "border-l-2 sm:border-l-4 border-l-blue-500 bg-blue-50/30"
+                    : "border-l-2 sm:border-l-4 border-l-transparent"
                 }`}
               >
-                <CardContent className="p-4">
-                  <div className="flex items-start gap-4">
+                <CardContent className="p-3 sm:p-4">
+                  <div className="flex items-start gap-3 sm:gap-4">
                     {/* Icon */}
-                    <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${colorClass}`}>
-                      <Icon className="h-6 w-6" />
+                    <div className={`flex h-10 w-10 sm:h-12 sm:w-12 shrink-0 items-center justify-center rounded-lg sm:rounded-xl ${colorClass}`}>
+                      <Icon className="h-5 w-5 sm:h-6 sm:w-6" />
                     </div>
 
                     {/* Content */}
-                    <div className="flex-1 space-y-1">
+                    <div className="flex-1 space-y-0.5 sm:space-y-1 min-w-0">
                       <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <h4 className="font-semibold text-foreground">
+                        <div className="min-w-0 flex-1">
+                          <h4 className="font-semibold text-foreground text-xs sm:text-sm md:text-base">
                             {notification.type.replace(/_/g, " ")}
                           </h4>
-                          <p className="mt-1 text-sm text-muted-foreground">
+                          <p className="mt-0.5 sm:mt-1 text-xs sm:text-sm text-muted-foreground break-words">
                             {notification.message}
                           </p>
                         </div>
                         {!notification.read && (
-                          <div className="h-3 w-3 shrink-0 rounded-full bg-blue-600" />
+                          <div className="h-2.5 w-2.5 sm:h-3 sm:w-3 shrink-0 rounded-full bg-blue-600 mt-1" />
                         )}
                       </div>
 
-                      <div className="flex items-center gap-3 pt-2">
-                        <span className="text-xs text-muted-foreground">
+                      <div className="flex items-center gap-2 sm:gap-3 pt-1.5 sm:pt-2 flex-wrap">
+                        <span className="text-[10px] sm:text-xs text-muted-foreground">
                           {formatTime(notification.createdAt)}
                         </span>
                         {notification.dataType && (
-                          <Badge variant="outline" className="text-xs">
+                          <Badge variant="outline" className="text-[10px] sm:text-xs h-5 sm:h-auto px-1.5 sm:px-2">
                             {notification.dataType}
                           </Badge>
                         )}
@@ -390,9 +394,9 @@ export default function Notifications() {
                           variant="ghost"
                           size="icon"
                           onClick={() => handleMarkAsRead(notification.id)}
-                          className="h-8 w-8 rounded-full"
+                          className="h-9 w-9 sm:h-10 sm:w-10 rounded-full touch-manipulation"
                         >
-                          <Check className="h-4 w-4" />
+                          <Check className="h-4 w-4 sm:h-4.5 sm:w-4.5" />
                         </Button>
                       )}
                     </div>
