@@ -138,10 +138,10 @@ export default function Login() {
       <div className="max-w-md w-full">
         <div className="text-center mb-6 sm:mb-8">
           <div className="flex justify-center mb-3 sm:mb-4">
-            <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-2">
               <ChefHat className="h-8 w-8 sm:h-10 sm:w-10 text-orange-600" />
               <span className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-orange-600 to-amber-600 bg-clip-text text-transparent">
-                VendorBid
+                Bidzaro
               </span>
             </div>
           </div>

@@ -90,7 +90,7 @@ const LandingStats: React.FC = () => {
             Trusted by Thousands
           </h2>
           <p className="mt-4 text-base sm:text-lg lg:text-xl text-gray-600 max-w-2xl mx-auto">
-            Join the community of successful caterers growing their business with VendorBid
+            Join the community of successful caterers growing their business with Bidzaro
           </p>
         </motion.div>
 

@@ -1,5 +1,6 @@
 import React from "react";
 import { ChefHat, Twitter, Facebook, Instagram, Linkedin, Mail } from "lucide-react";
+import BidzaroLogo from "@/assets/bidzaro_logo1.png";
 import { motion } from "framer-motion";
 
 const LandingFooter: React.FC = () => {
@@ -101,9 +102,8 @@ const LandingFooter: React.FC = () => {
                 whileHover={{ rotate: 360 }}
                 transition={{ duration: 0.5 }}
               >
-                <ChefHat className="h-8 w-8 text-orange-500" />
+                <img src={BidzaroLogo} alt="Bidzaro" className="h-8" />
               </motion.div>
-              <span className="text-2xl font-bold">VendorBid</span>
             </div>
             <p className="text-gray-400 mb-6 max-w-sm leading-relaxed">
               Empowering caterers worldwide with smart bidding, automation, and analytics.
@@ -167,7 +167,7 @@ const LandingFooter: React.FC = () => {
         >
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-4 text-sm text-gray-400">
-              <span>© 2025 VendorBid. All rights reserved.</span>
+              <span>© 2025 Bidzaro. All rights reserved.</span>
               <span className="hidden sm:inline">•</span>
               <span className="hidden sm:inline">Made with ❤️ for caterers</span>
             </div>

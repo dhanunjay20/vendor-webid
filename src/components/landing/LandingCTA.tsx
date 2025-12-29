@@ -113,7 +113,7 @@ const LandingCTA: React.FC = () => {
           >
             Start your free 14-day trial today. No credit card required.
             <br />
-            Join thousands of successful caterers already using VendorBid.
+            Join thousands of successful caterers already using Bidzaro.
           </motion.p>
 
           {/* CTA Buttons */}

@@ -90,7 +90,7 @@ const LandingHero: React.FC = () => {
               className="max-w-xl text-base sm:text-lg opacity-95 leading-relaxed"
               variants={itemVariants}
             >
-              VendorBid connects caterers with event organizers. Smart bidding, order automation and analytics all in one platform.
+              Bidzaro connects caterers with event organizers. Smart bidding, order automation and analytics all in one platform.
             </motion.p>
 
             <motion.div 

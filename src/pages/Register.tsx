@@ -235,7 +235,7 @@ export default function Register() {
             </div>
             <CardTitle className="text-2xl sm:text-3xl md:text-3xl text-green-700">Registration Successful!</CardTitle>
             <CardDescription className="text-sm sm:text-base mt-2">
-              Thank you for registering with VendorBid
+              Thank you for registering with Bidzaro
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3 sm:space-y-4 px-4 sm:px-6 pb-4 sm:pb-6">
@@ -272,10 +272,10 @@ export default function Register() {
       <div className="max-w-2xl mx-auto">
         <div className="text-center mb-6 sm:mb-8">
           <div className="flex justify-center mb-3 sm:mb-4">
-            <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-2">
               <ChefHat className="h-8 w-8 sm:h-10 sm:w-10 text-orange-600" />
               <span className="text-2xl sm:text-3xl md:text-3xl font-bold bg-gradient-to-r from-orange-600 to-amber-600 bg-clip-text text-transparent">
-                VendorBid
+                Bidzaro
               </span>
             </div>
           </div>

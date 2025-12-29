@@ -88,7 +88,7 @@ const LandingFeatures: React.FC = () => {
             </span>
           </motion.div>
           <h2 className="text-3xl font-bold text-gray-900 sm:text-4xl lg:text-5xl mb-4">
-            Why Caterers Love VendorBid
+            Why Caterers Love Bidzaro
           </h2>
           <p className="mt-4 text-base sm:text-lg lg:text-xl text-gray-600 max-w-2xl mx-auto">
             Powerful features designed to help you win more bids and grow your business
