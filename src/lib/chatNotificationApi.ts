@@ -67,7 +67,6 @@ export const chatNotificationApi = {
       );
       return response.data;
     } catch (error) {
-      console.error('Error fetching chat list:', error);
       throw error;
     }
   },
@@ -82,7 +81,7 @@ export const chatNotificationApi = {
       );
       return response.data;
     } catch (error) {
-      console.error('Error fetching unread count:', error);
+
       throw error;
     }
   },
@@ -96,7 +95,6 @@ export const chatNotificationApi = {
         `/chat-notifications/${userId}/mark-read/${otherParticipantId}`
       );
     } catch (error) {
-      console.error('Error marking chat as read:', error);
       throw error;
     }
   },
@@ -110,7 +108,6 @@ export const chatNotificationApi = {
         `/chat-notifications/${userId}/chats/${otherParticipantId}`
       );
     } catch (error) {
-      console.error('Error deleting chat:', error);
       throw error;
     }
   },
@@ -126,7 +123,6 @@ export const chatNotificationApi = {
         { params: { status } }
       );
     } catch (error) {
-      console.error('Error updating online status:', error);
       throw error;
     }
   },
@@ -140,7 +136,6 @@ export const chatNotificationApi = {
         `/chat-notifications/${participantId}/refresh`
       );
     } catch (error) {
-      console.error('Error refreshing participant info:', error);
       throw error;
     }
   },

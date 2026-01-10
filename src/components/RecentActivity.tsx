@@ -16,8 +16,6 @@ interface RecentActivityProps {
 }
 
 export default function RecentActivity({ data = [] }: RecentActivityProps) {
-  console.log('⚡ RecentActivity received data:', data);
-  
   return (
     <Card className="shadow-card">
       <CardHeader>

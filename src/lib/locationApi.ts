@@ -36,6 +36,10 @@ export interface LocationUpdateDto {
   latitude: number;
   longitude: number;
   timestamp?: string;
+  accuracyMeters?: number;
+  source?: string;
+  allowReverseGeocode?: boolean;
+  address?: string; // Geocoded address returned from backend
 }
 
 export interface VendorLocationDto {
@@ -45,25 +49,35 @@ export interface VendorLocationDto {
   longitude: number;
   lastLocationUpdatedAt: string;
   distance?: number;
+  currentAddress?: string;
 }
 
 export const locationApi = {
   /**
    * Update a user/vendor current location. Sends `{ id, latitude, longitude, timestamp }`.
+   * Returns the geocoded address from backend.
    */
-  updateLocation: async (id: string, latitude: number, longitude: number): Promise<void> => {
+  updateLocation: async (
+    id: string,
+    latitude: number,
+    longitude: number,
+    accuracyMeters?: number,
+    source?: string
+  ): Promise<LocationUpdateDto> => {
     try {
       const payload: LocationUpdateDto = {
         id,
         latitude,
         longitude,
         timestamp: new Date().toISOString(),
+        accuracyMeters,
+        source: source || 'gps',
+        allowReverseGeocode: true,
       };
 
-      await axiosInstance.put('/location/update', payload);
-      console.log('Location updated successfully');
+      const response = await axiosInstance.post<LocationUpdateDto>('/location/update', payload);
+      return response.data;
     } catch (error) {
-      console.error('Error updating location:', error);
       throw error;
     }
   },
@@ -82,7 +96,6 @@ export const locationApi = {
       });
       return response.data;
     } catch (error) {
-      console.error('Error fetching nearby vendors:', error);
       throw error;
     }
   },
@@ -95,7 +108,6 @@ export const locationApi = {
       const response = await axiosInstance.get<VendorLocationDto>(`/location/vendor/${vendorId}`);
       return response.data;
     } catch (error) {
-      console.error('Error fetching vendor location:', error);
       return null;
     }
   },

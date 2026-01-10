@@ -2,8 +2,8 @@ import { useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
 
-// Auto logout after inactivity (10 minutes)
-const INACTIVITY_TIMEOUT = 10 * 60 * 1000; // 10 minutes
+// Auto logout after inactivity (30 minutes)
+const INACTIVITY_TIMEOUT = 30 * 60 * 1000; // 30 minutes
 
 export default function AutoLogout() {
   const navigate = useNavigate();
@@ -14,6 +14,7 @@ export default function AutoLogout() {
     const doLogout = () => {
       try {
         localStorage.clear();
+        sessionStorage.clear();
       } catch (e) {
         // ignore
       }

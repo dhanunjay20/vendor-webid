@@ -35,7 +35,6 @@ export default function Notifications({ vendorOrgId }: NotificationsProps) {
       const data = await api.getVendorNotifications(vendorOrgId);
       setNotifications(data || []);
     } catch (err: any) {
-      console.error("Failed to load notifications", err);
       setError(err?.message || "Failed to load notifications");
     } finally {
       setLoading(false);

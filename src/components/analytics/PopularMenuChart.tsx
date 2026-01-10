@@ -16,8 +16,6 @@ interface PopularMenuChartProps {
 }
 
 export default function PopularMenuChart({ data = [] }: PopularMenuChartProps) {
-  console.log('🎯 PopularMenuChart received data:', data);
-  
   return (
     <Card>
       <CardHeader>

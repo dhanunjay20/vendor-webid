@@ -93,7 +93,6 @@ export default function Orders() {
   // Listen for real-time order notifications and refresh the list
   useEffect(() => {
     if (orderNotifications.length > 0) {
-      console.log("🔄 Order notification received, refreshing orders list");
       loadOrders();
     }
   }, [orderNotifications]);
@@ -133,10 +132,8 @@ export default function Orders() {
     try {
       setLoading(true);
       const data = await api.getOrdersByVendor(vendorOrgId);
-      console.log("Orders API response:", data);
       setOrders(data || []);
     } catch (err: any) {
-      console.error("Orders API error:", err);
       toast({
         title: "Failed to load orders",
         description: err?.message || "Please try again later",

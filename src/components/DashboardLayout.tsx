@@ -26,7 +26,6 @@ export default function DashboardLayout() {
       // Clear all local storage on logout
       localStorage.clear();
     } catch (e) {
-      console.warn("Failed to clear auth storage", e);
     }
     try {
       navigate("/", { replace: true });

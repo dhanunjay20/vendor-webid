@@ -232,7 +232,6 @@ export default function Menu() {
         toast({ title: "Some rows failed", description: errors.slice(0, 3).join("; ") + (errors.length > 3 ? ` (+${errors.length - 3} more)` : ""), variant: "destructive" });
       }
     } catch (e: any) {
-      console.error("sheet parse error", e);
       toast({ title: "Error", description: e?.message || "Failed to parse sheet", variant: "destructive" });
     }
   };

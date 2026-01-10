@@ -25,7 +25,6 @@ function extractError(err: any): { message?: string; status?: number } {
     const d = err.response.data;
     // Log full server response for debugging, but avoid showing raw 5xx messages to users
     try {
-      console.debug("API error response body:", d);
     } catch (e) {
       /* ignore */
     }
@@ -117,7 +116,6 @@ export async function registerUser(payload: any) {
     return res.data;
   } catch (err: any) {
     const { message, status } = extractError(err);
-    console.error("registerUser error", err);
     throw { message, status } as ApiError;
   }
 }
@@ -129,7 +127,6 @@ export async function login(payload: { login: string; password: string; }) {
     return res.data;
   } catch (err: any) {
     const { message, status } = extractError(err);
-    console.error("login error", err);
     throw { message, status } as ApiError;
   }
 }
@@ -141,7 +138,6 @@ export async function forgotUsername(payload: { contact: string; }) {
     return res.data;
   } catch (err: any) {
     const { message, status } = extractError(err);
-    console.error("forgotUsername error", err);
     throw { message, status } as ApiError;
   }
 }
@@ -153,7 +149,6 @@ export async function forgotPassword(payload: { login: string; }) {
     return res.data;
   } catch (err: any) {
     const { message, status } = extractError(err);
-    console.error("forgotPassword error", err);
     throw { message, status } as ApiError;
   }
 }
@@ -165,7 +160,6 @@ export async function resetPassword(payload: { contact: string; otp: string; new
     return res.data;
   } catch (err: any) {
     const { message, status } = extractError(err);
-    console.error("resetPassword error", err);
     throw { message, status } as ApiError;
   }
 }
@@ -178,7 +172,6 @@ export async function registerVendor(payload: any) {
     return res.data;
   } catch (err: any) {
     const { message, status } = extractError(err);
-    console.error("registerVendor error", err);
     throw { message, status } as ApiError;
   }
 }
@@ -201,7 +194,6 @@ export async function registerVendorMultipart(vendor: any, files?: File[]) {
     return res.data;
   } catch (err: any) {
     const { message, status } = extractError(err);
-    console.error("registerVendorMultipart error", err);
     throw { message, status } as ApiError;
   }
 }
@@ -213,7 +205,6 @@ export async function loginVendor(payload: any) {
     return res.data;
   } catch (err: any) {
     const { message, status } = extractError(err);
-    console.error("loginVendor error", err);
     throw { message, status } as ApiError;
   }
 }
@@ -231,7 +222,6 @@ export async function getVendorProfile(vendorOrganizationId: string) {
     return res.data;
   } catch (err: any) {
     const { message, status } = extractError(err);
-    console.error("getVendorProfile error", err);
     throw { message, status } as ApiError;
   }
 }
@@ -249,7 +239,6 @@ export async function updateVendorProfile(vendorId: string, payload: any) {
     return res.data;
   } catch (err: any) {
     const { message, status } = extractError(err);
-    console.error("updateVendorProfile error", err);
     throw { message, status } as ApiError;
   }
 }
@@ -264,14 +253,10 @@ export async function createOrUpdateServiceDetails(vendorId: string, payload: an
       headers.Authorization = `Bearer ${token}`;
     }
     // Log payload for debugging
-    console.log('Service Details Payload:', payload);
     const res = await axios.post(url, payload, { headers });
-    console.log('Service Details Response:', res.data);
     return res.data;
   } catch (err: any) {
     const { message, status } = extractError(err);
-    console.error("createOrUpdateServiceDetails error", err);
-    console.error("Error details:", err.response?.data || err.message);
     throw { message, status } as ApiError;
   }
 }
@@ -288,7 +273,6 @@ export async function getServiceDetailsByVendorId(vendorId: string) {
     return res.data;
   } catch (err: any) {
     const { message, status } = extractError(err);
-    console.error("getServiceDetailsByVendorId error", err);
     throw { message, status } as ApiError;
   }
 }
@@ -305,7 +289,6 @@ export async function getServiceDetailsByVendorOrgId(vendorOrgId: string) {
     return res.data;
   } catch (err: any) {
     const { message, status } = extractError(err);
-    console.error("getServiceDetailsByVendorOrgId error", err);
     throw { message, status } as ApiError;
   }
 }
@@ -317,7 +300,6 @@ export async function searchServicesByServiceType(serviceType: string) {
     return res.data;
   } catch (err: any) {
     const { message, status } = extractError(err);
-    console.error("searchServicesByServiceType error", err);
     throw { message, status } as ApiError;
   }
 }
@@ -329,7 +311,6 @@ export async function searchServicesByCuisine(cuisine: string) {
     return res.data;
   } catch (err: any) {
     const { message, status } = extractError(err);
-    console.error("searchServicesByCuisine error", err);
     throw { message, status } as ApiError;
   }
 }
@@ -341,7 +322,6 @@ export async function searchServicesByArea(area: string) {
     return res.data;
   } catch (err: any) {
     const { message, status } = extractError(err);
-    console.error("searchServicesByArea error", err);
     throw { message, status } as ApiError;
   }
 }
@@ -358,7 +338,6 @@ export async function deleteServiceDetails(vendorId: string) {
     return res.data;
   } catch (err: any) {
     const { message, status } = extractError(err);
-    console.error("deleteServiceDetails error", err);
     throw { message, status } as ApiError;
   }
 }
@@ -373,7 +352,6 @@ export async function getMenuItems(vendorOrganizationId: string) {
     return res.data;
   } catch (err: any) {
     const { message, status } = extractError(err);
-    console.error("getMenuItems error", err);
     throw { message, status } as ApiError;
   }
 }
@@ -386,7 +364,6 @@ export async function getBidsByVendor(vendorOrgId: string) {
     return res.data;
   } catch (err: any) {
     const { message, status } = extractError(err);
-    console.error("getBidsByVendor error", err);
     throw { message, status } as ApiError;
   }
 }
@@ -398,7 +375,6 @@ export async function getBidById(vendorOrgId: string, bidId: string) {
     return res.data;
   } catch (err: any) {
     const { message, status } = extractError(err);
-    console.error("getBidById error", err);
     throw { message, status } as ApiError;
   }
 }
@@ -412,7 +388,6 @@ export async function createMenuItem(vendorOrganizationId: string, payload: any)
     return res.data;
   } catch (err: any) {
     const { message, status } = extractError(err);
-    console.error("createMenuItem error", err);
     throw { message, status } as ApiError;
   }
 }
@@ -424,7 +399,6 @@ export async function submitBidQuote(vendorOrgId: string, bidId: string, payload
     return res.data;
   } catch (err: any) {
     const { message, status } = extractError(err);
-    console.error("submitBidQuote error", err);
     throw { message, status } as ApiError;
   }
 }
@@ -438,7 +412,6 @@ export async function updateMenuItem(vendorOrganizationId: string, id: string, p
     return res.data;
   } catch (err: any) {
     const { message, status } = extractError(err);
-    console.error("updateMenuItem error", err);
     throw { message, status } as ApiError;
   }
 }
@@ -452,7 +425,6 @@ export async function acceptBid(vendorOrgId: string, bidId: string) {
     return res.data;
   } catch (err: any) {
     const { message, status } = extractError(err);
-    console.error("acceptBid error", err);
     throw { message, status } as ApiError;
   }
 }
@@ -467,7 +439,6 @@ export async function deleteMenuItem(vendorOrganizationId: string, id: string) {
     return res.data;
   } catch (err: any) {
     const { message, status } = extractError(err);
-    console.error("deleteMenuItem error", err);
     throw { message, status } as ApiError;
   }
 }
@@ -480,7 +451,6 @@ export async function getOrdersByVendor(vendorOrgId: string) {
     return res.data;
   } catch (err: any) {
     const { message, status } = extractError(err);
-    console.error("getOrdersByVendor error", err);
     throw { message, status } as ApiError;
   }
 }
@@ -494,23 +464,17 @@ export async function getOrderById(vendorOrgId: string, orderId: string) {
     const headers: Record<string, string> = { Accept: "application/json" };
     if (token) headers["Authorization"] = `${tokenType} ${token}`;
       if (!vendorOrgId) {
-        console.warn("getOrderById called without vendorOrgId");
       }
       if (!orderId) {
-        console.warn("getOrderById called without orderId");
       }
 
       // Ensure path params are encoded
       const encVendor = encodeURIComponent(vendorOrgId || "");
       const encOrder = encodeURIComponent(orderId || "");
       const finalUrl = buildUrl(`/api/vendor/${encVendor}/orders/${encOrder}/details`);
-      console.debug("getOrderById requesting URL:", finalUrl);
-
       // Request raw text so we can handle JSON or XML responses robustly
       const res = await axios.get(finalUrl, { headers, responseType: "text" });
     const dataText = res.data as string;
-    console.debug("getOrderById response content-type:", res.headers && res.headers["content-type"]);
-
     // First try JSON
     try {
       const parsedJson = JSON.parse(dataText);
@@ -614,12 +578,10 @@ export async function getOrderById(vendorOrgId: string, orderId: string) {
 
       return parsed;
     } catch (e) {
-      console.error("XML parse error for order details", e);
       return {};
     }
   } catch (err: any) {
     const { message, status } = extractError(err);
-    console.error("getOrderById error", err);
     throw { message, status } as ApiError;
   }
 }
@@ -631,7 +593,6 @@ export async function updateOrderStatus(vendorOrgId: string, orderId: string, st
     return res.data;
   } catch (err: any) {
     const { message, status: errStatus } = extractError(err);
-    console.error("updateOrderStatus error", err);
     throw { message, status: errStatus } as ApiError;
   }
 }
@@ -644,7 +605,6 @@ export async function getVendorNotifications(vendorOrgId: string) {
     return res.data;
   } catch (err: any) {
     const { message, status } = extractError(err);
-    console.error("getVendorNotifications error", err);
     throw { message, status } as ApiError;
   }
 }
@@ -657,7 +617,6 @@ export async function getVendorReviews(vendorOrgId: string) {
     return res.data;
   } catch (err: any) {
     const { message, status } = extractError(err);
-    console.error("getVendorReviews error", err);
     throw { message, status } as ApiError;
   }
 }
@@ -669,7 +628,6 @@ export async function getLatestVendorReviews(vendorOrgId: string) {
     return res.data;
   } catch (err: any) {
     const { message, status } = extractError(err);
-    console.error("getLatestVendorReviews error", err);
     throw { message, status } as ApiError;
   }
 }
@@ -681,7 +639,6 @@ export async function deleteVendorReview(vendorOrgId: string, reviewId: string) 
     return res.data;
   } catch (err: any) {
     const { message, status } = extractError(err);
-    console.error("deleteVendorReview error", err);
     throw { message, status } as ApiError;
   }
 }
@@ -693,7 +650,6 @@ export async function markNotificationAsRead(notificationId: string) {
     return res.data;
   } catch (err: any) {
     const { message, status } = extractError(err);
-    console.error("markNotificationAsRead error", err);
     throw { message, status } as ApiError;
   }
 }

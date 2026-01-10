@@ -34,7 +34,6 @@ class NotificationSound {
    */
   play(): void {
     if (this.isMuted) {
-      console.log("Notification sound is muted");
       return;
     }
 
@@ -56,7 +55,6 @@ class NotificationSound {
       oscillator.start(audioContext.currentTime);
       oscillator.stop(audioContext.currentTime + 0.2);
     } catch (error) {
-      console.error("Error playing notification sound:", error);
     }
   }
 
@@ -66,7 +64,6 @@ class NotificationSound {
    */
   playCustomSound(soundUrl: string): void {
     if (this.isMuted) {
-      console.log("Notification sound is muted");
       return;
     }
 
@@ -74,10 +71,8 @@ class NotificationSound {
       const audio = new Audio(soundUrl);
       audio.volume = 0.5;
       audio.play().catch((error) => {
-        console.error("Error playing custom notification sound:", error);
       });
     } catch (error) {
-      console.error("Error loading custom notification sound:", error);
     }
   }
 

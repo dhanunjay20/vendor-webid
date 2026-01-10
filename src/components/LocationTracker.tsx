@@ -8,6 +8,7 @@ interface LocationTrackerProps {
   vendorId: string | null;
   currentLatitude?: number | null;
   currentLongitude?: number | null;
+  currentAddress?: string | null;
   lastUpdated?: string | null;
   onLocationUpdated?: () => void;
 }
@@ -15,17 +16,17 @@ interface LocationTrackerProps {
 export function LocationTracker({ 
   vendorId, 
   currentLatitude, 
-  currentLongitude, 
+  currentLongitude,
+  currentAddress,
   lastUpdated,
   onLocationUpdated 
 }: LocationTrackerProps) {
-  const { isUpdating, error, updateLocation } = useLocationUpdate(vendorId);
+  const { isUpdating, error, currentAddress: liveAddress, updateLocation } = useLocationUpdate(vendorId);
 
   const handleUpdateLocation = async () => {
     const result = await updateLocation();
     if (result && onLocationUpdated) {
       // Show success feedback
-      console.log('✅ Location updated successfully:', result);
       onLocationUpdated();
     }
   };
@@ -45,6 +46,7 @@ export function LocationTracker({
   };
 
   const hasLocation = currentLatitude != null && currentLongitude != null;
+  const displayAddress = liveAddress || currentAddress;
 
   return (
     <Card>
@@ -78,6 +80,13 @@ export function LocationTracker({
         )}
 
         <div className="grid grid-cols-2 gap-4">
+          {displayAddress && (
+            <div className="col-span-2 space-y-1">
+              <p className="text-sm font-medium text-muted-foreground">Address</p>
+              <p className="text-base">{displayAddress}</p>
+            </div>
+          )}
+
           <div className="space-y-1">
             <p className="text-sm font-medium text-muted-foreground">Latitude</p>
             <p className="text-lg font-mono">{formatCoordinate(currentLatitude)}</p>

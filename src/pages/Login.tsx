@@ -33,7 +33,7 @@ export default function Login() {
       const res = await api.login({ login: formData.username, password: formData.password });
       
       // Debug: Log the entire response to see what backend returns
-      console.log('Login API Response:', JSON.stringify(res, null, 2));
+      );
       
       // store token
       if (res?.token) {
@@ -53,9 +53,7 @@ export default function Login() {
         if (vendorId) {
           localStorage.setItem("vendorId", vendorId);
           localStorage.setItem("id", vendorId); // Also store as 'id' for fallback
-          console.log('✅ Vendor ID stored:', vendorId);
         } else {
-          console.error('❌ Vendor ID not found in login response!');
         }
         
         // Store other fields
@@ -65,8 +63,7 @@ export default function Login() {
         if (profileUrl) localStorage.setItem("profileUrl", profileUrl);
         
         // Debug: Show what was stored
-        console.log('Stored values:', {
-          vendorId: localStorage.getItem('vendorId'),
+        ,
           id: localStorage.getItem('id'),
           vendorOrganizationId: localStorage.getItem('vendorOrganizationId'),
           userType: localStorage.getItem('userType')
@@ -78,7 +75,6 @@ export default function Login() {
       const userName = res.name || res.vendor?.name || res.username || formData.username;
       
       if (!storedVendorId) {
-        console.warn('⚠️ Warning: Vendor ID not found after login. Chat may not work.');
         toast({ 
           title: "Login Warning", 
           description: "Vendor ID missing. Some features may not work. Contact support.", 

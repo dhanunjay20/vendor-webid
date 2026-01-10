@@ -24,14 +24,6 @@ const Index = () => {
   });
 
   // Log the received data for debugging
-  console.log('📊 Dashboard data received:', data);
-  console.log('💰 Revenue trends:', data?.revenueTrends);
-  console.log('📦 Order volume:', data?.orderVolume);
-  console.log('📋 Recent orders:', data?.recentOrders);
-  console.log('🎯 Popular menu items:', data?.popularMenuItems);
-  console.log('📈 Monthly comparison:', data?.monthlyComparison);
-  console.log('⚡ Recent activities:', data?.recentActivities);
-
   // Calculate stats from dashboard data
   // Total Revenue: Sum of all revenue from revenue trends (cumulative)
   const totalRevenue = data?.revenueTrends?.reduce((sum, trend) => sum + (trend.revenue || 0), 0) || 0;
@@ -50,11 +42,7 @@ const Index = () => {
     activeOrders,
     totalOrders,
   };
-  
-  console.log('📊 Calculated stats:', stats);
-  console.log('  - Total Revenue (sum of all revenue trends):', totalRevenue);
-  console.log('  - Active Orders (pending + confirmed):', activeOrders);
-  console.log('  - Total Orders (sum of order volume):', totalOrders);
+  // stats prepared for display
 
   return (
     <div className="min-h-screen bg-background">

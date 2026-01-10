@@ -1,29 +1,31 @@
 import { useState, useCallback } from 'react';
-import { locationApi } from '@/lib/locationApi';
+import { locationApi, LocationUpdateDto } from '@/lib/locationApi';
 
 interface LocationState {
   isUpdating: boolean;
   error: string | null;
+  currentAddress: string | null;
 }
 
 export const useLocationUpdate = (vendorId: string | null) => {
   const [state, setState] = useState<LocationState>({
     isUpdating: false,
     error: null,
+    currentAddress: null,
   });
 
-  const updateLocation = useCallback(async (): Promise<{ latitude: number; longitude: number } | null> => {
+  const updateLocation = useCallback(async (): Promise<LocationUpdateDto | null> => {
     if (!navigator.geolocation) {
-      setState({ isUpdating: false, error: 'Geolocation not supported by browser' });
+      setState({ isUpdating: false, error: 'Geolocation not supported by browser', currentAddress: null });
       return null;
     }
 
     if (!vendorId) {
-      setState({ isUpdating: false, error: 'Vendor ID not found' });
+      setState({ isUpdating: false, error: 'Vendor ID not found', currentAddress: null });
       return null;
     }
 
-    setState({ isUpdating: true, error: null });
+    setState(prev => ({ ...prev, isUpdating: true, error: null }));
 
     return new Promise((resolve) => {
       // Request high accuracy GPS location (not network/IP-based)
@@ -36,17 +38,24 @@ export const useLocationUpdate = (vendorId: string | null) => {
       navigator.geolocation.getCurrentPosition(
         async (position) => {
           const { latitude, longitude, accuracy } = position.coords;
-          
-          console.log(`📍 Got location: lat=${latitude.toFixed(6)}, lon=${longitude.toFixed(6)}, accuracy=±${accuracy.toFixed(0)}m`);
-          
+
           try {
-            await locationApi.updateLocation(vendorId, latitude, longitude);
-            console.log(`✅ Location saved to backend`);
-            setState({ isUpdating: false, error: null });
-            resolve({ latitude, longitude });
+            const locationData = await locationApi.updateLocation(
+              vendorId,
+              latitude,
+              longitude,
+              accuracy,
+              'gps'
+            );
+            setState({
+              isUpdating: false,
+              error: null,
+              currentAddress: locationData.address || null,
+            });
+            resolve(locationData);
           } catch (error) {
-            console.error('Failed to update location to backend:', error);
-            setState({ isUpdating: false, error: 'Failed to save location' });
+
+            setState({ isUpdating: false, error: 'Failed to save location', currentAddress: null });
             resolve(null);
           }
         },
@@ -63,8 +72,7 @@ export const useLocationUpdate = (vendorId: string | null) => {
               errorMessage = 'Location request timeout. Please try again in a moment.';
               break;
           }
-          setState({ isUpdating: false, error: errorMessage });
-          console.error('Geolocation error:', error.code, errorMessage);
+          setState({ isUpdating: false, error: errorMessage, currentAddress: null });
           resolve(null);
         },
         options

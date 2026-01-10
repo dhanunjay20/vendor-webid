@@ -7,8 +7,6 @@ interface RevenueChartProps {
 }
 
 export default function RevenueChart({ data = [] }: RevenueChartProps) {
-  console.log('💰 RevenueChart received data:', data);
-  
   return (
     <Card>
       <CardHeader>

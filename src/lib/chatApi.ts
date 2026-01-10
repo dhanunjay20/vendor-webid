@@ -23,7 +23,6 @@ export const chatApi = {
       );
       return response.data;
     } catch (error) {
-      console.error('Error fetching chat history:', error);
       throw error;
     }
   },
@@ -38,7 +37,6 @@ export const chatApi = {
       );
       return response.data;
     } catch (error) {
-      console.error('Error getting chat ID:', error);
       throw error;
     }
   },
@@ -53,7 +51,6 @@ export const chatApi = {
       );
       return response.data;
     } catch (error) {
-      console.error('Error marking messages as delivered:', error);
       throw error;
     }
   },
@@ -68,7 +65,6 @@ export const chatApi = {
       );
       return response.data;
     } catch (error) {
-      console.error('Error marking messages as read:', error);
       throw error;
     }
   },

@@ -7,8 +7,6 @@ interface MonthlyComparisonChartProps {
 }
 
 export default function MonthlyComparisonChart({ data = [] }: MonthlyComparisonChartProps) {
-  console.log('📈 MonthlyComparisonChart received data:', data);
-  
   return (
     <Card>
       <CardHeader>

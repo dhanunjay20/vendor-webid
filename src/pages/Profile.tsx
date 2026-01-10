@@ -34,6 +34,7 @@ interface VendorProfile {
   lastSeenAt?: string;
   latitude?: number;
   longitude?: number;
+  currentAddress?: string;
   lastLocationUpdatedAt?: string;
 }
 
@@ -77,25 +78,20 @@ export default function Profile() {
         setLoading(false);
         return;
       }
-      
-      console.log("Fetching vendor profile for org ID:", vendorOrgId);
       const profile = await api.getVendorProfile(vendorOrgId);
-      console.log("Vendor profile fetched:", profile);
       setVendorProfile(profile);
       setFormData(profile);
       
       // Fetch service details if vendorId is available
       if (vendorId) {
         try {
-          console.log("Fetching service details for vendor ID:", vendorId);
           const details = await api.getServiceDetailsByVendorId(vendorId);
-          console.log("Service details fetched:", details);
           setServiceDetails(details);
           setServiceFormData(details);
         } catch (err: any) {
           // Service details are optional - if not found (404), just continue
           if (err?.status === 404) {
-            console.log("Service details not found (404) - this is OK, vendor is new or hasn't created service details yet");
+            // Service details not found - vendor may be new; initialize defaults
             // Initialize empty service details
             setServiceDetails(null);
             setServiceFormData({
@@ -108,13 +104,11 @@ export default function Profile() {
               specialServices: [],
             });
           } else {
-            console.warn("Error fetching service details:", err);
           }
         }
       }
     } catch (err: any) {
       setError(err?.message || "Failed to load vendor profile");
-      console.error("Failed to fetch vendor profile:", err);
     } finally {
       setLoading(false);
     }
@@ -124,7 +118,6 @@ export default function Profile() {
     try {
       localStorage.clear();
     } catch (e) {
-      console.warn("Failed to clear auth storage", e);
     }
     try {
       navigate("/", { replace: true });
@@ -168,12 +161,6 @@ export default function Profile() {
         });
         return;
       }
-
-      console.log("Saving vendor profile...");
-      console.log("Vendor ID:", vendorId);
-      console.log("Vendor Org ID:", vendorOrgId);
-      console.log("Form Data:", formData);
-
       // Prepare vendor update payload
       const vendorPayload = {
         businessName: formData.businessName,
@@ -185,13 +172,8 @@ export default function Profile() {
         yearsInBusiness: formData.yearsInBusiness,
         aboutBusiness: formData.aboutBusiness,
       };
-
-      console.log("Vendor Payload:", vendorPayload);
-
       // Update vendor profile
       await api.updateVendorProfile(vendorId, vendorPayload);
-      console.log("Vendor profile updated successfully");
-
       // Update service details if available
       if (serviceFormData && (serviceFormData.cuisineSpecialties?.length || serviceFormData.serviceTypes?.length)) {
         try {
@@ -206,17 +188,12 @@ export default function Profile() {
             startingPricePerPerson: serviceFormData.startingPricePerPerson || 0,
             specialServices: serviceFormData.specialServices?.filter(Boolean) || [],
           };
-          
-          console.log("Service Payload:", servicePayload);
           await api.createOrUpdateServiceDetails(vendorId, servicePayload);
-          console.log("Service details updated successfully");
         } catch (err: any) {
-          console.warn("Could not update service details:", err);
           // Service details update failure is non-critical
           // Profile was already updated successfully
         }
       } else {
-        console.log("Service details form is empty - skipping service details update");
       }
 
       toast({
@@ -231,7 +208,6 @@ export default function Profile() {
         description: err?.message || "Failed to save profile",
         variant: "destructive",
       });
-      console.error("Failed to save profile:", err);
     } finally {
       setSaving(false);
     }
@@ -566,6 +542,7 @@ export default function Profile() {
           vendorId={vendorProfile?.id || localStorage.getItem("vendorId") || null}
           currentLatitude={vendorProfile?.latitude}
           currentLongitude={vendorProfile?.longitude}
+          currentAddress={vendorProfile?.currentAddress}
           lastUpdated={vendorProfile?.lastLocationUpdatedAt}
           onLocationUpdated={fetchData}
         />

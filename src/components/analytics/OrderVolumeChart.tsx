@@ -7,8 +7,6 @@ interface OrderVolumeChartProps {
 }
 
 export default function OrderVolumeChart({ data = [] }: OrderVolumeChartProps) {
-  console.log('📦 OrderVolumeChart received data:', data);
-  
   return (
     <Card>
       <CardHeader>

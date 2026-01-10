@@ -25,11 +25,9 @@ interface OrdersTableProps {
 }
 
 export default function OrdersTable({ data = [] }: OrdersTableProps) {
-  console.log('📋 OrdersTable received data:', data);
   const navigate = useNavigate();
 
   const handleViewOrder = (orderId: string) => {
-    console.log('Viewing order:', orderId);
     navigate(`/orders`);
     toast({
       title: "Order Details",
@@ -38,7 +36,6 @@ export default function OrdersTable({ data = [] }: OrdersTableProps) {
   };
 
   const handleMessageCustomer = (orderId: string, client: string) => {
-    console.log('Messaging customer for order:', orderId);
     navigate(`/messaging`);
     toast({
       title: "Open Messages",

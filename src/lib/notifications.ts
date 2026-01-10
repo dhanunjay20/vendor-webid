@@ -95,13 +95,11 @@ const playNotificationSound = async (type: 'success' | 'info' | 'warning' = 'inf
     
     if (playPromise !== undefined) {
       playPromise.catch(error => {
-        console.warn('Audio play failed:', error);
         // Fallback to Web Audio API
         playWebAudioNotification(type);
       });
     }
   } catch (error) {
-    console.error('Failed to play notification sound:', error);
     // Fallback to Web Audio API
     playWebAudioNotification(type);
   }
@@ -142,7 +140,6 @@ const playWebAudioNotification = (type: 'success' | 'info' | 'warning' = 'info')
     oscillator.start(ctx.currentTime);
     oscillator.stop(ctx.currentTime + 0.6);
   } catch (error) {
-    console.error('Failed to play Web Audio notification:', error);
   }
 };
 
@@ -219,7 +216,6 @@ const showBrowserNotification = (senderName: string, message: string, senderId: 
     // Auto close after 10 seconds
     setTimeout(() => notification.close(), 10000);
   } catch (error) {
-    console.error('Failed to show browser notification:', error);
   }
 };
 

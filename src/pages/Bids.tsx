@@ -85,7 +85,6 @@ export default function Bids() {
   // Listen for real-time bid notifications and refresh the list
   useEffect(() => {
     if (bidNotifications.length > 0) {
-      console.log("🔄 Bid notification received, refreshing bids list");
       loadBids();
     }
   }, [bidNotifications]);
@@ -103,10 +102,8 @@ export default function Bids() {
     try {
       setLoading(true);
       const data = await api.getBidsByVendor(vendorOrgId);
-      console.log("Bids API response:", data);
       setBids(data || []);
     } catch (err: any) {
-      console.error("Bids API error:", err);
       toast({
         title: "Failed to load bids",
         description: err?.message || "Please try again later",

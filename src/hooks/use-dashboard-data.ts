@@ -39,30 +39,20 @@ export const useDashboardData = (options: UseDashboardDataOptions): UseDashboard
   const fetchData = useCallback(async () => {
     if (!vendorId) {
       setError('Vendor ID is required');
-      console.warn('⚠️ No vendor ID provided to useDashboardData');
       return;
     }
 
     try {
       setLoading(true);
       setError(null);
-
-      console.log(`🔄 Fetching dashboard data for vendor: ${vendorId}`);
       const dashboardData = await analyticsApi.getCompleteDashboard(vendorId);
       setData(dashboardData);
-      console.log('✅ Dashboard data loaded successfully');
     } catch (err: any) {
       const backendMessage = err?.response?.data?.message || err?.response?.data;
       const errorMessage = typeof backendMessage === 'string' 
         ? backendMessage 
         : err?.message || 'Failed to fetch dashboard data';
       setError(errorMessage);
-      console.error('❌ Error fetching dashboard data:', {
-        vendorId,
-        status: err?.response?.status,
-        message: errorMessage,
-        fullError: err,
-      });
     } finally {
       setLoading(false);
     }
@@ -79,7 +69,6 @@ export const useDashboardData = (options: UseDashboardDataOptions): UseDashboard
   useEffect(() => {
     if (refreshInterval > 0 && vendorId) {
       const intervalId = setInterval(() => {
-        console.log('🔄 Auto-refreshing dashboard data...');
         fetchData();
       }, refreshInterval);
 
@@ -123,7 +112,6 @@ export const useAnalyticsComponent = <T,>(
     } catch (err: any) {
       const errorMessage = err?.response?.data?.message || err?.message || 'Failed to fetch data';
       setError(errorMessage);
-      console.error('❌ Error fetching analytics component:', err);
     } finally {
       setLoading(false);
     }

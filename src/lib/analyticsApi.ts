@@ -90,19 +90,11 @@ export const analyticsApi = {
    */
   getCompleteDashboard: async (vendorOrganizationId: string): Promise<DashboardDataDto> => {
     try {
-      console.log(`📊 Fetching dashboard for vendorOrganizationId: ${vendorOrganizationId}`);
       const response = await axiosInstance.get<DashboardDataDto>(
         `/analytics/vendor/${vendorOrganizationId}/dashboard`
       );
-      console.log('✅ Dashboard data fetched successfully:', response.data);
       return response.data;
     } catch (error: any) {
-      console.error('❌ Error fetching complete dashboard:', {
-        vendorOrganizationId,
-        status: error?.response?.status,
-        message: error?.response?.data?.message || error?.message,
-        data: error?.response?.data,
-      });
       throw error;
     }
   },
@@ -118,7 +110,6 @@ export const analyticsApi = {
       );
       return response.data;
     } catch (error) {
-      console.error('Error fetching monthly comparison:', error);
       throw error;
     }
   },
@@ -134,7 +125,6 @@ export const analyticsApi = {
       );
       return response.data;
     } catch (error) {
-      console.error('Error fetching order volume:', error);
       throw error;
     }
   },
@@ -155,7 +145,6 @@ export const analyticsApi = {
       );
       return response.data;
     } catch (error) {
-      console.error('Error fetching popular menu items:', error);
       throw error;
     }
   },
@@ -171,7 +160,6 @@ export const analyticsApi = {
       );
       return response.data;
     } catch (error) {
-      console.error('Error fetching revenue trends:', error);
       throw error;
     }
   },
@@ -189,7 +177,6 @@ export const analyticsApi = {
       );
       return response.data;
     } catch (error) {
-      console.error('Error fetching recent orders:', error);
       throw error;
     }
   },
@@ -210,7 +197,6 @@ export const analyticsApi = {
       );
       return response.data;
     } catch (error) {
-      console.error('Error fetching recent activities:', error);
       throw error;
     }
   },

@@ -192,9 +192,6 @@ const Auth: React.FC = () => {
     if (!validateForm()) return;
     
     // Log form data before processing
-    console.log('Form Data:', formData);
-    console.log('Current vendorOrgId in state:', vendorOrgId);
-    
     // Use the vendorOrgId shown in the input field (state)
     if (!vendorOrgId || vendorOrgId.trim() === "") {
       toast({ title: "Error", description: "Please fill in business name and owner name to generate Organization ID", variant: "destructive" });
@@ -224,7 +221,6 @@ const Auth: React.FC = () => {
         country: formData.country,
         zipCode: formData.zipCode,
       };
-      console.log('Sending payload:', payload);
       await api.registerUser(payload);
       toast({ title: "Registration successful!", description: "Please sign in." });
       switchMode("signin");

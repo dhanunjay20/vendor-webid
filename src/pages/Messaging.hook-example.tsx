@@ -113,7 +113,7 @@ export default function MessagingWithHook() {
         )
       );
 
-      chatApi.markAsDelivered(notification.senderId, CURRENT_USER_ID).catch(console.error);
+      chatApi.markAsDelivered(notification.senderId, CURRENT_USER_ID).catch(() => {});
 
       toast({
         title: "New message",

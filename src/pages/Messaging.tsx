@@ -92,7 +92,6 @@ const Messaging: React.FC = () => {
   useEffect(() => {
     if ("Notification" in window && Notification.permission === "default") {
       Notification.requestPermission().then((permission) => {
-        console.log("Notification permission:", permission);
       });
     }
   }, []);
@@ -119,7 +118,6 @@ const Messaging: React.FC = () => {
   // Load chat list from backend; accept optional userId (falls back to currentUserId)
   const loadChatList = async (userId = currentUserId) => {
     if (!userId) {
-      console.warn("Cannot load chat list: vendorId not found");
       return;
     }
 
@@ -150,7 +148,6 @@ const Messaging: React.FC = () => {
 
       setConversationList(conversations);
     } catch (error) {
-      console.error("Error loading chat list:", error);
       setConversationList([]);
     }
   };
@@ -212,7 +209,6 @@ const Messaging: React.FC = () => {
   // Connect to WebSocket when we have a user id
   useEffect(() => {
     if (!currentUserId) {
-      console.error("Cannot connect to WebSocket: vendorId not found");
       toast({
         title: "Connection error",
         description: "Vendor ID not found. Please log in again.",
@@ -238,7 +234,7 @@ const Messaging: React.FC = () => {
       loadChatList();
 
       // Mark as delivered
-      chatApi.markAsDelivered(notification.senderId, currentUserId).catch(console.error);
+      chatApi.markAsDelivered(notification.senderId, currentUserId).catch(() => {});
 
       // Get sender name from the latest conversation list ref
       const senderName =
@@ -281,11 +277,8 @@ const Messaging: React.FC = () => {
         data: { ...typingStatus, currentUserId, matches: typingStatus.recipientId === currentUserId }
       };
       setDebugEvents(prev => [...prev, debugEvent]);
-      console.log('🔔 TYPING EVENT RECEIVED:', debugEvent);
-
       // Only handle typing notifications that are intended for this vendor
       if (typingStatus.recipientId && typingStatus.recipientId !== currentUserId) {
-        console.warn('⚠️ Typing event ignored - not for this user', { recipientId: typingStatus.recipientId, currentUserId });
         return;
       }
 
@@ -302,13 +295,11 @@ const Messaging: React.FC = () => {
       }
 
       if (isTypingFlag) {
-        console.log('✅ Showing typing indicator for:', sender);
         // Update debug state
         setDebugTypingStates(prev => ({ ...prev, [sender]: true }));
 
         // Show typing indicator for this sender
         if (selectedConversation && sender === selectedConversation.userId) {
-          console.log('✅ Setting isTyping=true for selected conversation');
           setIsTyping(true);
           setSelectedConversation((prev) => (prev ? { ...prev, isTyping: true, typingSenderType: senderType } : prev));
         }
@@ -327,7 +318,6 @@ const Messaging: React.FC = () => {
           }
         }, 4000);
       } else {
-        console.log('🛑 Hiding typing indicator for:', sender);
         // Update debug state
         setDebugTypingStates(prev => ({ ...prev, [sender]: false }));
 
@@ -370,7 +360,7 @@ const Messaging: React.FC = () => {
     const handleConnected = () => {
       setIsConnected(true);
 
-      chatNotificationApi.updateOnlineStatus(currentUserId, "ONLINE").catch((err) => console.error("Failed to update online status:", err));
+      chatNotificationApi.updateOnlineStatus(currentUserId, "ONLINE").catch(() => {});
 
       toast({
         title: "Connected",
@@ -379,7 +369,6 @@ const Messaging: React.FC = () => {
     };
 
     const handleError = (error: any) => {
-      console.error("WebSocket error:", error);
       setIsConnected(false);
       toast({
         title: "Connection error",
@@ -399,7 +388,7 @@ const Messaging: React.FC = () => {
     );
 
     return () => {
-      chatNotificationApi.updateOnlineStatus(currentUserId, "OFFLINE").catch((err) => console.error("Failed to update offline status:", err));
+      chatNotificationApi.updateOnlineStatus(currentUserId, "OFFLINE").catch(() => {});
       webSocketService.disconnect();
     };
     // Only re-run when currentUserId changes (we want to connect once we have an id)
@@ -416,8 +405,6 @@ const Messaging: React.FC = () => {
 
     // Only process MESSAGE_SENT events (new messages)
     if (latestNotification.eventType === "MESSAGE_SENT") {
-      console.log("💬 Processing chat notification from context:", latestNotification);
-
       // If this notification is for the currently selected conversation, add it to messages
       if (selectedConversation && latestNotification.senderId === selectedConversation.userId) {
         const newMessage: Message = {
@@ -439,14 +426,13 @@ const Messaging: React.FC = () => {
         });
 
         // Mark as delivered via API
-        chatApi.markAsDelivered(latestNotification.senderId, currentUserId).catch(console.error);
+        chatApi.markAsDelivered(latestNotification.senderId, currentUserId).catch(() => {});
       } else {
         // Message is from a different conversation, just reload chat list
         loadChatList();
       }
     } else if (latestNotification.eventType === "MESSAGE_DELIVERED") {
       // Update message status in UI
-      console.log("✓ Message delivered:", latestNotification.messageId);
       setMessages((prev) =>
         prev.map((msg) =>
           msg.id === latestNotification.messageId ? { ...msg, status: MessageStatus.DELIVERED } : msg
@@ -454,7 +440,6 @@ const Messaging: React.FC = () => {
       );
     } else if (latestNotification.eventType === "MESSAGE_READ") {
       // Update message status in UI
-      console.log("✓✓ Message read:", latestNotification.messageId);
       setMessages((prev) =>
         prev.map((msg) =>
           msg.id === latestNotification.messageId ? { ...msg, status: MessageStatus.READ } : msg
@@ -490,7 +475,6 @@ const Messaging: React.FC = () => {
         // Reload chat list to update unread counts
         loadChatList();
       } catch (error) {
-        console.error("Error loading chat history:", error);
       }
     };
 

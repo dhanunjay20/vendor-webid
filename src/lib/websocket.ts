@@ -89,7 +89,6 @@ class WebSocketService {
       webSocketFactory: () => new SockJS(`${WS_BASE_URL}/ws`),
       connectHeaders,
       debug: (str) => {
-        console.log('STOMP: ' + str);
       },
       reconnectDelay: this.reconnectDelay,
       heartbeatIncoming: 4000,
@@ -97,13 +96,11 @@ class WebSocketService {
     });
 
     this.client.onConnect = () => {
-      console.log('WebSocket Connected');
       this.connected = true;
 
       // Subscribe to private message queue (use /user/queue/... - server routes to the authenticated user)
       this.client?.subscribe(`/user/queue/messages`, (message) => {
         const notification: ChatNotification = JSON.parse(message.body);
-        console.log('Message received:', notification);
         onMessageReceived(notification);
       });
 
@@ -134,10 +131,8 @@ class WebSocketService {
             isTyping: rawIsTyping,
           };
 
-          console.log('Typing status received (normalized):', normalized, 'raw:', raw);
           onTypingReceived(normalized);
         } catch (err) {
-          console.error('Failed to parse typing message:', err, message.body);
         }
       };
 
@@ -148,7 +143,6 @@ class WebSocketService {
       // Subscribe to read receipts
       this.client?.subscribe(`/user/queue/read`, (message) => {
         const readNotification: ChatNotification = JSON.parse(message.body);
-        console.log('Read receipt received:', readNotification);
         onReadReceived(readNotification);
       });
 
@@ -163,10 +157,8 @@ class WebSocketService {
             status: (raw.status || raw.onlineStatus || raw.state || raw.connectionStatus || 'OFFLINE') as 'ONLINE' | 'OFFLINE' | 'AWAY',
           };
 
-          console.log('User status received (normalized):', normalized, 'raw:', raw);
           if (onUserStatusReceived) onUserStatusReceived(normalized);
         } catch (err) {
-          console.error('Failed to parse user status message:', err, message.body);
         }
       });
 
@@ -179,15 +171,12 @@ class WebSocketService {
     };
 
     this.client.onStompError = (frame) => {
-      console.error('Broker reported error: ' + frame.headers['message']);
-      console.error('Additional details: ' + frame.body);
       if (onError) {
         onError(frame);
       }
     };
 
     this.client.onWebSocketError = (error) => {
-      console.error('WebSocket error:', error);
       if (onError) {
         onError(error);
       }
@@ -202,9 +191,7 @@ class WebSocketService {
         destination: '/app/chat',
         body: JSON.stringify(chatMessage),
       });
-      console.log('Message sent:', chatMessage);
     } else {
-      console.error('WebSocket is not connected');
     }
   }
 
@@ -225,7 +212,6 @@ class WebSocketService {
         destination: '/app/typing',
         body: JSON.stringify(typingStatus),
       });
-      console.log('Typing status sent:', typingStatus);
     }
   }
 
@@ -261,7 +247,6 @@ class WebSocketService {
       this.sendUserStatus('OFFLINE');
       this.client.deactivate();
       this.connected = false;
-      console.log('WebSocket Disconnected');
     }
   }
 
