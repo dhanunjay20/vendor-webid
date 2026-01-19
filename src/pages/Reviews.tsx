@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from "react";
-import { Star, ThumbsUp, MessageCircle } from "lucide-react";
+import { Star, ThumbsUp, MessageCircle, Trash2, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -64,6 +64,22 @@ const Reviews = () => {
     toast({ title: "Reply Posted", description: "Your response has been published." });
   };
 
+  const handleDelete = async (reviewId: string) => {
+    if (!window.confirm("Are you sure you want to delete this review?")) return;
+    
+    try {
+      await api.deleteVendorReview(vendorOrgId, reviewId);
+      setReviews(prev => prev.filter(r => r.id !== reviewId));
+      toast({ title: "Success", description: "Review deleted successfully." });
+    } catch (err: any) {
+      toast({ 
+        title: "Failed to delete review", 
+        description: err?.message || "Please try again later", 
+        variant: "destructive" 
+      });
+    }
+  };
+
   
 
   function starBgClass(stars: number | undefined) {
@@ -95,45 +111,45 @@ const Reviews = () => {
   useEffect(() => setPage(1), [query, starFilter]);
 
   return (
-    <div className="container py-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-foreground">Reviews & Ratings</h1>
-        <p className="text-muted-foreground">Manage your customer feedback and ratings</p>
+    <div className="container mx-auto px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8">
+      <div className="mb-6 sm:mb-8">
+        <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Reviews & Ratings</h1>
+        <p className="text-sm sm:text-base text-muted-foreground mt-1">Manage your customer feedback and ratings</p>
       </div>
 
       {/* Stats */}
-      <div className="mb-8 grid gap-4 md:grid-cols-3">
+      <div className="mb-6 sm:mb-8 grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
         <Card className="shadow-sm">
-          <CardContent className="flex items-center gap-4 p-6">
-            <div className="rounded-full bg-primary/10 p-3 flex items-center justify-center">
-              <Star className="h-6 w-6 text-primary" />
+          <CardContent className="flex items-center gap-3 sm:gap-4 p-4 sm:p-6">
+            <div className="rounded-full bg-primary/10 p-2 sm:p-3 flex items-center justify-center flex-shrink-0">
+              <Star className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
             </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Average Rating</p>
-              <p className="text-2xl font-bold">{stats.avg}</p>
+            <div className="min-w-0">
+              <p className="text-xs sm:text-sm text-muted-foreground">Average Rating</p>
+              <p className="text-xl sm:text-2xl font-bold truncate">{stats.avg}</p>
               <div className="text-xs text-muted-foreground">Based on {stats.total} reviews</div>
             </div>
           </CardContent>
         </Card>
         <Card className="shadow-sm">
-          <CardContent className="flex items-center gap-4 p-6">
-            <div className="rounded-full bg-primary/10 p-3 flex items-center justify-center">
-              <MessageCircle className="h-6 w-6 text-primary" />
+          <CardContent className="flex items-center gap-3 sm:gap-4 p-4 sm:p-6">
+            <div className="rounded-full bg-primary/10 p-2 sm:p-3 flex items-center justify-center flex-shrink-0">
+              <MessageCircle className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
             </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Total Reviews</p>
-              <p className="text-2xl font-bold">{stats.total}</p>
+            <div className="min-w-0">
+              <p className="text-xs sm:text-sm text-muted-foreground">Total Reviews</p>
+              <p className="text-xl sm:text-2xl font-bold truncate">{stats.total}</p>
             </div>
           </CardContent>
         </Card>
         <Card className="shadow-sm">
-          <CardContent className="flex items-center gap-4 p-6">
-            <div className="rounded-full bg-primary/10 p-3 flex items-center justify-center">
-              <ThumbsUp className="h-6 w-6 text-primary" />
+          <CardContent className="flex items-center gap-3 sm:gap-4 p-4 sm:p-6">
+            <div className="rounded-full bg-primary/10 p-2 sm:p-3 flex items-center justify-center flex-shrink-0">
+              <ThumbsUp className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
             </div>
-            <div>
-              <p className="text-sm text-muted-foreground">5-Star Reviews</p>
-              <p className="text-2xl font-bold">{stats.fiveStarPct}</p>
+            <div className="min-w-0">
+              <p className="text-xs sm:text-sm text-muted-foreground">5-Star Reviews</p>
+              <p className="text-xl sm:text-2xl font-bold truncate">{stats.fiveStarPct}</p>
             </div>
           </CardContent>
         </Card>
@@ -141,32 +157,32 @@ const Reviews = () => {
 
       {/* Reviews List */}
       <div>
-        <div className="mb-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div className="flex items-center gap-3 w-full max-w-2xl">
+        <div className="mb-4 flex flex-col gap-3 sm:gap-4">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full">
             <Input
               placeholder="Search reviews or customer"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              className="h-11"
+              className="h-10 sm:h-11 flex-1"
               aria-label="Search reviews"
             />
-            <Button variant="ghost" onClick={() => setQuery("")}>Clear</Button>
+            <Button variant="ghost" onClick={() => setQuery("")} className="sm:w-auto">Clear</Button>
           </div>
 
-          <div className="flex items-center gap-2">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-sm text-muted-foreground">Filter:</span>
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
+            <span className="text-xs sm:text-sm text-muted-foreground font-medium">Filter by rating:</span>
+            <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
               <button
-                className={`px-3 py-1 rounded-md text-sm ${starFilter === null ? 'bg-slate-100' : 'bg-white'}`}
+                className={`px-2 sm:px-3 py-1 rounded-md text-xs sm:text-sm transition ${starFilter === null ? 'bg-slate-200 dark:bg-slate-700' : 'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200'}`}
                 onClick={() => setStarFilter(null)}
               >All</button>
               {[5,4,3,2,1].map((s) => (
                 <button
                   key={s}
                   onClick={() => setStarFilter(s)}
-                  className={`px-3 py-1 rounded-md text-sm flex items-center gap-2 ${starFilter === s ? 'bg-slate-100' : 'bg-white'}`}
+                  className={`px-2 sm:px-3 py-1 rounded-md text-xs sm:text-sm flex items-center gap-1 transition ${starFilter === s ? 'bg-slate-200 dark:bg-slate-700' : 'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200'}`}
                 >
-                  <Star className="h-4 w-4 text-yellow-400" /> {s}
+                  <Star className="h-3 w-3 text-yellow-400" /> {s}
                 </button>
               ))}
             </div>
@@ -174,61 +190,74 @@ const Reviews = () => {
         </div>
 
         {loading ? (
-          <div className="text-center text-sm text-muted-foreground">Loading reviews...</div>
+          <div className="text-center text-sm text-muted-foreground py-8">
+            <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2" />
+            Loading reviews...
+          </div>
         ) : filtered.length === 0 ? (
-          <div className="text-center text-sm text-muted-foreground">No reviews match your search.</div>
+          <div className="text-center text-sm text-muted-foreground py-8">No reviews match your search.</div>
         ) : (
           <div>
-            <div className="grid gap-6 md:grid-cols-2">
+            <div className="grid gap-4 sm:gap-6 grid-cols-1 lg:grid-cols-2">
               {paginated.map((review) => (
-                <article key={review.id} className={`rounded-lg shadow-sm hover:shadow-md transition p-6 ${starBgClass(review.stars)}`}>
-                <header className="flex items-start justify-between">
-                  <div className="flex gap-4">
-                    <Avatar className="h-12 w-12">
+                <article key={review.id} className={`rounded-lg shadow-sm hover:shadow-md transition p-4 sm:p-6 ${starBgClass(review.stars)}`}>
+                <header className="flex items-start justify-between gap-2">
+                  <div className="flex gap-3 min-w-0 flex-1">
+                    <Avatar className="h-10 w-10 sm:h-12 sm:w-12 flex-shrink-0">
                       <AvatarFallback>{review.customerName?.[0] || "U"}</AvatarFallback>
                     </Avatar>
-                    <div>
-                      <h3 className="text-base font-semibold">{review.customerName}</h3>
+                    <div className="min-w-0 flex-1">
+                      <h3 className="text-sm sm:text-base font-semibold truncate">{review.customerName}</h3>
                       <div className="text-xs text-muted-foreground">{new Date(review.reviewDate).toLocaleDateString()}</div>
-                      <div className="mt-2 flex items-center gap-2">
+                      <div className="mt-2 flex items-center gap-1.5 sm:gap-2">
                         {Array.from({ length: 5 }).map((_, i) => (
                           <Star
                             key={i}
-                            className={`h-4 w-4 ${i < (review.stars || 0) ? "fill-current text-yellow-400" : "text-muted-foreground"}`}
+                            className={`h-3 w-3 sm:h-4 sm:w-4 ${i < (review.stars || 0) ? "fill-current text-yellow-400" : "text-muted-foreground"}`}
                             style={{ opacity: i < (review.stars || 0) ? 1 : 0.35 }}
                           />
                         ))}
-                        <span className="ml-2 text-sm font-medium text-muted-foreground">{(review.stars || 0)} / 5</span>
+                        <span className="ml-1 text-xs sm:text-sm font-medium text-muted-foreground">{(review.stars || 0)} / 5</span>
                       </div>
                     </div>
                   </div>
-                  <Badge variant="outline" className="self-start">{(review.stars || 0)}.0</Badge>
+                  <div className="flex flex-col items-end gap-2 flex-shrink-0">
+                    <Badge variant="outline" className="text-xs">{(review.stars || 0)}.0</Badge>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={() => handleDelete(review.id)}
+                      className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                      title="Delete review"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </header>
 
-                <div className="mt-4 text-sm text-foreground">{review.description}</div>
+                <div className="mt-3 sm:mt-4 text-xs sm:text-sm text-foreground break-words">{review.description}</div>
 
-                <footer className="mt-4 flex items-center justify-between">
-                  <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                    <button className="flex items-center gap-2 hover:text-foreground px-3 py-1 rounded-md bg-white/30 transition">
-                      <ThumbsUp className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm">Helpful</span>
+                <footer className="mt-3 sm:mt-4 flex items-center justify-between">
+                  <div className="flex items-center gap-3 sm:gap-4 text-xs sm:text-sm text-muted-foreground">
+                    <button className="flex items-center gap-1.5 sm:gap-2 hover:text-foreground px-2 sm:px-3 py-1 rounded-md bg-white/30 transition">
+                      <ThumbsUp className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
+                      <span className="text-xs sm:text-sm">Helpful</span>
                     </button>
                   </div>
-                  <div className="text-xs text-muted-foreground"></div>
                 </footer>
               </article>
             ))}
             </div>
 
             {totalPages > 1 && (
-              <div className="mt-6 flex items-center justify-between">
+              <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-3">
                 <div>
-                  <p className="text-sm text-muted-foreground">Showing {Math.min(filtered.length, page * pageSize)} of {filtered.length} reviews</p>
+                  <p className="text-xs sm:text-sm text-muted-foreground">Showing {Math.min(filtered.length, page * pageSize)} of {filtered.length} reviews</p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Button variant="ghost" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1}>Previous</Button>
-                  <div className="px-3 py-1 rounded-md bg-white text-sm">Page {page} of {totalPages}</div>
-                  <Button variant="ghost" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages}>Next</Button>
+                  <Button variant="ghost" size="sm" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1}>Previous</Button>
+                  <div className="px-2 sm:px-3 py-1 rounded-md bg-slate-100 dark:bg-slate-800 text-xs sm:text-sm">Page {page} of {totalPages}</div>
+                  <Button variant="ghost" size="sm" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages}>Next</Button>
                 </div>
               </div>
             )}

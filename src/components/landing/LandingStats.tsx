@@ -38,7 +38,7 @@ const LandingStats: React.FC = () => {
   };
 
   return (
-    <section className="relative bg-gradient-to-br from-gray-50 via-white to-gray-50 py-20 overflow-hidden">
+    <section className="relative bg-gradient-to-br from-gray-50 via-white to-gray-50 py-12 sm:py-16 md:py-20 overflow-hidden">
       {/* Background decorative elements */}
       <div className="absolute inset-0 overflow-hidden">
         <motion.div
@@ -86,11 +86,11 @@ const LandingStats: React.FC = () => {
               Our Impact
             </span>
           </motion.div>
-          <h2 className="text-4xl font-bold text-gray-900 sm:text-5xl">
+          <h2 className="text-3xl font-bold text-gray-900 sm:text-4xl lg:text-5xl">
             Trusted by Thousands
           </h2>
-          <p className="mt-4 text-xl text-gray-600 max-w-2xl mx-auto">
-            Join the community of successful caterers growing their business with VendorBid
+          <p className="mt-4 text-base sm:text-lg lg:text-xl text-gray-600 max-w-2xl mx-auto">
+            Join the community of successful caterers growing their business with Bidzaro
           </p>
         </motion.div>
 
@@ -111,7 +111,7 @@ const LandingStats: React.FC = () => {
               }}
               className="group relative"
             >
-              <div className="relative h-full rounded-2xl bg-white p-8 text-center shadow-lg hover:shadow-2xl transition-all duration-300 border border-gray-100 overflow-hidden">
+              <div className="relative h-full rounded-2xl bg-white p-6 sm:p-8 text-center shadow-lg hover:shadow-2xl transition-all duration-300 border border-gray-100 overflow-hidden">
                 {/* Gradient overlay on hover */}
                 <motion.div
                   className={`absolute inset-0 bg-gradient-to-br ${stat.color} opacity-0 group-hover:opacity-10 transition-opacity duration-300`}
@@ -145,7 +145,7 @@ const LandingStats: React.FC = () => {
 
                   {/* Animated Counter */}
                   <motion.div
-                    className={`text-5xl font-bold bg-gradient-to-br ${stat.color} bg-clip-text text-transparent mb-2`}
+                    className={`text-3xl sm:text-4xl lg:text-5xl font-bold bg-gradient-to-br ${stat.color} bg-clip-text text-transparent mb-2`}
                     initial={{ scale: 0, rotate: -180 }}
                     animate={isInView ? { scale: 1, rotate: 0 } : {}}
                     transition={{
@@ -158,7 +158,7 @@ const LandingStats: React.FC = () => {
                     {stat.value}
                   </motion.div>
 
-                  <div className="text-gray-600 font-medium text-lg">{stat.label}</div>
+                  <div className="text-gray-600 font-medium text-sm sm:text-base lg:text-lg">{stat.label}</div>
 
                   {/* Pulse effect */}
                   <motion.div

@@ -227,28 +227,28 @@ export default function Register() {
 
   if (isSubmitted) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-amber-50 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-amber-50 flex items-center justify-center px-3 sm:px-4 py-4 sm:py-6">
         <Card className="max-w-md w-full text-center border-2 border-green-200 shadow-2xl">
-          <CardHeader>
-            <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
-              <CheckCircle2 className="h-10 w-10 text-green-600" />
+          <CardHeader className="px-4 sm:px-6 py-4 sm:py-6">
+            <div className="mx-auto w-12 h-12 sm:w-16 sm:h-16 bg-green-100 rounded-full flex items-center justify-center mb-3 sm:mb-4">
+              <CheckCircle2 className="h-8 w-8 sm:h-10 sm:w-10 text-green-600" />
             </div>
-            <CardTitle className="text-3xl text-green-700">Registration Successful!</CardTitle>
-            <CardDescription className="text-base mt-2">
-              Thank you for registering with VendorBid
+            <CardTitle className="text-2xl sm:text-3xl md:text-3xl text-green-700">Registration Successful!</CardTitle>
+            <CardDescription className="text-sm sm:text-base mt-2">
+              Thank you for registering with Bidzaro
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-3 sm:space-y-4 px-4 sm:px-6 pb-4 sm:pb-6">
             <Alert className="bg-green-50 border-green-200">
-              <AlertDescription className="text-gray-700">
+              <AlertDescription className="text-sm sm:text-base text-gray-700">
                 Our respected team will get in touch with you shortly to complete your account verification 
                 and help you get started.
               </AlertDescription>
             </Alert>
-            <div className="pt-4">
+            <div className="pt-2 sm:pt-4">
               <Button
                 onClick={() => navigate("/login")}
-                className="w-full bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-700 hover:to-amber-700"
+                className="w-full bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-700 hover:to-amber-700 text-sm sm:text-base py-2 sm:py-2.5"
               >
                 Proceed to Login
               </Button>
@@ -256,7 +256,7 @@ export default function Register() {
             <Button
               variant="ghost"
               onClick={() => navigate("/")}
-              className="w-full"
+              className="w-full text-sm sm:text-base py-2 sm:py-2.5"
             >
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back to Home
@@ -268,83 +268,83 @@ export default function Register() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-amber-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-amber-50 py-6 sm:py-8 md:py-12 px-3 sm:px-4 md:px-6 lg:px-8">
       <div className="max-w-2xl mx-auto">
-        <div className="text-center mb-8">
-          <div className="flex justify-center mb-4">
-            <div className="flex items-center space-x-2">
-              <ChefHat className="h-10 w-10 text-orange-600" />
-              <span className="text-3xl font-bold bg-gradient-to-r from-orange-600 to-amber-600 bg-clip-text text-transparent">
-                VendorBid
+        <div className="text-center mb-6 sm:mb-8">
+          <div className="flex justify-center mb-3 sm:mb-4">
+              <div className="flex items-center space-x-2">
+              <ChefHat className="h-8 w-8 sm:h-10 sm:w-10 text-orange-600" />
+              <span className="text-2xl sm:text-3xl md:text-3xl font-bold bg-gradient-to-r from-orange-600 to-amber-600 bg-clip-text text-transparent">
+                Bidzaro
               </span>
             </div>
           </div>
-          <h1 className="text-4xl font-bold text-gray-900">Create Your Account</h1>
-          <p className="text-gray-600 mt-2">Join the leading catering platform today</p>
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900">Create Your Account</h1>
+          <p className="text-sm sm:text-base text-gray-600 mt-2">Join the leading catering platform today</p>
         </div>
 
         <Card className="shadow-2xl border-2">
-          <CardHeader>
-            <CardTitle className="text-2xl">Vendor Registration</CardTitle>
-            <CardDescription>Fill in your business details to get started</CardDescription>
+          <CardHeader className="px-4 sm:px-6 py-4 sm:py-6">
+            <CardTitle className="text-xl sm:text-2xl md:text-2xl">Vendor Registration</CardTitle>
+            <CardDescription className="text-sm sm:text-base">Fill in your business details to get started</CardDescription>
           </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-6">
+          <CardContent className="px-4 sm:px-6 pb-4 sm:pb-6">
+            <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
               {serverError && (
                 <Alert variant="destructive" className="bg-red-50 border-red-200">
-                  <AlertDescription>{serverError}</AlertDescription>
+                  <AlertDescription className="text-sm sm:text-base">{serverError}</AlertDescription>
                 </Alert>
               )}
-              <div className="grid md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <Label htmlFor="businessName">Business Name <span className="text-red-500">*</span></Label>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+                <div className="space-y-1.5 sm:space-y-2">
+                  <Label htmlFor="businessName" className="text-sm sm:text-base">Business Name <span className="text-red-500">*</span></Label>
                   <Input
                     id="businessName"
                     name="businessName"
                     value={formData.businessName}
                     onChange={handleChange}
                     placeholder="Enter your business name"
-                    className={errors.businessName ? "border-red-500" : ""}
+                    className={`text-sm sm:text-base ${errors.businessName ? "border-red-500" : ""}`}
                   />
                   {errors.businessName && (
-                    <p className="text-sm text-red-500">{errors.businessName}</p>
+                    <p className="text-xs sm:text-sm text-red-500">{errors.businessName}</p>
                   )}
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="ownerName">Owner Name <span className="text-red-500">*</span></Label>
+                <div className="space-y-1.5 sm:space-y-2">
+                  <Label htmlFor="ownerName" className="text-sm sm:text-base">Owner Name <span className="text-red-500">*</span></Label>
                   <Input
                     id="ownerName"
                     name="ownerName"
                     value={formData.ownerName}
                     onChange={handleChange}
                     placeholder="Enter owner name"
-                    className={errors.ownerName ? "border-red-500" : ""}
+                    className={`text-sm sm:text-base ${errors.ownerName ? "border-red-500" : ""}`}
                   />
                   {errors.ownerName && (
-                    <p className="text-sm text-red-500">{errors.ownerName}</p>
+                    <p className="text-xs sm:text-sm text-red-500">{errors.ownerName}</p>
                   )}
                 </div>
                 
-                <div className="space-y-2 md:col-span-2">
-                  <Label htmlFor="vendorOrgId">Organization ID</Label>
-                  <div className="flex items-center space-x-2">
+                <div className="space-y-1.5 sm:space-y-2 md:col-span-2">
+                  <Label htmlFor="vendorOrgId" className="text-sm sm:text-base">Organization ID</Label>
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
                     <Input
                       id="vendorOrgId"
                       name="vendorOrgId"
                       value={vendorOrgId}
                       readOnly
-                      className="w-full bg-gray-100"
+                      className="w-full bg-gray-100 text-sm sm:text-base"
                     />
-                    <Button type="button" onClick={regenerateOrgId} className="h-10">Regenerate</Button>
+                    <Button type="button" onClick={regenerateOrgId} className="h-9 sm:h-10 text-sm sm:text-base whitespace-nowrap">Regenerate</Button>
                   </div>
-                  <p className="text-xs text-gray-500">Auto-generated from business & owner name. You can regenerate.</p>
+                  <p className="text-xs sm:text-sm text-gray-500">Auto-generated from business & owner name. You can regenerate.</p>
                 </div>
               </div>
 
-              <div className="grid md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email Address <span className="text-red-500">*</span></Label>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+                <div className="space-y-1.5 sm:space-y-2">
+                  <Label htmlFor="email" className="text-sm sm:text-base">Email Address <span className="text-red-500">*</span></Label>
                   <Input
                     id="email"
                     name="email"
@@ -352,15 +352,15 @@ export default function Register() {
                     value={formData.email}
                     onChange={handleChange}
                     placeholder="your@email.com"
-                    className={errors.email ? "border-red-500" : ""}
+                    className={`text-sm sm:text-base ${errors.email ? "border-red-500" : ""}`}
                   />
                   {errors.email && (
-                    <p className="text-sm text-red-500">{errors.email}</p>
+                    <p className="text-xs sm:text-sm text-red-500">{errors.email}</p>
                   )}
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="mobile">Mobile Number <span className="text-red-500">*</span></Label>
+                <div className="space-y-1.5 sm:space-y-2">
+                  <Label htmlFor="mobile" className="text-sm sm:text-base">Mobile Number <span className="text-red-500">*</span></Label>
                   <Input
                     id="mobile"
                     name="mobile"
@@ -368,32 +368,32 @@ export default function Register() {
                     onChange={handleChange}
                     placeholder="10-digit mobile number"
                     maxLength={10}
-                    className={errors.mobile ? "border-red-500" : ""}
+                    className={`text-sm sm:text-base ${errors.mobile ? "border-red-500" : ""}`}
                   />
                   {errors.mobile && (
-                    <p className="text-sm text-red-500">{errors.mobile}</p>
+                    <p className="text-xs sm:text-sm text-red-500">{errors.mobile}</p>
                   )}
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="username">Username <span className="text-red-500">*</span></Label>
+              <div className="space-y-1.5 sm:space-y-2">
+                <Label htmlFor="username" className="text-sm sm:text-base">Username <span className="text-red-500">*</span></Label>
                 <Input
                   id="username"
                   name="username"
                   value={formData.username}
                   onChange={handleChange}
                   placeholder="Choose a unique username"
-                  className={errors.username ? "border-red-500" : ""}
+                  className={`text-sm sm:text-base ${errors.username ? "border-red-500" : ""}`}
                 />
                 {errors.username && (
-                  <p className="text-sm text-red-500">{errors.username}</p>
+                  <p className="text-xs sm:text-sm text-red-500">{errors.username}</p>
                 )}
               </div>
 
-              <div className="grid md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <Label htmlFor="password">Password <span className="text-red-500">*</span></Label>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+                <div className="space-y-1.5 sm:space-y-2">
+                  <Label htmlFor="password" className="text-sm sm:text-base">Password <span className="text-red-500">*</span></Label>
                   <div className="relative">
                     <Input
                       id="password"
@@ -402,7 +402,7 @@ export default function Register() {
                       value={formData.password}
                       onChange={handleChange}
                       placeholder="Create a strong password"
-                      className={`${errors.password ? "border-red-500" : ""} pr-12`}
+                      className={`text-sm sm:text-base ${errors.password ? "border-red-500" : ""} pr-10 sm:pr-12`}
                     />
                     <button
                       type="button"
@@ -410,11 +410,11 @@ export default function Register() {
                       onClick={() => setShowPassword(prev => !prev)}
                       className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
                     >
-                      {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                      {showPassword ? <EyeOff className="h-4 w-4 sm:h-5 sm:w-5" /> : <Eye className="h-4 w-4 sm:h-5 sm:w-5" />}
                     </button>
                   </div>
                   {errors.password && (
-                    <p className="text-sm text-red-500">{errors.password}</p>
+                    <p className="text-xs sm:text-sm text-red-500">{errors.password}</p>
                   )}
                   {/* Password strength meter */}
                   {formData.password && (
@@ -422,19 +422,19 @@ export default function Register() {
                       const s = getPasswordStrength(formData.password);
                       const pct = Math.min(100, Math.round((s.score / 6) * 100));
                       return (
-                        <div className="mt-2">
-                          <div className="w-full h-2 bg-gray-200 rounded overflow-hidden">
-                            <div className={`${s.color} h-2`} style={{ width: `${pct}%` }} />
+                        <div className="mt-1.5 sm:mt-2">
+                          <div className="w-full h-1.5 sm:h-2 bg-gray-200 rounded overflow-hidden">
+                            <div className={`${s.color} h-1.5 sm:h-2`} style={{ width: `${pct}%` }} />
                           </div>
-                          <div className="text-xs text-gray-600 mt-1">Strength: {s.label}</div>
+                          <div className="text-xs sm:text-sm text-gray-600 mt-1">Strength: {s.label}</div>
                         </div>
                       );
                     })()
                   )}
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="confirmPassword">Confirm Password <span className="text-red-500">*</span></Label>
+                <div className="space-y-1.5 sm:space-y-2">
+                  <Label htmlFor="confirmPassword" className="text-sm sm:text-base">Confirm Password <span className="text-red-500">*</span></Label>
                   <div className="relative">
                     <Input
                       id="confirmPassword"
@@ -443,103 +443,104 @@ export default function Register() {
                       value={formData.confirmPassword}
                       onChange={handleChange}
                       placeholder="Re-enter password"
-                      className={`${errors.confirmPassword ? "border-red-500" : ""}`}
+                      className={`text-sm sm:text-base ${errors.confirmPassword ? "border-red-500" : ""}`}
                     />
                   </div>
                   {errors.confirmPassword && (
-                    <p className="text-sm text-red-500">{errors.confirmPassword}</p>
+                    <p className="text-xs sm:text-sm text-red-500">{errors.confirmPassword}</p>
                   )}
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="addressLine1">Address Line 1 *</Label>
+              <div className="grid grid-cols-1 gap-3 sm:gap-4">
+                <div className="space-y-1.5 sm:space-y-2">
+                  <Label htmlFor="addressLine1" className="text-sm sm:text-base">Address Line 1 *</Label>
                   <Input
                     id="addressLine1"
                     name="addressLine1"
                     value={formData.addressLine1}
                     onChange={handleChange}
                     placeholder="Street address, P.O. box, company name, c/o"
-                    className={errors.addressLine1 ? "border-red-500" : ""}
+                    className={`text-sm sm:text-base ${errors.addressLine1 ? "border-red-500" : ""}`}
                   />
                   {errors.addressLine1 && (
-                    <p className="text-sm text-red-500">{errors.addressLine1}</p>
+                    <p className="text-xs sm:text-sm text-red-500">{errors.addressLine1}</p>
                   )}
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="addressLine2">Address Line 2</Label>
+                <div className="space-y-1.5 sm:space-y-2">
+                  <Label htmlFor="addressLine2" className="text-sm sm:text-base">Address Line 2</Label>
                   <Input
                     id="addressLine2"
                     name="addressLine2"
                     value={formData.addressLine2}
                     onChange={handleChange}
                     placeholder="Apartment, suite, unit, building, floor, etc. (optional)"
+                    className="text-sm sm:text-base"
                   />
                 </div>
 
-                <div className="grid md:grid-cols-3 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="city">City *</Label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
+                  <div className="space-y-1.5 sm:space-y-2">
+                    <Label htmlFor="city" className="text-sm sm:text-base">City *</Label>
                     <Input
                       id="city"
                       name="city"
                       value={formData.city}
                       onChange={handleChange}
                       placeholder="City"
-                      className={errors.city ? "border-red-500" : ""}
+                      className={`text-sm sm:text-base ${errors.city ? "border-red-500" : ""}`}
                     />
-                    {errors.city && <p className="text-sm text-red-500">{errors.city}</p>}
+                    {errors.city && <p className="text-xs sm:text-sm text-red-500">{errors.city}</p>}
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="state">State / Province *</Label>
+                  <div className="space-y-1.5 sm:space-y-2">
+                    <Label htmlFor="state" className="text-sm sm:text-base">State / Province *</Label>
                     <Input
                       id="state"
                       name="state"
                       value={formData.state}
                       onChange={handleChange}
                       placeholder="State or Province"
-                      className={errors.state ? "border-red-500" : ""}
+                      className={`text-sm sm:text-base ${errors.state ? "border-red-500" : ""}`}
                     />
-                    {errors.state && <p className="text-sm text-red-500">{errors.state}</p>}
+                    {errors.state && <p className="text-xs sm:text-sm text-red-500">{errors.state}</p>}
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="zipCode">ZIP / Postal Code *</Label>
+                  <div className="space-y-1.5 sm:space-y-2">
+                    <Label htmlFor="zipCode" className="text-sm sm:text-base">ZIP / Postal Code *</Label>
                     <Input
                       id="zipCode"
                       name="zipCode"
                       value={formData.zipCode}
                       onChange={handleChange}
                       placeholder="Postal code"
-                      className={errors.zipCode ? "border-red-500" : ""}
+                      className={`text-sm sm:text-base ${errors.zipCode ? "border-red-500" : ""}`}
                     />
-                    {errors.zipCode && <p className="text-sm text-red-500">{errors.zipCode}</p>}
+                    {errors.zipCode && <p className="text-xs sm:text-sm text-red-500">{errors.zipCode}</p>}
                   </div>
                 </div>
 
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="country">Country *</Label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                  <div className="space-y-1.5 sm:space-y-2">
+                    <Label htmlFor="country" className="text-sm sm:text-base">Country *</Label>
                     <Input
                       id="country"
                       name="country"
                       value={formData.country}
                       onChange={handleChange}
                       placeholder="Country"
-                      className={errors.country ? "border-red-500" : ""}
+                      className={`text-sm sm:text-base ${errors.country ? "border-red-500" : ""}`}
                     />
-                    {errors.country && <p className="text-sm text-red-500">{errors.country}</p>}
+                    {errors.country && <p className="text-xs sm:text-sm text-red-500">{errors.country}</p>}
                   </div>
                 </div>
               </div>
 
-              <div className="pt-4 space-y-4">
+              <div className="pt-3 sm:pt-4 space-y-3 sm:space-y-4">
                 <Button
                   type="submit"
-                  className="w-full bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-700 hover:to-amber-700 text-white py-6 text-lg"
+                  className="w-full bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-700 hover:to-amber-700 text-white py-4 sm:py-5 md:py-6 text-base sm:text-lg"
                   disabled={loading}
                 >
                   {loading ? "Registering..." : "Register Now"}
@@ -547,7 +548,7 @@ export default function Register() {
 
                 {/* License document upload removed per request */}
 
-                <div className="text-center text-sm text-gray-600">
+                <div className="text-center text-xs sm:text-sm text-gray-600">
                   Already have an account?{" "}
                   <button
                     type="button"
@@ -562,7 +563,7 @@ export default function Register() {
                   type="button"
                   variant="ghost"
                   onClick={() => navigate("/")}
-                  className="w-full"
+                  className="w-full text-sm sm:text-base py-2 sm:py-2.5"
                 >
                   <ArrowLeft className="h-4 w-4 mr-2" />
                   Back to Home

@@ -72,7 +72,6 @@ class NotificationWebSocketService {
     onError?: (error: any) => void
   ): void {
     if (this.client?.connected || this.isConnecting) {
-      console.log("WebSocket already connected or connecting");
       return;
     }
 
@@ -90,7 +89,6 @@ class NotificationWebSocketService {
     this.client = new Client({
       webSocketFactory: () => socket as any,
       debug: (str) => {
-        console.log("STOMP Debug:", str);
       },
       reconnectDelay: this.reconnectDelay,
       heartbeatIncoming: 4000,
@@ -98,7 +96,6 @@ class NotificationWebSocketService {
     });
 
     this.client.onConnect = () => {
-      console.log("Notification WebSocket Connected");
       this.isConnecting = false;
       this.reconnectAttempts = 0;
 
@@ -114,8 +111,6 @@ class NotificationWebSocketService {
     };
 
     this.client.onStompError = (frame) => {
-      console.error("STOMP error:", frame.headers["message"]);
-      console.error("Details:", frame.body);
       this.isConnecting = false;
 
       if (this.onErrorCallback) {
@@ -126,7 +121,6 @@ class NotificationWebSocketService {
     };
 
     this.client.onWebSocketClose = () => {
-      console.log("WebSocket connection closed");
       this.isConnecting = false;
 
       if (this.onDisconnectedCallback) {
@@ -145,25 +139,20 @@ class NotificationWebSocketService {
     // Subscribe to vendor-specific bid notifications using MongoDB ID
     this.client.subscribe(`/topic/vendor/${vendorId}/bids`, (message: IMessage) => {
       const notification: BidUpdateNotification = JSON.parse(message.body);
-      console.log("Bid notification received:", notification);
       this.bidCallbacks.forEach((callback) => callback(notification));
     });
 
     // Subscribe to vendor-specific order notifications using MongoDB ID
     this.client.subscribe(`/topic/vendor/${vendorId}/orders`, (message: IMessage) => {
       const notification: OrderUpdateNotification = JSON.parse(message.body);
-      console.log("Order notification received:", notification);
       this.orderCallbacks.forEach((callback) => callback(notification));
     });
 
     // Subscribe to vendor-specific chat notifications using MongoDB ID
     this.client.subscribe(`/topic/vendor/${vendorId}/chats`, (message: IMessage) => {
       const notification: ChatUpdateNotification = JSON.parse(message.body);
-      console.log("Chat notification received:", notification);
       this.chatCallbacks.forEach((callback) => callback(notification));
     });
-
-    console.log(`Subscribed to vendor topics for: ${vendorId}`);
   }
 
   private subscribeToBroadcastTopics(): void {
@@ -172,35 +161,28 @@ class NotificationWebSocketService {
     // Subscribe to broadcast bid updates
     this.client.subscribe("/topic/bids", (message: IMessage) => {
       const notification: BidUpdateNotification = JSON.parse(message.body);
-      console.log("Broadcast bid notification:", notification);
       this.bidCallbacks.forEach((callback) => callback(notification));
     });
 
     // Subscribe to broadcast order updates
     this.client.subscribe("/topic/orders", (message: IMessage) => {
       const notification: OrderUpdateNotification = JSON.parse(message.body);
-      console.log("Broadcast order notification:", notification);
       this.orderCallbacks.forEach((callback) => callback(notification));
     });
 
     // Subscribe to broadcast chat updates
     this.client.subscribe("/topic/chats", (message: IMessage) => {
       const notification: ChatUpdateNotification = JSON.parse(message.body);
-      console.log("Broadcast chat notification:", notification);
       this.chatCallbacks.forEach((callback) => callback(notification));
     });
-
-    console.log("Subscribed to broadcast topics");
   }
 
   private handleReconnect(vendorId: string): void {
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-      console.error("Max reconnection attempts reached");
       return;
     }
 
     this.reconnectAttempts++;
-    console.log(`Attempting to reconnect (${this.reconnectAttempts}/${this.maxReconnectAttempts})...`);
 
     setTimeout(() => {
       if (!this.client?.connected) {
@@ -228,7 +210,6 @@ class NotificationWebSocketService {
     this.orderCallbacks = [];
     this.chatCallbacks = [];
     this.reconnectAttempts = 0;
-    console.log("Notification WebSocket disconnected");
   }
 
   isConnected(): boolean {

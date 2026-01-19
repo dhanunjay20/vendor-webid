@@ -93,7 +93,6 @@ export default function Orders() {
   // Listen for real-time order notifications and refresh the list
   useEffect(() => {
     if (orderNotifications.length > 0) {
-      console.log("🔄 Order notification received, refreshing orders list");
       loadOrders();
     }
   }, [orderNotifications]);
@@ -133,10 +132,8 @@ export default function Orders() {
     try {
       setLoading(true);
       const data = await api.getOrdersByVendor(vendorOrgId);
-      console.log("Orders API response:", data);
       setOrders(data || []);
     } catch (err: any) {
-      console.error("Orders API error:", err);
       toast({
         title: "Failed to load orders",
         description: err?.message || "Please try again later",
@@ -180,28 +177,28 @@ export default function Orders() {
   }, [orders, searchQuery, statusFilter]);
 
   return (
-    <div className="container px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
-      <div className="mb-6 sm:mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <div className="container px-3 sm:px-4 md:px-6 py-4 sm:py-6">
+      <div className="mb-4 sm:mb-6 md:mb-8 flex flex-col gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Order Management</h1>
-          <p className="text-sm sm:text-base text-muted-foreground">Track and manage your accepted catering orders</p>
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-foreground">Order Management</h1>
+          <p className="text-sm sm:text-base text-muted-foreground mt-1">Track and manage your accepted catering orders</p>
         </div>
-        <div className="flex gap-2">
-          <Badge variant="outline" className="text-sm">
+        <div className="flex flex-wrap gap-2">
+          <Badge variant="outline" className="text-xs sm:text-sm">
             {orders.length} Total Orders
           </Badge>
-          <Badge variant="outline" className="text-sm bg-green-500/10 text-green-600 border-green-500/20">
+          <Badge variant="outline" className="text-xs sm:text-sm bg-green-500/10 text-green-600 border-green-500/20">
             {orders.filter(o => o.status === "completed").length} Completed
           </Badge>
         </div>
       </div>
 
-      <div className="mb-6 flex flex-col sm:flex-row gap-4">
+      <div className="mb-4 sm:mb-6 flex flex-col gap-3 sm:gap-4">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input 
             placeholder="Search by client, event, or order ID..." 
-            className="pl-10" 
+            className="pl-10 h-10 sm:h-11 text-sm sm:text-base" 
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
@@ -209,7 +206,7 @@ export default function Orders() {
             <Button
               variant="ghost"
               size="icon"
-              className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2"
+              className="absolute right-1 top-1/2 h-8 w-8 sm:h-9 sm:w-9 -translate-y-1/2"
               onClick={() => setSearchQuery("")}
             >
               <X className="h-4 w-4" />
@@ -217,7 +214,7 @@ export default function Orders() {
           )}
         </div>
         <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-full sm:w-[180px]">
+          <SelectTrigger className="w-full sm:w-[200px] h-10 sm:h-11 text-sm sm:text-base">
             <div className="flex items-center gap-2">
               <Filter className="h-4 w-4" />
               <SelectValue placeholder="Filter by status" />
@@ -237,16 +234,16 @@ export default function Orders() {
 
       {loading ? (
         <Card>
-          <CardContent className="py-12 text-center">
-            <p className="text-muted-foreground">Loading orders...</p>
+          <CardContent className="py-8 sm:py-12 text-center">
+            <p className="text-sm sm:text-base text-muted-foreground">Loading orders...</p>
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-6">
+        <div className="grid gap-4 sm:gap-6">
           {filteredOrders.length === 0 ? (
             <Card>
-              <CardContent className="py-12 text-center">
-                <p className="text-muted-foreground">No orders found matching your criteria</p>
+              <CardContent className="py-8 sm:py-12 text-center">
+                <p className="text-sm sm:text-base text-muted-foreground">No orders found matching your criteria</p>
               </CardContent>
             </Card>
           ) : (
@@ -270,71 +267,74 @@ export default function Orders() {
 
               return (
                 <Card key={order.id} className="overflow-hidden transition-smooth hover:shadow-lg">
-                  <CardHeader className="bg-gradient-card pb-4">
-                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-                      <div className="flex-1">
-                        <CardTitle className="text-xl mb-2">{order.eventName}</CardTitle>
-                        <p className="text-sm text-muted-foreground">Order ID: {order.id}</p>
+                  <CardHeader className="bg-gradient-card pb-3 sm:pb-4 px-4 sm:px-6">
+                    <div className="flex flex-col gap-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <CardTitle className="text-base sm:text-lg md:text-xl mb-1 sm:mb-2 truncate">{order.eventName}</CardTitle>
+                          <p className="text-xs sm:text-sm text-muted-foreground truncate">Order ID: {order.id}</p>
+                        </div>
+                        <Badge className={`${statusConfig[order.status as keyof typeof statusConfig]?.className || ""} shrink-0 text-xs sm:text-sm`}>
+                          <StatusIcon className="mr-1 h-3 w-3" />
+                          {statusConfig[order.status as keyof typeof statusConfig]?.label || order.status}
+                        </Badge>
                       </div>
-                      <Badge className={statusConfig[order.status as keyof typeof statusConfig]?.className || ""}>
-                        <StatusIcon className="mr-1 h-3 w-3" />
-                        {statusConfig[order.status as keyof typeof statusConfig]?.label || order.status}
-                      </Badge>
                     </div>
                   </CardHeader>
-                  <CardContent className="pt-6">
-                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-6">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 bg-blue-500/10 rounded-lg">
+                  <CardContent className="pt-4 sm:pt-6 px-4 sm:px-6">
+                    <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 mb-4 sm:mb-6">
+                      <div className="flex items-center gap-2 sm:gap-3">
+                        <div className="p-2 bg-blue-500/10 rounded-lg shrink-0">
                           <Calendar className="h-4 w-4 text-blue-600" />
                         </div>
-                        <div>
+                        <div className="min-w-0">
                           <p className="text-xs text-muted-foreground">Event Date</p>
-                          <p className="font-medium">{new Date(order.eventDate).toLocaleDateString()}</p>
+                          <p className="text-sm sm:text-base font-medium">{new Date(order.eventDate).toLocaleDateString()}</p>
                         </div>
                       </div>
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 bg-purple-500/10 rounded-lg">
+                      <div className="flex items-center gap-2 sm:gap-3">
+                        <div className="p-2 bg-purple-500/10 rounded-lg shrink-0">
                           <Users className="h-4 w-4 text-purple-600" />
                         </div>
-                        <div>
+                        <div className="min-w-0">
                           <p className="text-xs text-muted-foreground">Guest Count</p>
-                          <p className="font-medium">{order.guestCount} guests</p>
+                          <p className="text-sm sm:text-base font-medium">{order.guestCount} guests</p>
                         </div>
                       </div>
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 bg-orange-500/10 rounded-lg">
+                      <div className="flex items-center gap-2 sm:gap-3">
+                        <div className="p-2 bg-orange-500/10 rounded-lg shrink-0">
                           <MapPin className="h-4 w-4 text-orange-600" />
                         </div>
-                        <div>
+                        <div className="min-w-0 flex-1">
                           <p className="text-xs text-muted-foreground">Location</p>
-                          <p className="font-medium truncate" title={order.eventLocation}>
+                          <p className="text-sm sm:text-base font-medium truncate" title={order.eventLocation}>
                             {order.eventLocation}
                           </p>
                         </div>
                       </div>
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 bg-green-500/10 rounded-lg">
+                      <div className="flex items-center gap-2 sm:gap-3">
+                        <div className="p-2 bg-green-500/10 rounded-lg shrink-0">
                           <DollarSign className="h-4 w-4 text-green-600" />
                         </div>
-                        <div>
+                        <div className="min-w-0">
                           <p className="text-xs text-muted-foreground">Total Amount</p>
-                          <p className="text-lg font-bold text-primary">${order.totalPrice.toFixed(2)}</p>
+                          <p className="text-base sm:text-lg font-bold text-primary">${order.totalPrice.toFixed(2)}</p>
                         </div>
                       </div>
                     </div>
 
-                    <div className="flex flex-col sm:flex-row gap-2 pt-4 border-t">
+                    <div className="flex flex-col sm:flex-row gap-2 pt-3 sm:pt-4 border-t">
                       <Button 
                         onClick={() => handleViewOrder(order)}
                         disabled={loadingDetail}
-                        className="flex-1"
+                        className="flex-1 h-10 sm:h-11 text-sm sm:text-base"
                       >
                         <Eye className="mr-2 h-4 w-4" />
-                        View Details
+                        <span className="hidden sm:inline">View Details</span>
+                        <span className="sm:hidden">Details</span>
                       </Button>
                       <Select value={order.status} onValueChange={(newStatus) => handleUpdateStatus(order.id, newStatus)} disabled={!canChange}>
-                        <SelectTrigger className={`flex-1 ${!canChange ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                        <SelectTrigger className={`flex-1 h-10 sm:h-11 text-sm sm:text-base ${!canChange ? 'opacity-50 cursor-not-allowed' : ''}`}>
                           <SelectValue placeholder="Update Status" />
                         </SelectTrigger>
                         <SelectContent>
@@ -345,11 +345,12 @@ export default function Orders() {
                       </Select>
                       <Button 
                         variant="outline" 
-                        size="icon"
+                        className="sm:w-auto w-full h-10 sm:h-11"
                         onClick={() => handleOpenChat(order.customerId, order.customerName || order.userName)}
                         title="Message Customer"
                       >
-                        <MessageSquare className="h-4 w-4" />
+                        <MessageSquare className="mr-2 h-4 w-4" />
+                        <span className="sm:hidden">Message</span>
                       </Button>
                     </div>
                   </CardContent>

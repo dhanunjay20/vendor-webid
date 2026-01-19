@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ChefHat } from "lucide-react";
+import BidzaroLogo from "@/assets/bidzaro_logo1.png";
 import { motion } from "framer-motion";
 
 const LandingNavbar: React.FC = () => {
@@ -17,7 +18,7 @@ const LandingNavbar: React.FC = () => {
 
   return (
     <motion.nav
-      className={`sticky top-0 z-50 w-full transition-all duration-300 ${scrolled ? "bg-gradient-to-r from-orange-600 to-orange-500 shadow-lg backdrop-blur-sm" : "bg-transparent"}`}
+      className={`sticky top-0 z-50 w-full transition-all duration-300 bg-white ${scrolled ? "shadow-md" : "shadow-sm"}`}
       initial={{ y: -100 }}
       animate={{ y: 0 }}
       transition={{ type: "spring", stiffness: 100, damping: 20 }}
@@ -30,23 +31,14 @@ const LandingNavbar: React.FC = () => {
             whileTap={{ scale: 0.95 }}
             onClick={() => navigate("/")}
           >
-            <ChefHat className="h-8 w-8 text-white" />
-            <span className="text-2xl font-bold text-white">VendorBid</span>
+            <img src={BidzaroLogo} alt="Bidzaro" className="h-8" />
           </motion.div>
           
-          <div className="flex items-center gap-4">
-            <motion.button
-              onClick={() => navigate("/auth?mode=login")}
-              className="px-4 py-2 text-white font-medium hover:opacity-90 transition"
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-            >
-              Login
-            </motion.button>
+          <div className="flex items-center gap-2 sm:gap-4">
             <motion.button
               onClick={() => navigate("/auth?mode=register")}
-              className="px-6 py-2 bg-white text-orange-600 font-semibold rounded-lg hover:bg-orange-50 transition shadow-md"
-              whileHover={{ scale: 1.05, boxShadow: "0 10px 25px rgba(0,0,0,0.2)" }}
+              className="px-4 sm:px-6 py-2 bg-orange-600 text-white font-semibold rounded-lg hover:bg-orange-700 transition shadow-md text-sm sm:text-base"
+              whileHover={{ scale: 1.05, boxShadow: "0 10px 25px rgba(0,0,0,0.12)" }}
               whileTap={{ scale: 0.95 }}
             >
               Get Started

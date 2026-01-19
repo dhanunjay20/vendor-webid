@@ -1,5 +1,6 @@
 import React from "react";
 import { ChefHat, Twitter, Facebook, Instagram, Linkedin, Mail } from "lucide-react";
+import BidzaroLogo from "@/assets/bidzaro_logo1.png";
 import { motion } from "framer-motion";
 
 const LandingFooter: React.FC = () => {
@@ -86,7 +87,7 @@ const LandingFooter: React.FC = () => {
         />
       </div>
 
-      <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-12">
+      <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8 sm:py-10 lg:py-12">
         <motion.div
           className="grid grid-cols-1 gap-8 lg:grid-cols-12"
           variants={containerVariants}
@@ -101,9 +102,8 @@ const LandingFooter: React.FC = () => {
                 whileHover={{ rotate: 360 }}
                 transition={{ duration: 0.5 }}
               >
-                <ChefHat className="h-8 w-8 text-orange-500" />
+                <img src={BidzaroLogo} alt="Bidzaro" className="h-8" />
               </motion.div>
-              <span className="text-2xl font-bold">VendorBid</span>
             </div>
             <p className="text-gray-400 mb-6 max-w-sm leading-relaxed">
               Empowering caterers worldwide with smart bidding, automation, and analytics.
@@ -134,7 +134,7 @@ const LandingFooter: React.FC = () => {
           </motion.div>
 
           {/* Links Columns */}
-          <motion.div className="lg:col-span-8 grid grid-cols-2 gap-8 sm:grid-cols-4" variants={itemVariants}>
+          <motion.div className="lg:col-span-8 grid grid-cols-2 gap-6 sm:gap-8 md:grid-cols-4" variants={itemVariants}>
             {Object.entries(footerLinks).map(([category, links]) => (
               <div key={category}>
                 <h3 className="text-sm font-semibold text-white uppercase tracking-wider mb-4">
@@ -167,7 +167,7 @@ const LandingFooter: React.FC = () => {
         >
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-4 text-sm text-gray-400">
-              <span>© 2025 VendorBid. All rights reserved.</span>
+              <span>© 2025 Bidzaro. All rights reserved.</span>
               <span className="hidden sm:inline">•</span>
               <span className="hidden sm:inline">Made with ❤️ for caterers</span>
             </div>

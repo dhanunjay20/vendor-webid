@@ -37,7 +37,6 @@ export default function DashboardHeader({ theme, toggleTheme }: DashboardHeaderP
       // Clear all local storage on logout
       localStorage.clear();
     } catch (e) {
-      console.warn("Failed to clear auth storage", e);
     }
     // Prefer router navigation, but fallback to full redirect if that doesn't work
     try {

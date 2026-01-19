@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { LocationTracker } from "@/components/LocationTracker";
 import { toast } from "@/hooks/use-toast";
 import * as api from "@/lib/api";
 
@@ -29,6 +30,12 @@ interface VendorProfile {
   yearsInBusiness?: number;
   aboutBusiness?: string;
   profileUrl?: string;
+  isOnline?: boolean;
+  lastSeenAt?: string;
+  latitude?: number;
+  longitude?: number;
+  currentAddress?: string;
+  lastLocationUpdatedAt?: string;
 }
 
 interface ServiceDetails {
@@ -71,25 +78,20 @@ export default function Profile() {
         setLoading(false);
         return;
       }
-      
-      console.log("Fetching vendor profile for org ID:", vendorOrgId);
       const profile = await api.getVendorProfile(vendorOrgId);
-      console.log("Vendor profile fetched:", profile);
       setVendorProfile(profile);
       setFormData(profile);
       
       // Fetch service details if vendorId is available
       if (vendorId) {
         try {
-          console.log("Fetching service details for vendor ID:", vendorId);
           const details = await api.getServiceDetailsByVendorId(vendorId);
-          console.log("Service details fetched:", details);
           setServiceDetails(details);
           setServiceFormData(details);
         } catch (err: any) {
           // Service details are optional - if not found (404), just continue
           if (err?.status === 404) {
-            console.log("Service details not found (404) - this is OK, vendor is new or hasn't created service details yet");
+            // Service details not found - vendor may be new; initialize defaults
             // Initialize empty service details
             setServiceDetails(null);
             setServiceFormData({
@@ -102,13 +104,11 @@ export default function Profile() {
               specialServices: [],
             });
           } else {
-            console.warn("Error fetching service details:", err);
           }
         }
       }
     } catch (err: any) {
       setError(err?.message || "Failed to load vendor profile");
-      console.error("Failed to fetch vendor profile:", err);
     } finally {
       setLoading(false);
     }
@@ -118,7 +118,6 @@ export default function Profile() {
     try {
       localStorage.clear();
     } catch (e) {
-      console.warn("Failed to clear auth storage", e);
     }
     try {
       navigate("/", { replace: true });
@@ -162,12 +161,6 @@ export default function Profile() {
         });
         return;
       }
-
-      console.log("Saving vendor profile...");
-      console.log("Vendor ID:", vendorId);
-      console.log("Vendor Org ID:", vendorOrgId);
-      console.log("Form Data:", formData);
-
       // Prepare vendor update payload
       const vendorPayload = {
         businessName: formData.businessName,
@@ -179,13 +172,8 @@ export default function Profile() {
         yearsInBusiness: formData.yearsInBusiness,
         aboutBusiness: formData.aboutBusiness,
       };
-
-      console.log("Vendor Payload:", vendorPayload);
-
       // Update vendor profile
       await api.updateVendorProfile(vendorId, vendorPayload);
-      console.log("Vendor profile updated successfully");
-
       // Update service details if available
       if (serviceFormData && (serviceFormData.cuisineSpecialties?.length || serviceFormData.serviceTypes?.length)) {
         try {
@@ -200,17 +188,12 @@ export default function Profile() {
             startingPricePerPerson: serviceFormData.startingPricePerPerson || 0,
             specialServices: serviceFormData.specialServices?.filter(Boolean) || [],
           };
-          
-          console.log("Service Payload:", servicePayload);
           await api.createOrUpdateServiceDetails(vendorId, servicePayload);
-          console.log("Service details updated successfully");
         } catch (err: any) {
-          console.warn("Could not update service details:", err);
           // Service details update failure is non-critical
           // Profile was already updated successfully
         }
       } else {
-        console.log("Service details form is empty - skipping service details update");
       }
 
       toast({
@@ -225,7 +208,6 @@ export default function Profile() {
         description: err?.message || "Failed to save profile",
         variant: "destructive",
       });
-      console.error("Failed to save profile:", err);
     } finally {
       setSaving(false);
     }
@@ -233,10 +215,10 @@ export default function Profile() {
 
   if (loading) {
     return (
-      <div className="container py-8 flex items-center justify-center min-h-screen">
+      <div className="container px-3 sm:px-4 md:px-6 py-4 sm:py-6 flex items-center justify-center min-h-screen">
         <div className="flex flex-col items-center gap-2">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="text-muted-foreground">Loading profile...</p>
+          <p className="text-muted-foreground text-sm sm:text-base">Loading profile...</p>
         </div>
       </div>
     );
@@ -244,9 +226,9 @@ export default function Profile() {
 
   if (error || !formData) {
     return (
-      <div className="container py-8">
+      <div className="container px-3 sm:px-4 md:px-6 py-4 sm:py-6">
         <div className="text-center">
-          <p className="text-red-500 mb-4">{error || "No profile data available"}</p>
+          <p className="text-red-500 mb-4 text-sm sm:text-base">{error || "No profile data available"}</p>
           <Button onClick={() => navigate("/dashboard")}>Back to Dashboard</Button>
         </div>
       </div>
@@ -272,59 +254,59 @@ export default function Profile() {
   const specialServices = serviceFormData?.specialServices?.join(", ") || "";
 
   return (
-    <div className="container py-8">
-      <div className="mb-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+    <div className="container px-3 sm:px-4 md:px-6 py-4 sm:py-6">
+      <div className="mb-6 sm:mb-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Business Profile</h1>
-          <p className="text-muted-foreground">Manage your catering business information</p>
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-foreground">Business Profile</h1>
+          <p className="text-sm sm:text-base text-muted-foreground mt-1">Manage your catering business information</p>
         </div>
         {!isEditing ? (
-          <div className="flex items-center gap-2 flex-wrap">
-            <Button onClick={() => setIsEditing(true)}>Edit Profile</Button>
-            <Button variant="ghost" onClick={handleLogout}>Logout</Button>
+          <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto">
+            <Button onClick={() => setIsEditing(true)} className="flex-1 sm:flex-none h-10 sm:h-11">Edit Profile</Button>
+            <Button variant="ghost" onClick={handleLogout} className="flex-1 sm:flex-none h-10 sm:h-11">Logout</Button>
           </div>
         ) : (
-          <div className="flex gap-2 flex-wrap">
-            <Button variant="outline" onClick={() => { setIsEditing(false); setFormData(vendorProfile); setServiceFormData(serviceDetails); }}>
+          <div className="flex gap-2 flex-wrap w-full sm:w-auto">
+            <Button variant="outline" onClick={() => { setIsEditing(false); setFormData(vendorProfile); setServiceFormData(serviceDetails); }} className="flex-1 sm:flex-none h-10 sm:h-11">
               Cancel
             </Button>
-            <Button onClick={handleSave} disabled={saving}>
+            <Button onClick={handleSave} disabled={saving} className="flex-1 sm:flex-none h-10 sm:h-11">
               {saving ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving...</> : "Save Changes"}
             </Button>
-            <Button variant="ghost" onClick={handleLogout}>Logout</Button>
+            <Button variant="ghost" onClick={handleLogout} className="h-10 sm:h-11 w-full sm:w-auto">Logout</Button>
           </div>
         )}
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
+      <div className="grid gap-4 sm:gap-6 lg:grid-cols-3">
         {/* Profile Picture & Basic Info */}
         <Card className="lg:col-span-1">
-          <CardContent className="pt-6">
-            <div className="flex flex-col items-center space-y-4">
+          <CardContent className="pt-4 sm:pt-6 px-4 sm:px-6">
+            <div className="flex flex-col items-center space-y-3 sm:space-y-4">
               <div className="relative">
-                <Avatar className="h-32 w-32">
+                <Avatar className="h-24 w-24 sm:h-32 sm:w-32">
                   <AvatarImage src={profileUrl} />
-                  <AvatarFallback>{businessName.substring(0, 2).toUpperCase()}</AvatarFallback>
+                  <AvatarFallback className="text-lg sm:text-2xl">{businessName.substring(0, 2).toUpperCase()}</AvatarFallback>
                 </Avatar>
                 {isEditing && (
                   <Button
                     size="icon"
-                    className="absolute bottom-0 right-0 h-8 w-8 rounded-full"
+                    className="absolute bottom-0 right-0 h-7 w-7 sm:h-8 sm:w-8 rounded-full"
                   >
-                    <Camera className="h-4 w-4" />
+                    <Camera className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                   </Button>
                 )}
               </div>
               <div className="text-center">
-                <h3 className="text-xl font-bold">{businessName}</h3>
-                <p className="text-sm text-muted-foreground">Premium Catering Provider</p>
-                <div className="mt-2 flex justify-center gap-1">
+                <h3 className="text-lg sm:text-xl font-bold">{businessName}</h3>
+                <p className="text-xs sm:text-sm text-muted-foreground">Premium Catering Provider</p>
+                <div className="mt-2 flex justify-center gap-0.5 sm:gap-1">
                   {Array.from({ length: 5 }).map((_, i) => (
-                    <span key={i} className="text-yellow-400">
+                    <span key={i} className="text-yellow-400 text-base sm:text-lg">
                       ★
                     </span>
                   ))}
-                  <span className="ml-1 text-sm text-muted-foreground">(4.8)</span>
+                  <span className="ml-1 text-xs sm:text-sm text-muted-foreground">(4.8)</span>
                 </div>
               </div>
             </div>
@@ -333,130 +315,143 @@ export default function Profile() {
 
         {/* Business Details */}
         <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle>Business Information</CardTitle>
+          <CardHeader className="px-4 sm:px-6 py-4 sm:py-6">
+            <CardTitle className="text-lg sm:text-xl">Business Information</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label>Business Name</Label>
+          <CardContent className="space-y-3 sm:space-y-4 px-4 sm:px-6 pb-4 sm:pb-6">
+            <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2">
+              <div className="space-y-1.5 sm:space-y-2">
+                <Label className="text-sm sm:text-base">Business Name</Label>
                 <Input
                   value={formData?.businessName || ""}
                   onChange={(e) => handleChange("businessName", e.target.value)}
                   disabled={!isEditing}
+                  className="h-10 sm:h-11"
                 />
               </div>
-              <div className="space-y-2">
-                <Label>Contact Person</Label>
+              <div className="space-y-1.5 sm:space-y-2">
+                <Label className="text-sm sm:text-base">Contact Person</Label>
                 <Input 
                   value={formData?.contactName || ""} 
                   onChange={(e) => handleChange("contactName", e.target.value)}
-                  disabled={!isEditing} 
+                  disabled={!isEditing}
+                  className="h-10 sm:h-11"
                 />
               </div>
-              <div className="space-y-2">
-                <Label>
-                  <Phone className="mr-2 inline h-4 w-4" />
+              <div className="space-y-1.5 sm:space-y-2">
+                <Label className="text-sm sm:text-base">
+                  <Phone className="mr-1.5 sm:mr-2 inline h-3.5 w-3.5 sm:h-4 sm:w-4" />
                   Phone Number
                 </Label>
                 <Input 
                   value={formData?.mobile || ""} 
                   onChange={(e) => handleChange("mobile", e.target.value)}
-                  disabled={!isEditing} 
+                  disabled={!isEditing}
+                  className="h-10 sm:h-11"
                 />
               </div>
-              <div className="space-y-2">
-                <Label>
-                  <Mail className="mr-2 inline h-4 w-4" />
+              <div className="space-y-1.5 sm:space-y-2">
+                <Label className="text-sm sm:text-base">
+                  <Mail className="mr-1.5 sm:mr-2 inline h-3.5 w-3.5 sm:h-4 sm:w-4" />
                   Email Address
                 </Label>
                 <Input 
                   value={formData?.email || ""} 
                   onChange={(e) => handleChange("email", e.target.value)}
-                  disabled={!isEditing} 
+                  disabled={!isEditing}
+                  className="h-10 sm:h-11"
                 />
               </div>
-              <div className="space-y-2">
-                <Label>
-                  <Globe className="mr-2 inline h-4 w-4" />
+              <div className="space-y-1.5 sm:space-y-2">
+                <Label className="text-sm sm:text-base">
+                  <Globe className="mr-1.5 sm:mr-2 inline h-3.5 w-3.5 sm:h-4 sm:w-4" />
                   Website
                 </Label>
                 <Input 
                   value={formData?.website || ""} 
                   onChange={(e) => handleChange("website", e.target.value)}
-                  disabled={!isEditing} 
+                  disabled={!isEditing}
+                  className="h-10 sm:h-11"
                 />
               </div>
-              <div className="space-y-2">
-                <Label>Years in Business</Label>
+              <div className="space-y-1.5 sm:space-y-2">
+                <Label className="text-sm sm:text-base">Years in Business</Label>
                 <Input 
                   type="number"
                   value={formData?.yearsInBusiness || ""} 
                   onChange={(e) => handleChange("yearsInBusiness", parseInt(e.target.value) || 0)}
-                  disabled={!isEditing} 
+                  disabled={!isEditing}
+                  className="h-10 sm:h-11"
                 />
               </div>
             </div>
-            <div className="space-y-2">
-              <Label>
-                <MapPin className="mr-2 inline h-4 w-4" />
+            <div className="space-y-1.5 sm:space-y-2">
+              <Label className="text-sm sm:text-base">
+                <MapPin className="mr-1.5 sm:mr-2 inline h-3.5 w-3.5 sm:h-4 sm:w-4" />
                 Business Address Line 1
               </Label>
               <Input
                 value={primaryAddress?.addressLine1 || ""}
                 onChange={(e) => handleAddressChange(0, "addressLine1", e.target.value)}
                 disabled={!isEditing}
+                className="h-10 sm:h-11"
               />
             </div>
-            <div className="space-y-2">
-              <Label>Business Address Line 2</Label>
+            <div className="space-y-1.5 sm:space-y-2">
+              <Label className="text-sm sm:text-base">Business Address Line 2</Label>
               <Input
                 value={primaryAddress?.addressLine2 || ""}
                 onChange={(e) => handleAddressChange(0, "addressLine2", e.target.value)}
                 disabled={!isEditing}
+                className="h-10 sm:h-11"
               />
             </div>
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label>City</Label>
+            <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2">
+              <div className="space-y-1.5 sm:space-y-2">
+                <Label className="text-sm sm:text-base">City</Label>
                 <Input
                   value={primaryAddress?.city || ""}
                   onChange={(e) => handleAddressChange(0, "city", e.target.value)}
                   disabled={!isEditing}
+                  className="h-10 sm:h-11"
                 />
               </div>
-              <div className="space-y-2">
-                <Label>State</Label>
+              <div className="space-y-1.5 sm:space-y-2">
+                <Label className="text-sm sm:text-base">State</Label>
                 <Input
                   value={primaryAddress?.state || ""}
                   onChange={(e) => handleAddressChange(0, "state", e.target.value)}
                   disabled={!isEditing}
+                  className="h-10 sm:h-11"
                 />
               </div>
-              <div className="space-y-2">
-                <Label>Country</Label>
+              <div className="space-y-1.5 sm:space-y-2">
+                <Label className="text-sm sm:text-base">Country</Label>
                 <Input
                   value={primaryAddress?.country || ""}
                   onChange={(e) => handleAddressChange(0, "country", e.target.value)}
                   disabled={!isEditing}
+                  className="h-10 sm:h-11"
                 />
               </div>
-              <div className="space-y-2">
-                <Label>ZIP Code</Label>
+              <div className="space-y-1.5 sm:space-y-2">
+                <Label className="text-sm sm:text-base">ZIP Code</Label>
                 <Input
                   value={primaryAddress?.zipCode || ""}
                   onChange={(e) => handleAddressChange(0, "zipCode", e.target.value)}
                   disabled={!isEditing}
+                  className="h-10 sm:h-11"
                 />
               </div>
             </div>
-            <div className="space-y-2">
-              <Label>About Your Business</Label>
+            <div className="space-y-1.5 sm:space-y-2">
+              <Label className="text-sm sm:text-base">About Your Business</Label>
               <Textarea
                 value={formData?.aboutBusiness || ""}
                 onChange={(e) => handleChange("aboutBusiness", e.target.value)}
                 disabled={!isEditing}
                 rows={4}
+                className="min-h-[100px] sm:min-h-[120px] text-sm sm:text-base"
               />
             </div>
           </CardContent>
@@ -464,74 +459,93 @@ export default function Profile() {
 
         {/* Service Details */}
         <Card className="lg:col-span-3">
-          <CardHeader>
-            <CardTitle>Service Details</CardTitle>
+          <CardHeader className="px-4 sm:px-6 py-4 sm:py-6">
+            <CardTitle className="text-lg sm:text-xl">Service Details</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid gap-4 md:grid-cols-3">
-              <div className="space-y-2">
-                <Label>Cuisine Specialties (comma-separated)</Label>
+          <CardContent className="space-y-3 sm:space-y-4 px-4 sm:px-6 pb-4 sm:pb-6">
+            <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="space-y-1.5 sm:space-y-2">
+                <Label className="text-sm sm:text-base">Cuisine Specialties (comma-separated)</Label>
                 <Input
                   value={cuisineSpecialties}
                   onChange={(e) => handleServiceChange("cuisineSpecialties", e.target.value.split(",").map(s => s.trim()).filter(Boolean))}
                   disabled={!isEditing}
+                  className="h-10 sm:h-11"
                 />
               </div>
-              <div className="space-y-2">
-                <Label>Service Types (comma-separated)</Label>
+              <div className="space-y-1.5 sm:space-y-2">
+                <Label className="text-sm sm:text-base">Service Types (comma-separated)</Label>
                 <Input
                   value={serviceTypes}
                   onChange={(e) => handleServiceChange("serviceTypes", e.target.value.split(",").map(s => s.trim()).filter(Boolean))}
                   disabled={!isEditing}
+                  className="h-10 sm:h-11"
                 />
               </div>
-              <div className="space-y-2">
-                <Label>Maximum Capacity</Label>
+              <div className="space-y-1.5 sm:space-y-2">
+                <Label className="text-sm sm:text-base">Maximum Capacity</Label>
                 <Input 
                   type="number"
                   value={maxCapacity} 
                   onChange={(e) => handleServiceChange("maximumCapacity", parseInt(e.target.value) || 0)}
-                  disabled={!isEditing} 
+                  disabled={!isEditing}
+                  className="h-10 sm:h-11"
                 />
               </div>
-              <div className="space-y-2">
-                <Label>Service Area (comma-separated)</Label>
+              <div className="space-y-1.5 sm:space-y-2">
+                <Label className="text-sm sm:text-base">Service Area (comma-separated)</Label>
                 <Input 
                   value={serviceArea} 
                   onChange={(e) => handleServiceChange("serviceArea", e.target.value.split(",").map(s => s.trim()).filter(Boolean))}
-                  disabled={!isEditing} 
+                  disabled={!isEditing}
+                  className="h-10 sm:h-11"
                 />
               </div>
-              <div className="space-y-2">
-                <Label>Starting Price (per person)</Label>
+              <div className="space-y-1.5 sm:space-y-2">
+                <Label className="text-sm sm:text-base">Starting Price (per person)</Label>
                 <Input 
                   type="number"
                   step="0.01"
                   value={startingPrice} 
                   onChange={(e) => handleServiceChange("startingPricePerPerson", parseFloat(e.target.value) || 0)}
-                  disabled={!isEditing} 
+                  disabled={!isEditing}
+                  className="h-10 sm:h-11"
                 />
               </div>
-              <div className="space-y-2">
-                <Label>Dietary Options (comma-separated)</Label>
+              <div className="space-y-1.5 sm:space-y-2">
+                <Label className="text-sm sm:text-base">Dietary Options (comma-separated)</Label>
                 <Input
                   value={dietaryOptions}
                   onChange={(e) => handleServiceChange("dietaryOptions", e.target.value.split(",").map(s => s.trim()).filter(Boolean))}
                   disabled={!isEditing}
+                  className="h-10 sm:h-11"
                 />
               </div>
             </div>
-            <div className="space-y-2">
-              <Label>Special Services & Equipment (comma-separated)</Label>
+            <div className="space-y-1.5 sm:space-y-2">
+              <Label className="text-sm sm:text-base">Special Services & Equipment (comma-separated)</Label>
               <Textarea
                 value={specialServices}
                 onChange={(e) => handleServiceChange("specialServices", e.target.value.split(",").map(s => s.trim()).filter(Boolean))}
                 disabled={!isEditing}
                 rows={3}
+                className="min-h-[80px] sm:min-h-[90px] text-sm sm:text-base"
               />
             </div>
           </CardContent>
         </Card>
+      </div>
+
+      {/* Location Tracking Section */}
+      <div className="mt-4 sm:mt-6">
+        <LocationTracker 
+          vendorId={vendorProfile?.id || localStorage.getItem("vendorId") || null}
+          currentLatitude={vendorProfile?.latitude}
+          currentLongitude={vendorProfile?.longitude}
+          currentAddress={vendorProfile?.currentAddress}
+          lastUpdated={vendorProfile?.lastLocationUpdatedAt}
+          onLocationUpdated={fetchData}
+        />
       </div>
     </div>
   );

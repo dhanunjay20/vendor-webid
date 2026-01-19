@@ -232,7 +232,6 @@ export default function Menu() {
         toast({ title: "Some rows failed", description: errors.slice(0, 3).join("; ") + (errors.length > 3 ? ` (+${errors.length - 3} more)` : ""), variant: "destructive" });
       }
     } catch (e: any) {
-      console.error("sheet parse error", e);
       toast({ title: "Error", description: e?.message || "Failed to parse sheet", variant: "destructive" });
     }
   };
@@ -516,28 +515,30 @@ export default function Menu() {
   const allItemsEmpty = menuItems.length === 0;
 
   return (
-    <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-8">
+    <div className="mx-auto flex max-w-6xl flex-col gap-4 sm:gap-6 px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8">
       {/* Page header */}
       <Card className="border-none">
         <CardHeader className="flex flex-col gap-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <p className="text-xs uppercase tracking-wide text-orange-500">
+              <p className="text-xs sm:text-sm uppercase tracking-wide text-orange-500">
                 Vendor menu
               </p>
-              <CardTitle className="mt-1 text-xl sm:text-2xl font-semibold">
+              <CardTitle className="mt-1 text-xl sm:text-2xl md:text-3xl font-semibold">
                 Menu Management
               </CardTitle>
-              <p className="mt-1 text-xs sm:text-sm text-muted-foreground">
+              <p className="mt-1 text-xs sm:text-sm md:text-base text-muted-foreground">
                 Add items, upload photos, and control what is visible to your
                 customers.
               </p>
             </div>
+            <div className="flex flex-wrap gap-2">
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
-              <Button className="gap-2 rounded-full px-4 py-2" onClick={openAddDialog}>
-                <Plus className="h-4 w-4" />
-                Add menu item
+              <Button className="gap-2 rounded-full px-3 sm:px-4 py-2 text-sm sm:text-base min-h-[44px]" onClick={openAddDialog}>
+                <Plus className="h-4 w-4 sm:h-5 sm:w-5" />
+                <span className="hidden sm:inline">Add menu item</span>
+                <span className="sm:hidden">Add item</span>
               </Button>
             </DialogTrigger>
             <input
@@ -553,23 +554,24 @@ export default function Menu() {
               className="sr-only"
             />
             <Button
-              className="gap-2 rounded-full px-4 py-2 ml-2"
+              className="gap-2 rounded-full px-3 sm:px-4 py-2 text-sm sm:text-base min-h-[44px]"
               variant="outline"
               onClick={() => sheetInputRef.current?.click()}
             >
-              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none">
+              <svg className="h-4 w-4 sm:h-5 sm:w-5" viewBox="0 0 24 24" fill="none">
                 <path d="M12 3v12" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
                 <path d="M8 7l4-4 4 4" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
               </svg>
-              Upload sheet
+              <span className="hidden sm:inline">Upload sheet</span>
+              <span className="sm:hidden">Upload</span>
             </Button>
-            <DialogContent className="max-w-3xl overflow-hidden rounded-2xl border-0 p-0 shadow-2xl">
-              <div className="flex max-h-[80vh] flex-col">
-                <DialogHeader className="sticky top-0 z-30 border-b bg-white/90 px-6 py-4 backdrop-blur">
-                  <DialogTitle className="text-lg font-semibold">
+            <DialogContent className="max-w-[95vw] sm:max-w-2xl lg:max-w-3xl overflow-hidden rounded-xl sm:rounded-2xl border-0 p-0 shadow-2xl">
+              <div className="flex max-h-[85vh] sm:max-h-[80vh] flex-col">
+                <DialogHeader className="sticky top-0 z-30 border-b bg-white/90 px-4 sm:px-6 py-3 sm:py-4 backdrop-blur">
+                  <DialogTitle className="text-base sm:text-lg font-semibold">
                     {editingItem ? "Edit menu item" : "Add new menu item"}
                   </DialogTitle>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-xs sm:text-sm text-muted-foreground">
                     Fill in basic details, attach photos and customise spice /
                     ingredients.
                   </p>
@@ -578,29 +580,30 @@ export default function Menu() {
                 <form
                   ref={formRef}
                   onSubmit={handleAddItem}
-                  className="flex-1 overflow-auto bg-slate-50/60 px-6 py-4"
+                  className="flex-1 overflow-auto bg-slate-50/60 px-3 sm:px-4 md:px-6 py-3 sm:py-4"
                   id="menu-form"
                 >
                   {/* Section: Basic info */}
-                  <div className="mb-5 space-y-3 rounded-xl bg-white p-4 shadow-sm">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  <div className="mb-4 sm:mb-5 space-y-3 rounded-lg sm:rounded-xl bg-white p-3 sm:p-4 shadow-sm">
+                    <p className="text-xs sm:text-sm font-semibold uppercase tracking-wide text-slate-500">
                       Basic details
                     </p>
-                    <div className="grid gap-4 md:grid-cols-2">
+                    <div className="grid gap-3 sm:gap-4 md:grid-cols-2">
                       <div className="space-y-2">
-                        <Label>Item name</Label>
+                        <Label className="text-sm">Item name</Label>
                         <Input
                           name="name"
                           placeholder="Ex: Paneer Butter Masala"
                           defaultValue={editingItem?.name}
                           required
+                          className="h-10 sm:h-11"
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label>Category</Label>
+                        <Label className="text-sm">Category</Label>
                         <select
                           name="category"
-                          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                          className="flex h-10 sm:h-11 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                           defaultValue={editingItem?.category || categories[0]}
                           required
                         >
@@ -612,22 +615,23 @@ export default function Menu() {
                         </select>
                       </div>
                     </div>
-                    <div className="grid gap-4 md:grid-cols-2">
+                    <div className="grid gap-3 sm:gap-4 md:grid-cols-2">
                       <div className="space-y-2 md:col-span-2">
-                        <Label>Description</Label>
+                        <Label className="text-sm">Description</Label>
                         <Textarea
                           name="description"
                           placeholder="Tell customers what makes this item special..."
                           defaultValue={editingItem?.description}
                           rows={3}
                           required
+                          className="min-h-[80px] sm:min-h-[90px] text-sm"
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label>Sub category</Label>
+                        <Label className="text-sm">Sub category</Label>
                         <select
                           name="subCategory"
-                          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                          className="flex h-10 sm:h-11 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                           defaultValue={editingItem?.subCategory || ""}
                         >
                           <option value="">Select...</option>
@@ -642,12 +646,12 @@ export default function Menu() {
                   </div>
 
                   {/* Section: Images */}
-                  <div className="mb-5 space-y-3 rounded-xl bg-white p-4 shadow-sm">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  <div className="mb-4 sm:mb-5 space-y-3 rounded-lg sm:rounded-xl bg-white p-3 sm:p-4 shadow-sm">
+                    <p className="text-xs sm:text-sm font-semibold uppercase tracking-wide text-slate-500">
                       Photos
                     </p>
                     <div className="space-y-2">
-                      <Label>Upload images</Label>
+                      <Label className="text-sm">Upload images</Label>
                       <div
                         onDragOver={(e) => {
                           e.preventDefault();
@@ -660,18 +664,18 @@ export default function Menu() {
                           handleFilesChange(e.dataTransfer.files);
                         }}
                         className={
-                          `flex items-center justify-between gap-4 rounded-lg border-2 p-4 transition-colors ` +
+                          `flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4 rounded-lg border-2 p-3 sm:p-4 transition-colors ` +
                           (isDragging
                             ? "border-dashed border-sky-400 bg-sky-50/50"
                             : "border-dashed border-slate-200 bg-white")
                         }
                       >
                         <div className="flex items-center gap-3">
-                          <div className="flex h-10 w-10 items-center justify-center rounded-md bg-slate-100">
-                            <ImagePlus className="h-5 w-5 text-slate-600" />
+                          <div className="flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-md bg-slate-100">
+                            <ImagePlus className="h-5 w-5 sm:h-6 sm:w-6 text-slate-600" />
                           </div>
-                          <div>
-                            <div className="text-sm font-medium">Drag & drop images here</div>
+                          <div className="text-center sm:text-left">
+                            <div className="text-xs sm:text-sm font-medium">Drag & drop images here</div>
                             <div className="text-xs text-muted-foreground">Or click to choose files (multiple allowed)</div>
                           </div>
                         </div>
@@ -686,7 +690,7 @@ export default function Menu() {
                             onChange={(e) => handleFilesChange(e.target.files)}
                             className="sr-only"
                           />
-                          <Button type="button" size="sm" onClick={() => fileInputRef.current?.click()}>
+                          <Button type="button" size="sm" onClick={() => fileInputRef.current?.click()} className="min-h-[44px] px-4">
                             Choose files
                           </Button>
                         </div>
@@ -697,7 +701,7 @@ export default function Menu() {
                       </p>
                     </div>
                     {previewImages.length > 0 && (
-                      <div className="mt-3 grid grid-cols-3 gap-3 md:grid-cols-4">
+                      <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 sm:gap-3">
                         {previewImages.map((src, i) => (
                           <div
                             key={i}
@@ -706,7 +710,7 @@ export default function Menu() {
                             <img
                               src={src}
                               alt={`preview-${i}`}
-                              className="h-28 w-full object-cover"
+                              className="h-20 sm:h-24 md:h-28 w-full object-cover"
                             />
                             <Button
                               type="button"
@@ -733,9 +737,9 @@ export default function Menu() {
                   </div>
 
                   {/* Section: Ingredients + Spices */}
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div className="space-y-3 rounded-xl bg-white p-4 shadow-sm">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  <div className="grid gap-3 sm:gap-4 md:grid-cols-2">
+                    <div className="space-y-3 rounded-lg sm:rounded-xl bg-white p-3 sm:p-4 shadow-sm">
+                      <p className="text-xs sm:text-sm font-semibold uppercase tracking-wide text-slate-500">
                         Ingredients
                       </p>
                       <div className="flex flex-col gap-2">
@@ -781,11 +785,13 @@ export default function Menu() {
                                 }
                               }}
                               placeholder="Start typing (e.g. garlic)..."
+                              className="h-10 sm:h-11 text-sm"
                             />
                             <Button
                               type="button"
                               size="sm"
                               onClick={() => addIngredient()}
+                              className="min-h-[40px] sm:min-h-[44px] px-3 sm:px-4"
                             >
                               Add
                             </Button>
@@ -857,21 +863,25 @@ export default function Menu() {
                               }
                             }}
                             placeholder="Type a level (e.g. Fiery)..."
+                            className="h-10 sm:h-11 text-sm"
                           />
                           <Button
                             type="button"
                             size="sm"
                             onClick={() => addSpice()}
+                            className="min-h-[40px] sm:min-h-[44px] px-2 sm:px-4"
                           >
-                            Add
+                            <span className="hidden sm:inline">Add</span>
+                            <span className="sm:hidden">+</span>
                           </Button>
                           <Button
                             type="button"
                             size="sm"
                             variant="outline"
                             onClick={spawnRandom}
+                            className="min-h-[40px] sm:min-h-[44px] px-2 sm:px-3"
                           >
-                            Random
+                            <span className="text-xs sm:text-sm">Random</span>
                           </Button>
                         </div>
                         <p className="text-[11px] text-muted-foreground">
@@ -883,8 +893,8 @@ export default function Menu() {
                   </div>
                 </form>
 
-                <div className="sticky bottom-0 z-40 w-full border-t bg-white/90 px-6 py-3 backdrop-blur">
-                  <div className="flex items-center justify-between gap-4">
+                <div className="sticky bottom-0 z-40 w-full border-t bg-white/90 px-3 sm:px-4 md:px-6 py-3 backdrop-blur">
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4">
                     <div className="flex items-center gap-3 text-sm">
                       <Switch
                         checked={availableState}
@@ -892,7 +902,7 @@ export default function Menu() {
                         className="h-6 w-11"
                       />
                       <div>
-                        <div className="text-sm font-medium">
+                        <div className="text-xs sm:text-sm font-medium">
                           {availableState ? "Available" : "Hidden"}
                         </div>
                       </div>
@@ -902,6 +912,7 @@ export default function Menu() {
                         type="button"
                         variant="outline"
                         onClick={() => setIsDialogOpen(false)}
+                        className="flex-1 sm:flex-none min-h-[44px] text-sm sm:text-base"
                       >
                         Cancel
                       </Button>
@@ -912,6 +923,7 @@ export default function Menu() {
                           if (f?.requestSubmit) f.requestSubmit();
                           else f?.submit();
                         }}
+                        className="flex-1 sm:flex-none min-h-[44px] text-sm sm:text-base"
                       >
                         {editingItem ? "Update item" : "Add item"}
                       </Button>
@@ -922,18 +934,19 @@ export default function Menu() {
             </DialogContent>
           </Dialog>
           </div>
+          </div>
           
           {/* Modern Filter Section */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-xl border border-orange-200/50 p-4 backdrop-blur-sm">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 rounded-lg sm:rounded-xl border border-orange-200/50 p-3 sm:p-4 backdrop-blur-sm">
             <div className="flex items-center gap-2">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-orange-100 shrink-0">
-                <svg className="h-5 w-5 text-orange-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-lg bg-orange-100 shrink-0">
+                <svg className="h-4 w-4 sm:h-5 sm:w-5 text-orange-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
                 </svg>
               </div>
               <div>
-                <h3 className="text-sm font-semibold text-foreground">Quick Filters</h3>
-                <p className="text-xs text-muted-foreground">Filter menu by dietary preference</p>
+                <h3 className="text-xs sm:text-sm font-semibold text-foreground">Quick Filters</h3>
+                <p className="text-[10px] sm:text-xs text-muted-foreground hidden sm:block">Filter menu by dietary preference</p>
               </div>
             </div>
             
@@ -945,16 +958,16 @@ export default function Menu() {
                   setShowVegOnly(!showVegOnly);
                   if (!showVegOnly) setShowNonVegOnly(false);
                 }}
-                className={`gap-2 rounded-full border-2 transition-all duration-200 ${
+                className={`gap-1.5 sm:gap-2 rounded-full border-2 transition-all duration-200 min-h-[40px] sm:min-h-[44px] px-3 sm:px-4 text-xs sm:text-sm ${
                   showVegOnly 
                     ? "border-green-600 bg-green-600 text-white shadow-lg shadow-green-600/30 hover:bg-green-700 hover:border-green-700" 
                     : "border-green-200 bg-white text-green-700 hover:border-green-400 hover:bg-green-50"
                 }`}
               >
-                <div className="flex h-4 w-4 items-center justify-center rounded border-2 border-current">
-                  <div className="h-2 w-2 rounded-full bg-current"></div>
+                <div className="flex h-3 w-3 sm:h-4 sm:w-4 items-center justify-center rounded border-2 border-current">
+                  <div className="h-1.5 w-1.5 sm:h-2 sm:w-2 rounded-full bg-current"></div>
                 </div>
-                <span className="font-medium">Vegetarian</span>
+                <span className="font-medium">Veg</span>
               </Button>
               
               <Button
@@ -964,14 +977,14 @@ export default function Menu() {
                   setShowNonVegOnly(!showNonVegOnly);
                   if (!showNonVegOnly) setShowVegOnly(false);
                 }}
-                className={`gap-2 rounded-full border-2 transition-all duration-200 ${
+                className={`gap-1.5 sm:gap-2 rounded-full border-2 transition-all duration-200 min-h-[40px] sm:min-h-[44px] px-3 sm:px-4 text-xs sm:text-sm ${
                   showNonVegOnly 
                     ? "border-red-600 bg-red-600 text-white shadow-lg shadow-red-600/30 hover:bg-red-700 hover:border-red-700" 
                     : "border-red-200 bg-white text-red-700 hover:border-red-400 hover:bg-red-50"
                 }`}
               >
-                <div className="flex h-4 w-4 items-center justify-center rounded border-2 border-current">
-                  <div className="h-2 w-2 rounded-full bg-current"></div>
+                <div className="flex h-3 w-3 sm:h-4 sm:w-4 items-center justify-center rounded border-2 border-current">
+                  <div className="h-1.5 w-1.5 sm:h-2 sm:w-2 rounded-full bg-current"></div>
                 </div>
                 <span className="font-medium">Non-Veg</span>
               </Button>
@@ -984,10 +997,11 @@ export default function Menu() {
                     setShowVegOnly(false);
                     setShowNonVegOnly(false);
                   }}
-                  className="rounded-full text-muted-foreground hover:text-foreground"
+                  className="rounded-full text-muted-foreground hover:text-foreground min-h-[40px] sm:min-h-[44px] px-3 text-xs sm:text-sm"
                 >
-                  <X className="mr-1 h-4 w-4" />
-                  Clear
+                  <X className="mr-1 h-3 w-3 sm:h-4 sm:w-4" />
+                  <span className="hidden sm:inline">Clear</span>
+                  <span className="sm:hidden">✕</span>
                 </Button>
               )}
             </div>
@@ -997,39 +1011,39 @@ export default function Menu() {
 
       {/* status messages */}
       {isLoading && (
-        <div className="rounded-lg border border-dashed border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+        <div className="rounded-lg border border-dashed border-amber-200 bg-amber-50 px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-amber-900">
           Loading your menu… hang on a second.
         </div>
       )}
 
       {error && (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+        <div className="rounded-lg border border-red-200 bg-red-50 px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-red-800">
           {error}
         </div>
       )}
 
       {/* Empty state */}
       {!isLoading && !error && allItemsEmpty && (
-        <Card className="flex flex-col items-center justify-center gap-4 border-dashed py-10 text-center">
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-orange-50">
-            <ImagePlus className="h-6 w-6 text-orange-500" />
+        <Card className="flex flex-col items-center justify-center gap-3 sm:gap-4 border-dashed py-8 sm:py-10 px-4 text-center">
+          <div className="flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-full bg-orange-50">
+            <ImagePlus className="h-5 w-5 sm:h-6 sm:w-6 text-orange-500" />
           </div>
           <div>
-            <p className="font-medium">No menu items yet</p>
-            <p className="mt-1 text-sm text-muted-foreground">
+            <p className="text-sm sm:text-base font-medium">No menu items yet</p>
+            <p className="mt-1 text-xs sm:text-sm text-muted-foreground">
               Start by adding your first dish. You can upload photos and mark it
               as available.
             </p>
           </div>
-          <Button className="gap-2 rounded-full" onClick={openAddDialog}>
-            <Plus className="h-4 w-4" />
+          <Button className="gap-2 rounded-full min-h-[44px] px-4 sm:px-6 text-sm sm:text-base" onClick={openAddDialog}>
+            <Plus className="h-4 w-4 sm:h-5 sm:w-5" />
             Add your first item
           </Button>
         </Card>
       )}
 
       {/* Category sections */}
-      <div className="space-y-6">
+      <div className="space-y-4 sm:space-y-6">
         {categories.map((category) => {
           let categoryItems = menuItems.filter(
             (item) => item.category === category
@@ -1051,8 +1065,8 @@ export default function Menu() {
 
           return (
             <Card key={category} className="border-none bg-white shadow-sm">
-              <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle className="text-lg font-semibold">
+              <CardHeader className="flex flex-row items-center justify-between px-4 sm:px-6 py-3 sm:py-4">
+                <CardTitle className="text-base sm:text-lg md:text-xl font-semibold">
                   {category}
                 </CardTitle>
                 <span className="text-xs text-muted-foreground">
@@ -1060,36 +1074,36 @@ export default function Menu() {
                   {categoryItems.length > 1 ? "s" : ""}
                 </span>
               </CardHeader>
-              <CardContent>
-                <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+              <CardContent className="px-4 sm:px-6 py-3 sm:py-4">
+                <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
                   {categoryItems.map((item) => (
                     <div
                       key={item.id}
                       draggable
                       onDragStart={() => handleDragStart(item.id)}
                       onDragOver={(e) => handleDragOver(e, item.id)}
-                      className="group relative flex flex-col overflow-hidden rounded-xl border bg-card shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg"
+                      className="group relative flex flex-col overflow-hidden rounded-lg sm:rounded-xl border bg-card shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg"
                     >
                       <div className="absolute left-2 top-2 z-10 rounded-full bg-background/80 p-1 backdrop-blur">
-                        <GripVertical className="h-4 w-4 text-muted-foreground" />
+                        <GripVertical className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
                       </div>
 
                       <div className="absolute right-2 top-2 z-10 flex gap-1 opacity-100 sm:opacity-0 transition-opacity group-hover:opacity-100">
                         <Button
                           size="icon"
                           variant="secondary"
-                          className="h-8 w-8 rounded-full"
+                          className="h-7 w-7 sm:h-8 sm:w-8 rounded-full"
                           onClick={() => openEditDialog(item)}
                         >
-                          <Pencil className="h-4 w-4" />
+                          <Pencil className="h-3 w-3 sm:h-4 sm:w-4" />
                         </Button>
                         <Button
                           size="icon"
                           variant="destructive"
-                          className="h-8 w-8 rounded-full"
+                          className="h-7 w-7 sm:h-8 sm:w-8 rounded-full"
                           onClick={() => handleDeleteItem(item.id)}
                         >
-                          <Trash2 className="h-4 w-4" />
+                          <Trash2 className="h-3 w-3 sm:h-4 sm:w-4" />
                         </Button>
                       </div>
 
@@ -1102,30 +1116,30 @@ export default function Menu() {
                           />
                         ) : (
                           <div className="flex h-full items-center justify-center text-muted-foreground">
-                            <ImagePlus className="h-10 w-10" />
+                            <ImagePlus className="h-8 w-8 sm:h-10 sm:w-10" />
                           </div>
                         )}
                       </div>
 
-                      <div className="flex flex-1 flex-col p-4">
+                      <div className="flex flex-1 flex-col p-3 sm:p-4">
                         <div className="flex items-start justify-between gap-2">
                           <div className="flex-1">
-                            <div className="flex items-center gap-2">
-                              <h3 className="text-sm font-semibold text-foreground">
+                            <div className="flex items-center gap-1.5 sm:gap-2">
+                              <h3 className="text-xs sm:text-sm font-semibold text-foreground">
                                 {item.name}
                               </h3>
                               {/* Veg/Non-Veg indicator */}
                               {item.subCategory?.toLowerCase() === "vegetarian" || item.subCategory?.toLowerCase() === "vegan" ? (
-                                <div className="flex h-5 w-5 items-center justify-center rounded border-2 border-green-600">
-                                  <div className="h-2 w-2 rounded-full bg-green-600"></div>
+                                <div className="flex h-4 w-4 sm:h-5 sm:w-5 items-center justify-center rounded border-2 border-green-600">
+                                  <div className="h-1.5 w-1.5 sm:h-2 sm:w-2 rounded-full bg-green-600"></div>
                                 </div>
                               ) : item.subCategory?.toLowerCase() === "non-vegetarian" ? (
-                                <div className="flex h-5 w-5 items-center justify-center rounded border-2 border-red-600">
-                                  <div className="h-2 w-2 rounded-full bg-red-600"></div>
+                                <div className="flex h-4 w-4 sm:h-5 sm:w-5 items-center justify-center rounded border-2 border-red-600">
+                                  <div className="h-1.5 w-1.5 sm:h-2 sm:w-2 rounded-full bg-red-600"></div>
                                 </div>
                               ) : null}
                             </div>
-                            <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+                            <p className="mt-1 line-clamp-2 text-[10px] sm:text-xs text-muted-foreground">
                               {item.description}
                             </p>
                           </div>
@@ -1134,11 +1148,13 @@ export default function Menu() {
                               <Badge
                                 variant="secondary"
                                 className={
+                                  `text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 ${
                                   item.subCategory.toLowerCase() === "vegetarian" || item.subCategory.toLowerCase() === "vegan"
                                     ? "bg-green-100 text-green-800 hover:bg-green-200 border border-green-300"
                                     : item.subCategory.toLowerCase() === "non-vegetarian"
                                     ? "bg-red-100 text-red-800 hover:bg-red-200 border border-red-300"
                                     : "bg-amber-100 text-amber-800 hover:bg-amber-200 border border-amber-300"
+                                  }`
                                 }
                               >
                                 {item.subCategory}
@@ -1148,7 +1164,7 @@ export default function Menu() {
                         </div>
 
                         {/* spice meter */}
-                        <div className="mt-3 flex flex-wrap items-center gap-2">
+                        <div className="mt-2 sm:mt-3 flex flex-wrap items-center gap-1.5 sm:gap-2">
                           {(item.spiceLevels || []).length > 0 ? (
                             (item.spiceLevels || []).map((s, idx) => {
                               const intensity = spiceIntensity(s || "");
@@ -1159,9 +1175,9 @@ export default function Menu() {
                               return (
                                 <div
                                   key={`${s}-${idx}`}
-                                  className={`inline-flex items-center gap-2 rounded-full px-3 py-1 ${spicePillClass(s)} transform-gpu transition-all duration-150 hover:scale-105`}
+                                  className={`inline-flex items-center gap-1.5 sm:gap-2 rounded-full px-2 sm:px-3 py-0.5 sm:py-1 ${spicePillClass(s)} transform-gpu transition-all duration-150 hover:scale-105`}
                                 >
-                                  <div className="text-[11px] font-semibold">{s}</div>
+                                  <div className="text-[10px] sm:text-[11px] font-semibold">{s}</div>
                                 </div>
                               );
                             })
@@ -1172,7 +1188,7 @@ export default function Menu() {
                           )}
                         </div>
 
-                        <div className="mt-4 text-[11px] text-muted-foreground">
+                        <div className="mt-3 sm:mt-4 text-[10px] sm:text-[11px] text-muted-foreground">
                           <span>
                             {item.ingredients?.length
                               ? `${item.ingredients.length} ingredient${
@@ -1182,9 +1198,9 @@ export default function Menu() {
                           </span>
                         </div>
                         {/* Availability pill (bottom-right) */}
-                        <div className="absolute right-3 bottom-3">
+                        <div className="absolute right-2 sm:right-3 bottom-2 sm:bottom-3">
                           <span
-                            className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-medium ring-1 ${
+                            className={`inline-flex items-center gap-1.5 sm:gap-2 rounded-full px-2 sm:px-3 py-0.5 sm:py-1 text-[10px] sm:text-xs font-medium ring-1 ${
                               item.available
                                 ? "bg-green-50 text-green-800 ring-green-200"
                                 : "bg-red-50 text-red-800 ring-red-200"

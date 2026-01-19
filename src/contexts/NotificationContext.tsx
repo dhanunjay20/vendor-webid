@@ -47,21 +47,16 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
     const vendorId = localStorage.getItem("vendorId");
 
     if (!vendorId) {
-      console.warn("Vendor ID not found. Notifications will not be enabled.");
       return;
     }
 
     // Request browser notification permission
     if ("Notification" in window && Notification.permission === "default") {
-      Notification.requestPermission().then((permission) => {
-        console.log("Notification permission:", permission);
-      });
+      Notification.requestPermission();
     }
 
     // Handle bid updates
     const handleBidUpdate = (notification: BidUpdateNotification) => {
-      console.log("📢 Bid notification received:", notification);
-
       // Add to notification list
       setBidNotifications((prev) => [notification, ...prev].slice(0, 50)); // Keep last 50
 
@@ -97,8 +92,6 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
 
     // Handle order updates
     const handleOrderUpdate = (notification: OrderUpdateNotification) => {
-      console.log("📢 Order notification received:", notification);
-
       // Add to notification list
       setOrderNotifications((prev) => [notification, ...prev].slice(0, 50)); // Keep last 50
 
@@ -134,8 +127,6 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
 
     // Handle chat updates
     const handleChatUpdate = (notification: ChatUpdateNotification) => {
-      console.log("💬 Chat notification received:", notification);
-
       // Add to notification list
       setChatNotifications((prev) => [notification, ...prev].slice(0, 50)); // Keep last 50
 
@@ -171,9 +162,7 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
       }
       // Handle MESSAGE_DELIVERED and MESSAGE_READ silently (no sound/toast)
       else if (notification.eventType === "MESSAGE_DELIVERED") {
-        console.log("✓ Message delivered:", notification.messageId);
       } else if (notification.eventType === "MESSAGE_READ") {
-        console.log("✓✓ Message read:", notification.messageId);
       }
     };
 
@@ -185,7 +174,6 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
       handleChatUpdate,
       () => {
         setIsConnected(true);
-        console.log("✅ Notification service connected");
         toast({
           title: "Connected",
           description: "Real-time notifications are active",
@@ -193,10 +181,8 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
       },
       () => {
         setIsConnected(false);
-        console.log("❌ Notification service disconnected");
       },
       (error) => {
-        console.error("❌ Notification service error:", error);
         toast({
           title: "Connection Error",
           description: "Failed to connect to notification service",
