@@ -120,10 +120,23 @@ export async function registerUser(payload: any) {
   }
 }
 
+// New auth registration endpoint used by client-side registration flow
+export async function registerAuth(payload: any) {
+  try {
+    const url = buildUrl("/api/v1/auth/register");
+    const res = await axios.post(url, payload, { headers: { "Content-Type": "application/json" } });
+    return res.data;
+  } catch (err: any) {
+    const { message, status } = extractError(err);
+    throw { message, status } as ApiError;
+  }
+}
+
 export async function login(payload: { login: string; password: string; }) {
   try {
-    const url = buildUrl("/api/auth/login");
-    const res = await axios.post(url, payload, { headers: { "Content-Type": "application/json" } });
+    const url = buildUrl("/api/v1/auth/login");
+    const body = { identifier: payload.login, password: payload.password };
+    const res = await axios.post(url, body, { headers: { "Content-Type": "application/json" } });
     return res.data;
   } catch (err: any) {
     const { message, status } = extractError(err);
@@ -159,6 +172,27 @@ export async function resetPassword(payload: { contact: string; otp: string; new
     const res = await axios.post(url, payload, { headers: { "Content-Type": "application/json" } });
     return res.data;
   } catch (err: any) {
+    const { message, status } = extractError(err);
+    throw { message, status } as ApiError;
+  }
+}
+
+// Create vendor profile (called after registration to complete vendor setup)
+export async function createVendorProfile(payload: any) {
+  try {
+    const url = buildUrl("/api/v1/vendors");
+    const token = localStorage.getItem("authToken");
+    const tokenType = localStorage.getItem("tokenType") || "Bearer";
+    const headers: any = { "Content-Type": "application/json" };
+    if (token) {
+      headers.Authorization = `${tokenType} ${token}`;
+    }
+    console.log("api.createVendorProfile request:", { url, headers, payload });
+    const res = await axios.post(url, payload, { headers });
+    console.log("api.createVendorProfile response:", res && res.data ? res.data : res);
+    return res.data;
+  } catch (err: any) {
+    console.error("api.createVendorProfile error:", err?.response?.status, err?.response?.data || err.message || err);
     const { message, status } = extractError(err);
     throw { message, status } as ApiError;
   }
@@ -209,14 +243,36 @@ export async function loginVendor(payload: any) {
   }
 }
 
-// Get vendor profile by organization ID
+// Get current vendor profile (v1 endpoint - /api/v1/vendors/me)
+export async function getVendorMe() {
+  try {
+    const url = buildUrl("/api/v1/vendors/me");
+    const token = localStorage.getItem("authToken");
+    const tokenType = localStorage.getItem("tokenType") || "Bearer";
+    const headers: any = { "Content-Type": "application/json" };
+    if (token) {
+      headers.Authorization = `${tokenType} ${token}`;
+    }
+    console.log("api.getVendorMe request:", { url, headers });
+    const res = await axios.get(url, { headers });
+    console.log("api.getVendorMe response:", res && res.data ? res.data : res);
+    return res.data;
+  } catch (err: any) {
+    console.error("api.getVendorMe error:", err?.response?.status, err?.response?.data || err.message || err);
+    const { message, status } = extractError(err);
+    throw { message, status } as ApiError;
+  }
+}
+
+// Get vendor profile by organization ID (legacy endpoint)
 export async function getVendorProfile(vendorOrganizationId: string) {
   try {
     const url = buildUrl(`/api/vendor/org/${vendorOrganizationId}`);
     const token = localStorage.getItem("authToken");
+    const tokenType = localStorage.getItem("tokenType") || "Bearer";
     const headers: any = { "Content-Type": "application/json" };
     if (token) {
-      headers.Authorization = `Bearer ${token}`;
+      headers.Authorization = `${tokenType} ${token}`;
     }
     const res = await axios.get(url, { headers });
     return res.data;
@@ -226,18 +282,21 @@ export async function getVendorProfile(vendorOrganizationId: string) {
   }
 }
 
-// Update vendor profile
+// Update vendor profile (v1 endpoint - PUT /api/v1/vendors/{vendorId})
 export async function updateVendorProfile(vendorId: string, payload: any) {
   try {
-    const url = buildUrl(`/api/vendor/${vendorId}`);
+    const url = buildUrl(`/api/v1/vendors/${vendorId}`);
     const token = localStorage.getItem("authToken");
     const headers: any = { "Content-Type": "application/json" };
     if (token) {
       headers.Authorization = `Bearer ${token}`;
     }
+    console.log("api.updateVendorProfile request:", { url, headers, payload });
     const res = await axios.put(url, payload, { headers });
+    console.log("api.updateVendorProfile response:", res && res.data ? res.data : res);
     return res.data;
   } catch (err: any) {
+    console.error("api.updateVendorProfile error:", err?.response?.status, err?.response?.data || err.message || err);
     const { message, status } = extractError(err);
     throw { message, status } as ApiError;
   }
@@ -656,6 +715,7 @@ export async function markNotificationAsRead(notificationId: string) {
 
 export default {
   registerUser,
+  registerAuth,
   login,
   forgotUsername,
   forgotPassword,

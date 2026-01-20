@@ -9,6 +9,7 @@ import AutoLogout from "@/components/AutoLogout";
 import DashboardLayout from "@/components/DashboardLayout";
 import Landing from "./pages/Landing";
 import Auth from "./pages/Auth";
+import VendorProfileSetup from "./pages/VendorProfileSetup.tsx";
 import Index from "./pages/Index";
 import Bids from "./pages/Bids";
 import Orders from "./pages/Orders";
@@ -33,7 +34,8 @@ const App = () => (
             <Routes>
             {/* Public Routes */}
             <Route path="/" element={<Landing />} />
-            <Route path="/auth" element={<Auth />} />            
+            <Route path="/auth" element={<Auth />} />
+            <Route path="/vendor-setup" element={<VendorProfileSetup />} />
             {/* Dashboard Routes */}
             <Route path="/dashboard" element={<DashboardLayout />}>
               <Route index element={<Index />} />

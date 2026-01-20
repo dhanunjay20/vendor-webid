@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Mail, Lock, Eye, EyeOff, ArrowRight, Loader2 } from "lucide-react";
+import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
 import * as api from "@/lib/api";
 import heroImg from "@/assets/dashboard-hero.jpg";
@@ -56,71 +57,26 @@ const Auth: React.FC = () => {
 
   // Sign up state
   const [formData, setFormData] = useState<any>({
-    businessName: "",
-    ownerName: "",
-    username: "",
+    firstName: "",
+    lastName: "",
     email: "",
     mobile: "",
     password: "",
     confirmPassword: "",
-    addressLine1: "",
-    addressLine2: "",
-    city: "",
-    state: "",
-    country: "",
-    zipCode: "",
+    country: "USA",
   });
-  const [vendorOrgId, setVendorOrgId] = useState<string>("");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [showRegPassword, setShowRegPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [serverError, setServerError] = useState("");
 
-  function firstTwoLettersPerWord(s?: string) {
-    if (!s) return "";
-    return s
-      .split(/\s+/)
-      .filter(Boolean)
-      .map((w) => (w.replace(/[^a-zA-Z0-9]/g, "").substring(0, 2) || ""))
-      .join("");
-  }
-
-  function computeVendorOrgId(businessName: string, ownerName: string) {
-    const bizPart = firstTwoLettersPerWord(businessName || "").toUpperCase();
-    const ownerPart = firstTwoLettersPerWord(ownerName || "").toUpperCase();
-    const seedStr = (businessName || "") + "|" + (ownerName || "");
-    let hash = 0;
-    for (let i = 0; i < seedStr.length; i++) {
-      hash = (hash << 5) - hash + seedStr.charCodeAt(i);
-      hash |= 0;
-    }
-    const minDigits = 4;
-    const maxDigits = 9;
-    const digitsCount = Math.abs(hash) % (maxDigits - minDigits + 1) + minDigits;
-    let rand = "";
-    let h = Math.abs(hash) || 1;
-    for (let i = 0; i < digitsCount; i++) {
-      rand += String(h % 10);
-      h = Math.floor(h / 10) || (h + 7);
-    }
-    const parts: string[] = [];
-    if (bizPart) parts.push(bizPart);
-    if (ownerPart) parts.push(ownerPart);
-    parts.push(rand);
-    return parts.join("-");
-  }
+  
 
 
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData((prev: any) => ({ ...prev, [name]: value }));
-    if (name === "businessName" || name === "ownerName") {
-      // Use the NEW value that was just entered, not the old formData
-      const nextBiz = name === "businessName" ? value : formData.businessName;
-      const nextOwner = name === "ownerName" ? value : formData.ownerName;
-      setVendorOrgId(computeVendorOrgId(nextBiz, nextOwner));
-    }
   };
 
   function getPasswordStrength(pw = "") {
@@ -137,10 +93,9 @@ const Auth: React.FC = () => {
 
   const validateForm = () => {
     const nerrors: Record<string, string> = {};
-    if (!formData.businessName) nerrors.businessName = "Required";
-    if (!formData.ownerName) nerrors.ownerName = "Required";
+    if (!formData.firstName) nerrors.firstName = "Required";
     if (!formData.email) nerrors.email = "Required";
-    if (!formData.username) nerrors.username = "Required";
+    if (!formData.mobile) nerrors.mobile = "Required";
     if (!formData.password) nerrors.password = "Required";
     if (formData.password !== formData.confirmPassword) nerrors.confirmPassword = "Passwords must match";
     setErrors(nerrors);
@@ -161,24 +116,74 @@ const Auth: React.FC = () => {
     setLoading(true);
     try {
       const res = await api.login({ login: email, password });
-      if (res?.token) {
-        localStorage.setItem("authToken", res.token);
-        localStorage.setItem("tokenType", res.tokenType || "Bearer");
+
+      // The API may return a wrapper { success, status, message, data: { accessToken, ... } }
+      // or return the payload directly. Normalize both shapes.
+      const inner = res?.data ?? res;
+
+      const accessToken = inner?.accessToken ?? inner?.token ?? res?.token ?? null;
+      const refreshToken = inner?.refreshToken ?? null;
+      const tokenType = inner?.tokenType ?? res?.tokenType ?? "Bearer";
+      const expiresIn = inner?.expiresIn ?? null;
+
+      if (accessToken) {
+        localStorage.setItem("authToken", accessToken);
+        if (refreshToken) localStorage.setItem("refreshToken", refreshToken);
+        localStorage.setItem("tokenType", tokenType || "Bearer");
+        if (expiresIn) localStorage.setItem("expiresIn", String(expiresIn));
+        console.log("Auth.handleSignIn - stored tokens:", { tokenType: tokenType || "Bearer", accessToken, refreshToken, expiresIn });
       }
-      const vendorId = res.vendorId || res.vendor?.id || res.vendor?._id || res.id || res._id;
-      const vendorOrgId = res.vendorOrganizationId || res.vendor?.vendorOrganizationId;
-      const userType = res.userType || res.user?.userType;
-      const userId = res.userId || res.user?.id || res.user?.userId;
-      const profileUrl = res.profileUrl || res.user?.profileUrl || res.vendor?.profileUrl;
+
+      // User info may be inside `inner.user` or at top-level `inner`
+      const user = inner?.user ?? inner ?? {};
+      const userId = user?.userId || user?.id || inner?.userId || inner?.id;
+      const userType = user?.userType || inner?.userType;
+      const emailResp = user?.email || inner?.email;
+      const phone = user?.phone || inner?.phone;
+      const firstName = user?.firstName || inner?.firstName;
+      const lastName = user?.lastName || inner?.lastName;
+      const fullName = user?.fullName || `${firstName || ""} ${lastName || ""}`.trim();
+      const country = user?.country || inner?.country;
+      const profileUrl = user?.profileUrl || inner?.profileUrl;
+
+      if (userId) localStorage.setItem("userId", String(userId));
+      if (userType) localStorage.setItem("userType", String(userType));
+      if (emailResp) localStorage.setItem("email", String(emailResp));
+      if (phone) localStorage.setItem("phone", String(phone));
+      if (firstName) localStorage.setItem("firstName", String(firstName));
+      if (lastName) localStorage.setItem("lastName", String(lastName));
+      if (fullName) localStorage.setItem("fullName", String(fullName));
+      if (country) localStorage.setItem("country", String(country));
+      if (profileUrl) localStorage.setItem("profileUrl", String(profileUrl));
+
+      // Backwards-compatible vendor ids
+      const vendorId = inner?.vendorId || user?.vendorId || userId;
+      const vendorOrgId = inner?.vendorOrganizationId || user?.vendorOrganizationId || null;
       if (vendorId) {
         localStorage.setItem("vendorId", String(vendorId));
         localStorage.setItem("id", String(vendorId));
       }
       if (vendorOrgId) localStorage.setItem("vendorOrganizationId", String(vendorOrgId));
-      if (userType) localStorage.setItem("userType", String(userType));
-      if (userId) localStorage.setItem("userId", String(userId));
-      if (profileUrl) localStorage.setItem("profileUrl", String(profileUrl));
-      toast({ title: `Welcome back${res.name ? `, ${res.name}` : ""}` });
+
+      // Fetch and store complete vendor profile after successful login
+      try {
+        const vendorProfile = await api.getVendorMe();
+        console.debug("Auth.handleSignIn - getVendorMe response:", vendorProfile);
+        if (vendorProfile) {
+          // Store complete vendor response for future use
+          localStorage.setItem("vendorProfile", JSON.stringify(vendorProfile));
+          // Update vendorId from profile if available
+          if (vendorProfile.id) {
+            localStorage.setItem("vendorId", String(vendorProfile.id));
+            localStorage.setItem("id", String(vendorProfile.id));
+          }
+        }
+      } catch (vendorErr) {
+        // Non-critical - user can still proceed to dashboard
+        console.error("Failed to fetch vendor profile:", vendorErr);
+      }
+
+      toast({ title: `Welcome back${fullName ? `, ${fullName}` : ""}` });
       navigate("/dashboard");
     } catch (err: any) {
       toast({ title: "Login failed", description: err?.message || "Network error while logging in", variant: "destructive" });
@@ -190,57 +195,49 @@ const Auth: React.FC = () => {
   const handleSignUp = async (e?: React.FormEvent) => {
     e?.preventDefault();
     if (!validateForm()) return;
-    
-    // Log form data before processing
-    // Use the vendorOrgId shown in the input field (state)
-    if (!vendorOrgId || vendorOrgId.trim() === "") {
-      toast({ title: "Error", description: "Please fill in business name and owner name to generate Organization ID", variant: "destructive" });
-      return;
-    }
-    
+
     setLoading(true);
     setServerError("");
     try {
-      const owner = formData.ownerName.trim();
-      const [firstName, ...rest] = owner.split(" ");
-      const lastName = rest.join(" ") || "";
       const payload = {
-        vendorOrganizationId: vendorOrgId,
-        businessName: formData.businessName,
-        ownerName: formData.ownerName,
-        username: formData.username,
         email: formData.email,
-        mobile: formData.mobile,
+        phone: formData.mobile,
         password: formData.password,
-        firstName: firstName || formData.ownerName,
-        lastName,
-        addressLine1: formData.addressLine1,
-        addressLine2: formData.addressLine2,
-        city: formData.city,
-        state: formData.state,
-        country: formData.country,
-        zipCode: formData.zipCode,
+        firstName: formData.firstName,
+        lastName: formData.lastName || "",
+        userType: "VENDOR",
+        country: formData.country || "USA",
       };
-      await api.registerUser(payload);
-      toast({ title: "Registration successful!", description: "Please sign in." });
-      switchMode("signin");
-      setFormData({
-        businessName: "",
-        ownerName: "",
-        username: "",
-        email: "",
-        mobile: "",
-        password: "",
-        confirmPassword: "",
-        addressLine1: "",
-        addressLine2: "",
-        city: "",
-        state: "",
-        country: "",
-        zipCode: "",
-      });
-      setVendorOrgId("");
-      setErrors({});
+      const res = await api.registerAuth(payload);
+      
+      // Store registration response for vendor profile setup
+      const registrationData = {
+        ...(res?.data || res),
+        country: formData.country || "USA",
+      };
+      localStorage.setItem("registrationData", JSON.stringify(registrationData));
+      
+      // Store tokens if returned
+      const inner = res?.data ?? res;
+      const accessToken = inner?.accessToken ?? inner?.token ?? null;
+      if (accessToken) {
+        localStorage.setItem("authToken", accessToken);
+        if (inner?.refreshToken) localStorage.setItem("refreshToken", inner.refreshToken);
+        if (inner?.tokenType) localStorage.setItem("tokenType", inner.tokenType);
+      }
+      
+      // Store user data
+      const user = inner?.user ?? inner;
+      if (user?.userId) localStorage.setItem("userId", String(user.userId));
+      if (user?.email) localStorage.setItem("email", String(user.email));
+      if (formData.firstName) localStorage.setItem("firstName", formData.firstName);
+      if (formData.lastName) localStorage.setItem("lastName", formData.lastName);
+      if (formData.country) localStorage.setItem("country", formData.country);
+      
+      toast({ title: "Registration successful!", description: "Please complete your vendor profile." });
+      
+      // Navigate to vendor profile setup with registration data
+      navigate("/vendor-setup", { state: { registrationData } });
     } catch (err: any) {
       setServerError(err?.message || "Registration failed. Please try again.");
       toast({ title: "Registration failed", description: err?.message || "Network error while registering", variant: "destructive" });
@@ -372,27 +369,20 @@ const Auth: React.FC = () => {
                         <motion.div variants={formContainerVariants} initial="hidden" animate="visible" className="space-y-5 p-1">
                           <div className="grid grid-cols-2 gap-4">
                             <motion.div variants={fieldVariants} className="space-y-2">
-                              <Label htmlFor="businessName" className="ml-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">Business Name <span className="text-red-500">*</span></Label>
-                              <Input id="businessName" name="businessName" value={formData.businessName} onChange={handleChange} placeholder="Enter your business name" className={`${errors.businessName ? "border-red-500" : ""} h-10 rounded-xl border-border bg-background/60 text-sm font-medium text-foreground`} />
-                              {errors.businessName && <p className="text-sm text-red-500">{errors.businessName}</p>}
+                              <Label htmlFor="firstName" className="ml-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">First Name</Label>
+                              <Input id="firstName" name="firstName" value={formData.firstName} onChange={handleChange} placeholder="First name" className={`${errors.firstName ? "border-red-500" : ""} h-10 rounded-xl border-border bg-background/60 text-sm font-medium text-foreground`} />
+                              {errors.firstName && <p className="text-sm text-red-500">{errors.firstName}</p>}
                             </motion.div>
 
                             <motion.div variants={fieldVariants} className="space-y-2">
-                              <Label htmlFor="ownerName" className="ml-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">Owner Name <span className="text-red-500">*</span></Label>
-                              <Input id="ownerName" name="ownerName" value={formData.ownerName} onChange={handleChange} placeholder="Enter owner name" className={`${errors.ownerName ? "border-red-500" : ""} h-10 rounded-xl border-border bg-background/60 text-sm font-medium text-foreground`} />
-                              {errors.ownerName && <p className="text-sm text-red-500">{errors.ownerName}</p>}
+                              <Label htmlFor="lastName" className="ml-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">Last Name</Label>
+                              <Input id="lastName" name="lastName" value={formData.lastName} onChange={handleChange} placeholder="Last name" className={`h-10 rounded-xl border-border bg-background/60 text-sm font-medium text-foreground`} />
                             </motion.div>
                           </div>
 
-                          <motion.div variants={fieldVariants} className="space-y-2 md:col-span-2">
-                            <Label htmlFor="vendorOrgId">Organization ID</Label>
-                            <Input id="vendorOrgId" name="vendorOrgId" value={vendorOrgId} readOnly className="w-full bg-gray-100" />
-                            <p className="text-xs text-gray-500">Auto-generated from business name & owner name.</p>
-                          </motion.div>
-
                           <div className="grid grid-cols-2 gap-4">
                             <motion.div variants={fieldVariants} className="space-y-2">
-                              <Label htmlFor="email" className="ml-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">Email Address <span className="text-red-500">*</span></Label>
+                              <Label htmlFor="email" className="ml-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">Email Address</Label>
                               <div className="group relative">
                                 <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors" />
                                 <Input id="email" name="email" type="email" value={formData.email} onChange={handleChange} placeholder="you@example.com" className={`${errors.email ? "border-red-500" : ""} h-10 rounded-xl border-border bg-background/60 pl-10 text-sm font-medium text-foreground`} />
@@ -401,100 +391,53 @@ const Auth: React.FC = () => {
                             </motion.div>
 
                             <motion.div variants={fieldVariants} className="space-y-2">
-                              <Label htmlFor="mobile" className="ml-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">Mobile <span className="text-[9px] font-normal tracking-normal text-muted-foreground">(Required)</span></Label>
+                              <Label htmlFor="mobile" className="ml-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">Mobile</Label>
                               <div className="relative">
-                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-muted-foreground">+91</span>
-                                <Input id="mobile" name="mobile" value={formData.mobile} onChange={handleChange} placeholder="10-digit mobile number" maxLength={10} className={`${errors.mobile ? "border-red-500" : ""} h-10 rounded-xl border-border bg-background/60 pl-11 text-sm font-medium text-foreground`} />
+                                <Input id="mobile" name="mobile" value={formData.mobile} onChange={handleChange} placeholder="Mobile number" className={`${errors.mobile ? "border-red-500" : ""} h-10 rounded-xl border-border bg-background/60 pl-3 text-sm font-medium text-foreground`} />
                               </div>
                               {errors.mobile && <p className="text-sm text-red-500">{errors.mobile}</p>}
                             </motion.div>
                           </div>
 
-                          <div className="space-y-2">
-                            <Label htmlFor="username" className="ml-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">Username <span className="text-red-500">*</span></Label>
-                            <Input id="username" name="username" value={formData.username} onChange={handleChange} placeholder="Choose a unique username" className={`${errors.username ? "border-red-500" : ""} h-10 rounded-xl border-border bg-background/60 text-sm font-medium text-foreground`} />
-                            {errors.username && <p className="text-sm text-red-500">{errors.username}</p>}
-                          </div>
-
                           <div className="grid md:grid-cols-2 gap-6">
                             <motion.div variants={fieldVariants} className="space-y-2">
-                              <Label htmlFor="password" className="ml-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">Password <span className="text-red-500">*</span></Label>
+                              <Label htmlFor="password" className="ml-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">Password</Label>
                               <div className="relative">
                                 <Input id="password" name="password" type={showRegPassword ? "text" : "password"} value={formData.password} onChange={handleChange} placeholder="Create a strong password" className={`${errors.password ? "border-red-500" : ""} h-10 rounded-xl border-border bg-background/60 pr-12 text-sm font-medium text-foreground`} />
                                 <button type="button" aria-label={showRegPassword ? "Hide password" : "Show password"} onClick={() => setShowRegPassword((p) => !p)} className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700">{showRegPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}</button>
                               </div>
                               {errors.password && <p className="text-sm text-red-500">{errors.password}</p>}
-                              {formData.password && (() => {
-                                const s = getPasswordStrength(formData.password);
-                                const pct = Math.min(100, Math.round((s.score / 6) * 100));
-                                return (
-                                  <div className="mt-2">
-                                    <div className="w-full h-2 bg-gray-200 rounded overflow-hidden">
-                                      <div className={`${s.color} h-2`} style={{ width: `${pct}%` }} />
-                                    </div>
-                                    <div className="text-xs text-gray-600 mt-1">Strength: {s.label}</div>
-                                  </div>
-                                );
-                              })()}
                             </motion.div>
 
                             <motion.div variants={fieldVariants} className="space-y-2">
-                              <Label htmlFor="confirmPassword" className="ml-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">Confirm Password <span className="text-red-500">*</span></Label>
+                              <Label htmlFor="confirmPassword" className="ml-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">Confirm Password</Label>
                               <div className="relative">
-                                <Input id="confirmPassword" name="confirmPassword" type="text" value={formData.confirmPassword} onChange={handleChange} placeholder="Re-enter password" className={`${errors.confirmPassword ? "border-red-500" : ""} h-10 rounded-xl border-border bg-background/60`} />
+                                <Input id="confirmPassword" name="confirmPassword" type={showRegPassword ? "text" : "password"} value={formData.confirmPassword} onChange={handleChange} placeholder="Re-enter password" className={`${errors.confirmPassword ? "border-red-500" : ""} h-10 rounded-xl border-border bg-background/60`} />
                               </div>
                               {errors.confirmPassword && <p className="text-sm text-red-500">{errors.confirmPassword}</p>}
                             </motion.div>
                           </div>
 
-                          <div className="grid grid-cols-1 gap-4">
-                            <motion.div variants={fieldVariants} className="space-y-2">
-                              <Label htmlFor="addressLine1">Address Line 1 <span className="text-red-500">*</span></Label>
-                              <Input id="addressLine1" name="addressLine1" value={formData.addressLine1} onChange={handleChange} placeholder="Street address, P.O. box, company name, c/o" className={`${errors.addressLine1 ? "border-red-500" : ""} h-10 rounded-xl border-border bg-background/60`} />
-                              {errors.addressLine1 && <p className="text-sm text-red-500">{errors.addressLine1}</p>}
-                            </motion.div>
+                          <motion.div variants={fieldVariants} className="space-y-2">
+                            <Label htmlFor="country">Country</Label>
+                            <Select value={formData.country} onValueChange={(v) => setFormData((p: any) => ({ ...p, country: v }))}>
+                              <SelectTrigger className={`h-10 rounded-xl border-border bg-background/60 text-sm ${errors.country ? "border-red-500" : ""}`}>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="USA">USA</SelectItem>
+                                <SelectItem value="INDIA">INDIA</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            {errors.country && <p className="text-sm text-red-500">{errors.country}</p>}
+                          </motion.div>
 
-                            <motion.div variants={fieldVariants} className="space-y-2">
-                              <Label htmlFor="addressLine2">Address Line 2</Label>
-                              <Input id="addressLine2" name="addressLine2" value={formData.addressLine2} onChange={handleChange} placeholder="Apartment, suite, etc. (optional)" className="h-10 rounded-xl border-border bg-background/60" />
-                            </motion.div>
-
-                            <motion.div variants={fieldVariants} className="grid md:grid-cols-3 gap-4">
-                              <div className="space-y-2">
-                                <Label htmlFor="city">City <span className="text-red-500">*</span></Label>
-                                <Input id="city" name="city" value={formData.city} onChange={handleChange} placeholder="City" className={`${errors.city ? "border-red-500" : ""} h-10 rounded-xl border-border bg-background/60`} />
-                                {errors.city && <p className="text-sm text-red-500">{errors.city}</p>}
-                              </div>
-
-                              <div className="space-y-2">
-                                <Label htmlFor="state">State / Province <span className="text-red-500">*</span></Label>
-                                <Input id="state" name="state" value={formData.state} onChange={handleChange} placeholder="State or Province" className={`${errors.state ? "border-red-500" : ""} h-10 rounded-xl border-border bg-background/60`} />
-                                {errors.state && <p className="text-sm text-red-500">{errors.state}</p>}
-                              </div>
-
-                              <div className="space-y-2">
-                                <Label htmlFor="zipCode">ZIP / Postal Code <span className="text-red-500">*</span></Label>
-                                <Input id="zipCode" name="zipCode" value={formData.zipCode} onChange={handleChange} placeholder="Postal code" className={`${errors.zipCode ? "border-red-500" : ""} h-10 rounded-xl border-border bg-background/60`} />
-                                {errors.zipCode && <p className="text-sm text-red-500">{errors.zipCode}</p>}
-                              </div>
-                            </motion.div>
-
-                            <motion.div variants={fieldVariants} className="grid md:grid-cols-2 gap-4">
-                              <div className="space-y-2">
-                                <Label htmlFor="country">Country <span className="text-red-500">*</span></Label>
-                                <Input id="country" name="country" value={formData.country} onChange={handleChange} placeholder="Country" className={`${errors.country ? "border-red-500" : ""} h-10 rounded-xl border-border bg-background/60`} />
-                                {errors.country && <p className="text-sm text-red-500">{errors.country}</p>}
-                              </div>
-                            </motion.div>
-
-                            {/* Create account button at bottom of signup form */}
-                            <motion.div variants={fieldVariants} className="pt-4">
-                              <Button type="submit" disabled={loading} className="group relative flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary text-sm font-semibold text-primary-foreground shadow-md hover:brightness-105 active:scale-[0.98] transition-all overflow-hidden">
-                                <span className="absolute inset-0 -translate-x-full bg-gradient-to-r from-white/0 via-white/20 to-white/0 transition-transform duration-700 group-hover:translate-x-full" />
-                                <span className="relative flex items-center gap-2">{loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Create account"}{!loading && <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />}</span>
-                              </Button>
-                            </motion.div>
-                          </div>
+                          <motion.div variants={fieldVariants} className="pt-4">
+                            <Button type="submit" disabled={loading} className="group relative flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary text-sm font-semibold text-primary-foreground shadow-md hover:brightness-105 active:scale-[0.98] transition-all overflow-hidden">
+                              <span className="absolute inset-0 -translate-x-full bg-gradient-to-r from-white/0 via-white/20 to-white/0 transition-transform duration-700 group-hover:translate-x-full" />
+                              <span className="relative flex items-center gap-2">{loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Create account"}{!loading && <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />}</span>
+                            </Button>
+                          </motion.div>
                         </motion.div>
                       </div>
                     </motion.form>

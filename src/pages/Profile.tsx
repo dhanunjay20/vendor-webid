@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Camera, MapPin, Phone, Mail, Globe, Loader2 } from "lucide-react";
+import { Camera, MapPin, Phone, Mail, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,20 +15,56 @@ interface VendorProfile {
   id?: string;
   vendorOrganizationId?: string;
   businessName?: string;
-  contactName?: string;
-  email?: string;
-  mobile?: string;
-  addresses?: Array<{
-    addressLine1?: string;
-    addressLine2?: string;
+  businessEmail?: string;
+  businessPhone?: string;
+  businessType?: string;
+  businessRegistrationNumber?: string;
+  taxId?: string;
+  description?: string;
+  establishedYear?: number;
+  country?: string;
+  cuisinesOffered?: string[];
+  specialties?: string[];
+  businessAddress?: {
+    streetAddress?: string;
     city?: string;
     state?: string;
+    postalCode?: string;
     country?: string;
-    zipCode?: string;
+    latitude?: number;
+    longitude?: number;
+  };
+  ownerInfo?: {
+    firstName?: string;
+    lastName?: string;
+    phone?: string;
+    email?: string;
+    idProofType?: string;
+    idProofNumber?: string;
+  };
+  serviceAreas?: Array<{
+    city?: string;
+    state?: string;
+    radiusKm?: number;
   }>;
-  website?: string;
-  yearsInBusiness?: number;
-  aboutBusiness?: string;
+  capacity?: {
+    minGuests?: number;
+    maxGuests?: number;
+    concurrentEvents?: number;
+  };
+  pricing?: {
+    currency?: string;
+    startingPricePerPlate?: number;
+    averagePricePerPlate?: number;
+  };
+  documents?: Array<{
+    documentType?: string;
+    documentName?: string;
+    documentUrl?: string;
+    documentNumber?: string;
+    issueDate?: string;
+    expiryDate?: string;
+  }>;
   profileUrl?: string;
   isOnline?: boolean;
   lastSeenAt?: string;
@@ -38,76 +74,104 @@ interface VendorProfile {
   lastLocationUpdatedAt?: string;
 }
 
-interface ServiceDetails {
-  id?: string;
-  vendorId?: string;
-  cuisineSpecialties?: string[];
-  dietaryOptions?: string[];
-  serviceTypes?: string[];
-  maximumCapacity?: number;
-  serviceArea?: string[];
-  startingPricePerPerson?: number;
-  specialServices?: string[];
-}
-
 export default function Profile() {
   const [isEditing, setIsEditing] = useState(false);
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [vendorProfile, setVendorProfile] = useState<VendorProfile | null>(null);
-  const [serviceDetails, setServiceDetails] = useState<ServiceDetails | null>(null);
   const [formData, setFormData] = useState<VendorProfile | null>(null);
-  const [serviceFormData, setServiceFormData] = useState<ServiceDetails | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // Fetch vendor profile on mount
   useEffect(() => {
     fetchData();
   }, []);
+  // Normalize various backend shapes into the `VendorProfile` shape used by this page
+  const normalizeVendor = (raw: any): VendorProfile => {
+    if (!raw) return {} as VendorProfile;
+    const src = raw.data ?? raw;
+
+    const pickArray = (val: any) => {
+      if (!val) return [];
+      if (Array.isArray(val)) return val;
+      if (typeof val === "string") return val.split(",").map((s: string) => s.trim()).filter(Boolean);
+      return [];
+    };
+
+    const addressFromSrc = () => {
+      if (src.businessAddress) return src.businessAddress;
+      if (src.addresses && Array.isArray(src.addresses) && src.addresses.length) {
+        const a = src.addresses[0];
+        return {
+          streetAddress: a.addressLine1 || a.street || a.addressLine1 || "",
+          city: a.city || a.town || "",
+          state: a.state || "",
+          postalCode: a.zipCode || a.postalCode || a.zip || "",
+          country: a.country || "",
+          latitude: a.latitude || a.lat,
+          longitude: a.longitude || a.lng,
+        };
+      }
+      return {};
+    };
+
+    const ownerFromSrc = () => {
+      if (src.ownerInfo) return src.ownerInfo;
+      return {
+        firstName: src.ownerFirstName || src.owner_first_name || (src.ownerName ? String(src.ownerName).split(" ")[0] : "") || "",
+        lastName: src.ownerLastName || src.owner_last_name || (src.ownerName ? String(src.ownerName).split(" ").slice(1).join(" ") : "") || "",
+        phone: src.ownerPhone || src.owner_phone || src.ownerContact || "",
+        email: src.ownerEmail || src.owner_email || src.owner_contact_email || "",
+        idProofType: src.ownerIdProofType || src.idProofType || src.id_proof_type || "",
+        idProofNumber: src.ownerIdProofNumber || src.idProofNumber || src.id_proof_number || "",
+      };
+    };
+
+    return {
+      id: src.id || src.vendorId || src.vendor_id,
+      vendorOrganizationId: src.vendorOrganizationId || src.vendor_organization_id || src.vendorOrgId,
+      businessName: src.businessName || src.business_name || src.name || src.businessTitle,
+      businessEmail: src.businessEmail || src.business_email || src.email,
+      businessPhone: src.businessPhone || src.business_phone || src.phone || src.mobile,
+      businessType: src.businessType || src.business_type || src.type,
+      businessRegistrationNumber: src.businessRegistrationNumber || src.registrationNumber || src.registration_number || src.bizRegNumber,
+      taxId: src.taxId || src.tax_id || src.gst || src.pan,
+      description: src.description || src.about || src.bio,
+      establishedYear: src.establishedYear || src.established_year || src.yearEstablished,
+      country: src.country || (src.businessAddress && src.businessAddress.country) || (src.addresses && src.addresses[0] && src.addresses[0].country),
+      cuisinesOffered: pickArray(src.cuisinesOffered || src.cuisines || src.cuisine),
+      specialties: pickArray(src.specialties || src.speciality || src.specializations),
+      businessAddress: addressFromSrc(),
+      ownerInfo: ownerFromSrc(),
+      serviceAreas: src.serviceAreas || src.service_areas || [],
+      capacity: src.capacity || src.capabilities || {},
+      pricing: src.pricing || src.price || {},
+      documents: src.documents || src.docs || src.licenses || [],
+      profileUrl: src.profileUrl || src.profile_url || src.avatar || src.logoUrl || src.logo,
+      isOnline: src.isOnline,
+      lastSeenAt: src.lastSeenAt || src.last_seen_at,
+      latitude: src.latitude || (src.businessAddress && src.businessAddress.latitude),
+      longitude: src.longitude || (src.businessAddress && src.businessAddress.longitude),
+      currentAddress: src.currentAddress || src.current_address,
+      lastLocationUpdatedAt: src.lastLocationUpdatedAt || src.last_location_updated_at,
+    } as VendorProfile;
+  };
 
   const fetchData = async () => {
     try {
       setLoading(true);
       setError(null);
-      const vendorOrgId = localStorage.getItem("vendorOrganizationId");
-      const vendorId = localStorage.getItem("vendorId") || localStorage.getItem("id");
-      
-      if (!vendorOrgId) {
-        setError("No vendor organization ID found");
-        setLoading(false);
-        return;
-      }
-      const profile = await api.getVendorProfile(vendorOrgId);
-      setVendorProfile(profile);
-      setFormData(profile);
-      
-      // Fetch service details if vendorId is available
-      if (vendorId) {
-        try {
-          const details = await api.getServiceDetailsByVendorId(vendorId);
-          setServiceDetails(details);
-          setServiceFormData(details);
-        } catch (err: any) {
-          // Service details are optional - if not found (404), just continue
-          if (err?.status === 404) {
-            // Service details not found - vendor may be new; initialize defaults
-            // Initialize empty service details
-            setServiceDetails(null);
-            setServiceFormData({
-              cuisineSpecialties: [],
-              dietaryOptions: [],
-              serviceTypes: [],
-              maximumCapacity: 0,
-              serviceArea: [],
-              startingPricePerPerson: 0,
-              specialServices: [],
-            });
-          } else {
-          }
-        }
-      }
+
+      // Use the new /api/v1/vendors/me endpoint
+      const profileRaw = await api.getVendorMe();
+      console.log("Profile.fetchData - getVendorMe raw response:", profileRaw);
+      const normalized = normalizeVendor(profileRaw);
+      console.log("Profile.fetchData - normalized vendor:", normalized);
+      setVendorProfile(normalized);
+      setFormData(normalized);
     } catch (err: any) {
+      console.error("Profile.fetchData error:", err?.response?.status, err?.response?.data || err?.message || err);
       setError(err?.message || "Failed to load vendor profile");
     } finally {
       setLoading(false);
@@ -133,25 +197,30 @@ export default function Profile() {
     setFormData((prev) => prev ? { ...prev, [field]: value } : null);
   };
 
-  const handleServiceChange = (field: string, value: any) => {
-    setServiceFormData((prev) => prev ? { ...prev, [field]: value } : null);
+  const handleNestedChange = (parent: string, field: string, value: any) => {
+    setFormData((prev) => {
+      if (!prev) return null;
+      return {
+        ...prev,
+        [parent]: { ...(prev[parent as keyof VendorProfile] as any || {}), [field]: value }
+      };
+    });
   };
 
-  const handleAddressChange = (index: number, field: string, value: string) => {
-    if (!formData) return;
-    const newAddresses = [...(formData.addresses || [])];
-    if (!newAddresses[index]) {
-      newAddresses[index] = {};
-    }
-    newAddresses[index] = { ...newAddresses[index], [field]: value };
-    setFormData({ ...formData, addresses: newAddresses });
+  const handleArrayChange = (field: string, value: string) => {
+    setFormData((prev) => {
+      if (!prev) return null;
+      return {
+        ...prev,
+        [field]: value.split(",").map(s => s.trim()).filter(Boolean)
+      };
+    });
   };
 
   const handleSave = async () => {
     try {
       setSaving(true);
-      const vendorId = localStorage.getItem("vendorId") || localStorage.getItem("id");
-      const vendorOrgId = localStorage.getItem("vendorOrganizationId");
+      const vendorId = formData?.id || localStorage.getItem("vendorId") || localStorage.getItem("id");
       
       if (!vendorId || !formData) {
         toast({
@@ -161,40 +230,30 @@ export default function Profile() {
         });
         return;
       }
-      // Prepare vendor update payload
-      const vendorPayload = {
+
+      // Prepare vendor update payload matching the backend structure
+      const payload = {
         businessName: formData.businessName,
-        contactName: formData.contactName,
-        email: formData.email,
-        mobile: formData.mobile,
-        addresses: formData.addresses || [],
-        website: formData.website,
-        yearsInBusiness: formData.yearsInBusiness,
-        aboutBusiness: formData.aboutBusiness,
+        businessEmail: formData.businessEmail,
+        businessPhone: formData.businessPhone,
+        businessType: formData.businessType,
+        businessRegistrationNumber: formData.businessRegistrationNumber,
+        taxId: formData.taxId,
+        description: formData.description,
+        establishedYear: formData.establishedYear,
+        country: formData.country,
+        cuisinesOffered: formData.cuisinesOffered || [],
+        specialties: formData.specialties || [],
+        businessAddress: formData.businessAddress,
+        ownerInfo: formData.ownerInfo,
+        serviceAreas: formData.serviceAreas || [],
+        capacity: formData.capacity,
+        pricing: formData.pricing,
+        documents: formData.documents || [],
       };
-      // Update vendor profile
-      await api.updateVendorProfile(vendorId, vendorPayload);
-      // Update service details if available
-      if (serviceFormData && (serviceFormData.cuisineSpecialties?.length || serviceFormData.serviceTypes?.length)) {
-        try {
-          const servicePayload = {
-            vendorId,
-            vendorOrganizationId: vendorOrgId,
-            cuisineSpecialties: serviceFormData.cuisineSpecialties?.filter(Boolean) || [],
-            dietaryOptions: serviceFormData.dietaryOptions?.filter(Boolean) || [],
-            serviceTypes: serviceFormData.serviceTypes?.filter(Boolean) || [],
-            maximumCapacity: serviceFormData.maximumCapacity || 0,
-            serviceArea: serviceFormData.serviceArea?.filter(Boolean) || [],
-            startingPricePerPerson: serviceFormData.startingPricePerPerson || 0,
-            specialServices: serviceFormData.specialServices?.filter(Boolean) || [],
-          };
-          await api.createOrUpdateServiceDetails(vendorId, servicePayload);
-        } catch (err: any) {
-          // Service details update failure is non-critical
-          // Profile was already updated successfully
-        }
-      } else {
-      }
+
+      // Update vendor profile using v1 endpoint
+      await api.updateVendorProfile(vendorId, payload);
 
       toast({
         title: "Success",
@@ -235,23 +294,21 @@ export default function Profile() {
     );
   }
 
-  const primaryAddress = formData?.addresses?.[0] || {};
+  const primaryAddress = formData?.businessAddress || {};
   const businessName = formData?.businessName || "Your Business";
-  const contactName = formData?.contactName || "Contact Person";
-  const email = formData?.email || "";
-  const mobile = formData?.mobile || "";
-  const website = formData?.website || "";
-  const aboutBusiness = formData?.aboutBusiness || "";
-  const yearsInBusiness = formData?.yearsInBusiness || "";
+  const ownerName = formData?.ownerInfo ? `${formData.ownerInfo.firstName || ""} ${formData.ownerInfo.lastName || ""}`.trim() : "Owner";
+  const businessEmail = formData?.businessEmail || "";
+  const businessPhone = formData?.businessPhone || "";
+  const description = formData?.description || "";
+  const establishedYear = formData?.establishedYear || "";
   const profileUrl = vendorProfile?.profileUrl || localStorage.getItem("profileUrl") || undefined;
 
-  const cuisineSpecialties = serviceFormData?.cuisineSpecialties?.join(", ") || "";
-  const serviceTypes = serviceFormData?.serviceTypes?.join(", ") || "";
-  const maxCapacity = serviceFormData?.maximumCapacity || "";
-  const serviceArea = serviceFormData?.serviceArea?.join(", ") || "";
-  const startingPrice = serviceFormData?.startingPricePerPerson || "";
-  const dietaryOptions = serviceFormData?.dietaryOptions?.join(", ") || "";
-  const specialServices = serviceFormData?.specialServices?.join(", ") || "";
+  const cuisinesOffered = formData?.cuisinesOffered?.join(", ") || "";
+  const specialties = formData?.specialties?.join(", ") || "";
+  const minGuests = formData?.capacity?.minGuests || "";
+  const maxGuests = formData?.capacity?.maxGuests || "";
+  const startingPrice = formData?.pricing?.startingPricePerPlate || "";
+  const avgPrice = formData?.pricing?.averagePricePerPlate || "";
 
   return (
     <div className="container px-3 sm:px-4 md:px-6 py-4 sm:py-6">
@@ -267,7 +324,7 @@ export default function Profile() {
           </div>
         ) : (
           <div className="flex gap-2 flex-wrap w-full sm:w-auto">
-            <Button variant="outline" onClick={() => { setIsEditing(false); setFormData(vendorProfile); setServiceFormData(serviceDetails); }} className="flex-1 sm:flex-none h-10 sm:h-11">
+            <Button variant="outline" onClick={() => { setIsEditing(false); setFormData(vendorProfile); }} className="flex-1 sm:flex-none h-10 sm:h-11">
               Cancel
             </Button>
             <Button onClick={handleSave} disabled={saving} className="flex-1 sm:flex-none h-10 sm:h-11">
@@ -330,10 +387,10 @@ export default function Profile() {
                 />
               </div>
               <div className="space-y-1.5 sm:space-y-2">
-                <Label className="text-sm sm:text-base">Contact Person</Label>
+                <Label className="text-sm sm:text-base">Business Type</Label>
                 <Input 
-                  value={formData?.contactName || ""} 
-                  onChange={(e) => handleChange("contactName", e.target.value)}
+                  value={formData?.businessType || ""} 
+                  onChange={(e) => handleChange("businessType", e.target.value)}
                   disabled={!isEditing}
                   className="h-10 sm:h-11"
                 />
@@ -341,11 +398,11 @@ export default function Profile() {
               <div className="space-y-1.5 sm:space-y-2">
                 <Label className="text-sm sm:text-base">
                   <Phone className="mr-1.5 sm:mr-2 inline h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                  Phone Number
+                  Business Phone
                 </Label>
                 <Input 
-                  value={formData?.mobile || ""} 
-                  onChange={(e) => handleChange("mobile", e.target.value)}
+                  value={formData?.businessPhone || ""} 
+                  onChange={(e) => handleChange("businessPhone", e.target.value)}
                   disabled={!isEditing}
                   className="h-10 sm:h-11"
                 />
@@ -353,33 +410,48 @@ export default function Profile() {
               <div className="space-y-1.5 sm:space-y-2">
                 <Label className="text-sm sm:text-base">
                   <Mail className="mr-1.5 sm:mr-2 inline h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                  Email Address
+                  Business Email
                 </Label>
                 <Input 
-                  value={formData?.email || ""} 
-                  onChange={(e) => handleChange("email", e.target.value)}
+                  value={formData?.businessEmail || ""} 
+                  onChange={(e) => handleChange("businessEmail", e.target.value)}
                   disabled={!isEditing}
                   className="h-10 sm:h-11"
                 />
               </div>
               <div className="space-y-1.5 sm:space-y-2">
-                <Label className="text-sm sm:text-base">
-                  <Globe className="mr-1.5 sm:mr-2 inline h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                  Website
-                </Label>
+                <Label className="text-sm sm:text-base">Registration Number</Label>
                 <Input 
-                  value={formData?.website || ""} 
-                  onChange={(e) => handleChange("website", e.target.value)}
+                  value={formData?.businessRegistrationNumber || ""} 
+                  onChange={(e) => handleChange("businessRegistrationNumber", e.target.value)}
                   disabled={!isEditing}
                   className="h-10 sm:h-11"
                 />
               </div>
               <div className="space-y-1.5 sm:space-y-2">
-                <Label className="text-sm sm:text-base">Years in Business</Label>
+                <Label className="text-sm sm:text-base">Tax ID</Label>
+                <Input 
+                  value={formData?.taxId || ""} 
+                  onChange={(e) => handleChange("taxId", e.target.value)}
+                  disabled={!isEditing}
+                  className="h-10 sm:h-11"
+                />
+              </div>
+              <div className="space-y-1.5 sm:space-y-2">
+                <Label className="text-sm sm:text-base">Established Year</Label>
                 <Input 
                   type="number"
-                  value={formData?.yearsInBusiness || ""} 
-                  onChange={(e) => handleChange("yearsInBusiness", parseInt(e.target.value) || 0)}
+                  value={formData?.establishedYear || ""} 
+                  onChange={(e) => handleChange("establishedYear", parseInt(e.target.value) || 0)}
+                  disabled={!isEditing}
+                  className="h-10 sm:h-11"
+                />
+              </div>
+              <div className="space-y-1.5 sm:space-y-2">
+                <Label className="text-sm sm:text-base">Country</Label>
+                <Input 
+                  value={formData?.country || ""} 
+                  onChange={(e) => handleChange("country", e.target.value)}
                   disabled={!isEditing}
                   className="h-10 sm:h-11"
                 />
@@ -388,20 +460,11 @@ export default function Profile() {
             <div className="space-y-1.5 sm:space-y-2">
               <Label className="text-sm sm:text-base">
                 <MapPin className="mr-1.5 sm:mr-2 inline h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                Business Address Line 1
+                Street Address
               </Label>
               <Input
-                value={primaryAddress?.addressLine1 || ""}
-                onChange={(e) => handleAddressChange(0, "addressLine1", e.target.value)}
-                disabled={!isEditing}
-                className="h-10 sm:h-11"
-              />
-            </div>
-            <div className="space-y-1.5 sm:space-y-2">
-              <Label className="text-sm sm:text-base">Business Address Line 2</Label>
-              <Input
-                value={primaryAddress?.addressLine2 || ""}
-                onChange={(e) => handleAddressChange(0, "addressLine2", e.target.value)}
+                value={primaryAddress?.streetAddress || ""}
+                onChange={(e) => handleNestedChange("businessAddress", "streetAddress", e.target.value)}
                 disabled={!isEditing}
                 className="h-10 sm:h-11"
               />
@@ -411,7 +474,7 @@ export default function Profile() {
                 <Label className="text-sm sm:text-base">City</Label>
                 <Input
                   value={primaryAddress?.city || ""}
-                  onChange={(e) => handleAddressChange(0, "city", e.target.value)}
+                  onChange={(e) => handleNestedChange("businessAddress", "city", e.target.value)}
                   disabled={!isEditing}
                   className="h-10 sm:h-11"
                 />
@@ -420,35 +483,35 @@ export default function Profile() {
                 <Label className="text-sm sm:text-base">State</Label>
                 <Input
                   value={primaryAddress?.state || ""}
-                  onChange={(e) => handleAddressChange(0, "state", e.target.value)}
+                  onChange={(e) => handleNestedChange("businessAddress", "state", e.target.value)}
                   disabled={!isEditing}
                   className="h-10 sm:h-11"
                 />
               </div>
               <div className="space-y-1.5 sm:space-y-2">
-                <Label className="text-sm sm:text-base">Country</Label>
+                <Label className="text-sm sm:text-base">Postal Code</Label>
+                <Input
+                  value={primaryAddress?.postalCode || ""}
+                  onChange={(e) => handleNestedChange("businessAddress", "postalCode", e.target.value)}
+                  disabled={!isEditing}
+                  className="h-10 sm:h-11"
+                />
+              </div>
+              <div className="space-y-1.5 sm:space-y-2">
+                <Label className="text-sm sm:text-base">Address Country</Label>
                 <Input
                   value={primaryAddress?.country || ""}
-                  onChange={(e) => handleAddressChange(0, "country", e.target.value)}
-                  disabled={!isEditing}
-                  className="h-10 sm:h-11"
-                />
-              </div>
-              <div className="space-y-1.5 sm:space-y-2">
-                <Label className="text-sm sm:text-base">ZIP Code</Label>
-                <Input
-                  value={primaryAddress?.zipCode || ""}
-                  onChange={(e) => handleAddressChange(0, "zipCode", e.target.value)}
+                  onChange={(e) => handleNestedChange("businessAddress", "country", e.target.value)}
                   disabled={!isEditing}
                   className="h-10 sm:h-11"
                 />
               </div>
             </div>
             <div className="space-y-1.5 sm:space-y-2">
-              <Label className="text-sm sm:text-base">About Your Business</Label>
+              <Label className="text-sm sm:text-base">Business Description</Label>
               <Textarea
-                value={formData?.aboutBusiness || ""}
-                onChange={(e) => handleChange("aboutBusiness", e.target.value)}
+                value={formData?.description || ""}
+                onChange={(e) => handleChange("description", e.target.value)}
                 disabled={!isEditing}
                 rows={4}
                 className="min-h-[100px] sm:min-h-[120px] text-sm sm:text-base"
@@ -457,84 +520,240 @@ export default function Profile() {
           </CardContent>
         </Card>
 
-        {/* Service Details */}
+        {/* Owner Information */}
         <Card className="lg:col-span-3">
           <CardHeader className="px-4 sm:px-6 py-4 sm:py-6">
-            <CardTitle className="text-lg sm:text-xl">Service Details</CardTitle>
+            <CardTitle className="text-lg sm:text-xl">Owner Information</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 sm:space-y-4 px-4 sm:px-6 pb-4 sm:pb-6">
             <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
               <div className="space-y-1.5 sm:space-y-2">
-                <Label className="text-sm sm:text-base">Cuisine Specialties (comma-separated)</Label>
+                <Label className="text-sm sm:text-base">Owner First Name</Label>
                 <Input
-                  value={cuisineSpecialties}
-                  onChange={(e) => handleServiceChange("cuisineSpecialties", e.target.value.split(",").map(s => s.trim()).filter(Boolean))}
+                  value={formData?.ownerInfo?.firstName || ""}
+                  onChange={(e) => handleNestedChange("ownerInfo", "firstName", e.target.value)}
                   disabled={!isEditing}
                   className="h-10 sm:h-11"
                 />
               </div>
               <div className="space-y-1.5 sm:space-y-2">
-                <Label className="text-sm sm:text-base">Service Types (comma-separated)</Label>
+                <Label className="text-sm sm:text-base">Owner Last Name</Label>
                 <Input
-                  value={serviceTypes}
-                  onChange={(e) => handleServiceChange("serviceTypes", e.target.value.split(",").map(s => s.trim()).filter(Boolean))}
+                  value={formData?.ownerInfo?.lastName || ""}
+                  onChange={(e) => handleNestedChange("ownerInfo", "lastName", e.target.value)}
                   disabled={!isEditing}
                   className="h-10 sm:h-11"
                 />
               </div>
               <div className="space-y-1.5 sm:space-y-2">
-                <Label className="text-sm sm:text-base">Maximum Capacity</Label>
+                <Label className="text-sm sm:text-base">Owner Phone</Label>
+                <Input
+                  value={formData?.ownerInfo?.phone || ""}
+                  onChange={(e) => handleNestedChange("ownerInfo", "phone", e.target.value)}
+                  disabled={!isEditing}
+                  className="h-10 sm:h-11"
+                />
+              </div>
+              <div className="space-y-1.5 sm:space-y-2">
+                <Label className="text-sm sm:text-base">Owner Email</Label>
+                <Input
+                  value={formData?.ownerInfo?.email || ""}
+                  onChange={(e) => handleNestedChange("ownerInfo", "email", e.target.value)}
+                  disabled={!isEditing}
+                  className="h-10 sm:h-11"
+                />
+              </div>
+              <div className="space-y-1.5 sm:space-y-2">
+                <Label className="text-sm sm:text-base">ID Proof Type</Label>
+                <Input
+                  value={formData?.ownerInfo?.idProofType || ""}
+                  onChange={(e) => handleNestedChange("ownerInfo", "idProofType", e.target.value)}
+                  disabled={!isEditing}
+                  className="h-10 sm:h-11"
+                  placeholder="DRIVING_LICENSE, AADHAAR, etc."
+                />
+              </div>
+              <div className="space-y-1.5 sm:space-y-2">
+                <Label className="text-sm sm:text-base">ID Proof Number</Label>
+                <Input
+                  value={formData?.ownerInfo?.idProofNumber || ""}
+                  onChange={(e) => handleNestedChange("ownerInfo", "idProofNumber", e.target.value)}
+                  disabled={!isEditing}
+                  className="h-10 sm:h-11"
+                />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Service Details */}
+        <Card className="lg:col-span-3">
+          <CardHeader className="px-4 sm:px-6 py-4 sm:py-6">
+            <CardTitle className="text-lg sm:text-xl">Service & Pricing Details</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3 sm:space-y-4 px-4 sm:px-6 pb-4 sm:pb-6">
+            <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="space-y-1.5 sm:space-y-2">
+                <Label className="text-sm sm:text-base">Cuisines Offered (comma-separated)</Label>
+                <Input
+                  value={cuisinesOffered}
+                  onChange={(e) => handleArrayChange("cuisinesOffered", e.target.value)}
+                  disabled={!isEditing}
+                  className="h-10 sm:h-11"
+                  placeholder="American, Italian, BBQ"
+                />
+              </div>
+              <div className="space-y-1.5 sm:space-y-2">
+                <Label className="text-sm sm:text-base">Specialties (comma-separated)</Label>
+                <Input
+                  value={specialties}
+                  onChange={(e) => handleArrayChange("specialties", e.target.value)}
+                  disabled={!isEditing}
+                  className="h-10 sm:h-11"
+                  placeholder="Weddings, Corporate Events"
+                />
+              </div>
+              <div className="space-y-1.5 sm:space-y-2">
+                <Label className="text-sm sm:text-base">Minimum Guests</Label>
                 <Input 
                   type="number"
-                  value={maxCapacity} 
-                  onChange={(e) => handleServiceChange("maximumCapacity", parseInt(e.target.value) || 0)}
+                  value={minGuests} 
+                  onChange={(e) => handleNestedChange("capacity", "minGuests", parseInt(e.target.value) || 0)}
                   disabled={!isEditing}
                   className="h-10 sm:h-11"
                 />
               </div>
               <div className="space-y-1.5 sm:space-y-2">
-                <Label className="text-sm sm:text-base">Service Area (comma-separated)</Label>
+                <Label className="text-sm sm:text-base">Maximum Guests</Label>
                 <Input 
-                  value={serviceArea} 
-                  onChange={(e) => handleServiceChange("serviceArea", e.target.value.split(",").map(s => s.trim()).filter(Boolean))}
+                  type="number"
+                  value={maxGuests} 
+                  onChange={(e) => handleNestedChange("capacity", "maxGuests", parseInt(e.target.value) || 0)}
                   disabled={!isEditing}
                   className="h-10 sm:h-11"
                 />
               </div>
               <div className="space-y-1.5 sm:space-y-2">
-                <Label className="text-sm sm:text-base">Starting Price (per person)</Label>
+                <Label className="text-sm sm:text-base">Starting Price (per plate)</Label>
                 <Input 
                   type="number"
                   step="0.01"
                   value={startingPrice} 
-                  onChange={(e) => handleServiceChange("startingPricePerPerson", parseFloat(e.target.value) || 0)}
+                  onChange={(e) => handleNestedChange("pricing", "startingPricePerPlate", parseFloat(e.target.value) || 0)}
                   disabled={!isEditing}
                   className="h-10 sm:h-11"
                 />
               </div>
               <div className="space-y-1.5 sm:space-y-2">
-                <Label className="text-sm sm:text-base">Dietary Options (comma-separated)</Label>
+                <Label className="text-sm sm:text-base">Average Price (per plate)</Label>
                 <Input
-                  value={dietaryOptions}
-                  onChange={(e) => handleServiceChange("dietaryOptions", e.target.value.split(",").map(s => s.trim()).filter(Boolean))}
+                  type="number"
+                  step="0.01"
+                  value={avgPrice}
+                  onChange={(e) => handleNestedChange("pricing", "averagePricePerPlate", parseFloat(e.target.value) || 0)}
+                  disabled={!isEditing}
+                  className="h-10 sm:h-11"
+                />
+              </div>
+              <div className="space-y-1.5 sm:space-y-2">
+                <Label className="text-sm sm:text-base">Currency</Label>
+                <Input
+                  value={formData?.pricing?.currency || ""}
+                  onChange={(e) => handleNestedChange("pricing", "currency", e.target.value)}
+                  disabled={!isEditing}
+                  className="h-10 sm:h-11"
+                  placeholder="USD, INR, etc."
+                />
+              </div>
+              <div className="space-y-1.5 sm:space-y-2">
+                <Label className="text-sm sm:text-base">Concurrent Events</Label>
+                <Input
+                  type="number"
+                  value={formData?.capacity?.concurrentEvents || ""}
+                  onChange={(e) => handleNestedChange("capacity", "concurrentEvents", parseInt(e.target.value) || 0)}
                   disabled={!isEditing}
                   className="h-10 sm:h-11"
                 />
               </div>
             </div>
-            <div className="space-y-1.5 sm:space-y-2">
-              <Label className="text-sm sm:text-base">Special Services & Equipment (comma-separated)</Label>
-              <Textarea
-                value={specialServices}
-                onChange={(e) => handleServiceChange("specialServices", e.target.value.split(",").map(s => s.trim()).filter(Boolean))}
-                disabled={!isEditing}
-                rows={3}
-                className="min-h-[80px] sm:min-h-[90px] text-sm sm:text-base"
-              />
-            </div>
           </CardContent>
         </Card>
       </div>
+
+      {/* Service Areas */}
+      <Card className="mt-4 sm:mt-6">
+        <CardHeader className="px-4 sm:px-6 py-4 sm:py-6">
+          <CardTitle className="text-lg sm:text-xl">Service Areas</CardTitle>
+        </CardHeader>
+        <CardContent className="px-4 sm:px-6 pb-4 sm:pb-6">
+          {formData?.serviceAreas && formData.serviceAreas.length > 0 ? (
+            <div className="space-y-3">
+              {formData.serviceAreas.map((area, idx) => (
+                <div key={idx} className="p-3 border rounded-lg bg-gray-50">
+                  <div className="grid grid-cols-3 gap-3 text-sm">
+                    <div>
+                      <span className="font-semibold">City:</span> {area.city || "N/A"}
+                    </div>
+                    <div>
+                      <span className="font-semibold">State:</span> {area.state || "N/A"}
+                    </div>
+                    <div>
+                      <span className="font-semibold">Radius:</span> {area.radiusKm || 0} km
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">No service areas defined</p>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Documents */}
+      <Card className="mt-4 sm:mt-6">
+        <CardHeader className="px-4 sm:px-6 py-4 sm:py-6">
+          <CardTitle className="text-lg sm:text-xl">Documents</CardTitle>
+        </CardHeader>
+        <CardContent className="px-4 sm:px-6 pb-4 sm:pb-6">
+          {formData?.documents && formData.documents.length > 0 ? (
+            <div className="space-y-3">
+              {formData.documents.map((doc, idx) => (
+                <div key={idx} className="p-4 border rounded-lg bg-gray-50">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                    <div>
+                      <span className="font-semibold">Type:</span> {doc.documentType || "N/A"}
+                    </div>
+                    <div>
+                      <span className="font-semibold">Name:</span> {doc.documentName || "N/A"}
+                    </div>
+                    <div>
+                      <span className="font-semibold">Number:</span> {doc.documentNumber || "N/A"}
+                    </div>
+                    <div>
+                      <span className="font-semibold">Issue Date:</span> {doc.issueDate ? new Date(doc.issueDate).toLocaleDateString() : "N/A"}
+                    </div>
+                    {doc.expiryDate && (
+                      <div>
+                        <span className="font-semibold">Expiry Date:</span> {new Date(doc.expiryDate).toLocaleDateString()}
+                      </div>
+                    )}
+                    {doc.documentUrl && (
+                      <div className="sm:col-span-2">
+                        <a href={doc.documentUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+                          View Document →
+                        </a>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">No documents uploaded</p>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Location Tracking Section */}
       <div className="mt-4 sm:mt-6">
