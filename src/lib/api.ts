@@ -234,7 +234,7 @@ export async function registerUser(payload: any) {
     }
 
     const url = buildUrl("/api/vendor/register");
-    const res = await apiClient.post(url, vendorPayload, { headers: { "Content-Type": "application/json" } });
+    const res = await axios.post(url, vendorPayload, { headers: { "Content-Type": "application/json" } });
     return res.data;
   } catch (err: any) {
     const { message, status } = extractError(err);
@@ -246,7 +246,7 @@ export async function registerUser(payload: any) {
 export async function registerAuth(payload: any) {
   try {
     const url = buildUrl("/api/v1/auth/register");
-    const res = await apiClient.post(url, payload, { headers: { "Content-Type": "application/json" } });
+    const res = await axios.post(url, payload, { headers: { "Content-Type": "application/json" } });
     return res.data;
   } catch (err: any) {
     const { message, status } = extractError(err);
@@ -258,7 +258,7 @@ export async function login(payload: { login: string; password: string; }) {
   try {
     const url = buildUrl("/api/v1/auth/login");
     const body = { identifier: payload.login, password: payload.password };
-    const res = await apiClient.post(url, body, { headers: { "Content-Type": "application/json" } });
+    const res = await axios.post(url, body, { headers: { "Content-Type": "application/json" } });
     return res.data;
   } catch (err: any) {
     const { message, status } = extractError(err);
@@ -269,7 +269,7 @@ export async function login(payload: { login: string; password: string; }) {
 export async function forgotUsername(payload: { contact: string; }) {
   try {
     const url = buildUrl("/api/auth/forgot-username");
-    const res = await apiClient.post(url, payload, { headers: { "Content-Type": "application/json" } });
+    const res = await axios.post(url, payload, { headers: { "Content-Type": "application/json" } });
     return res.data;
   } catch (err: any) {
     const { message, status } = extractError(err);
@@ -280,7 +280,7 @@ export async function forgotUsername(payload: { contact: string; }) {
 export async function forgotPassword(payload: { login: string; }) {
   try {
     const url = buildUrl("/api/auth/forgot-password");
-    const res = await apiClient.post(url, payload, { headers: { "Content-Type": "application/json" } });
+    const res = await axios.post(url, payload, { headers: { "Content-Type": "application/json" } });
     return res.data;
   } catch (err: any) {
     const { message, status } = extractError(err);
@@ -291,7 +291,7 @@ export async function forgotPassword(payload: { login: string; }) {
 export async function resetPassword(payload: { contact: string; otp: string; newPassword: string; }) {
   try {
     const url = buildUrl("/api/auth/reset-password");
-    const res = await apiClient.post(url, payload, { headers: { "Content-Type": "application/json" } });
+    const res = await axios.post(url, payload, { headers: { "Content-Type": "application/json" } });
     return res.data;
   } catch (err: any) {
     const { message, status } = extractError(err);
@@ -303,8 +303,14 @@ export async function resetPassword(payload: { contact: string; otp: string; new
 export async function createVendorProfile(payload: any) {
   try {
     const url = buildUrl("/api/v1/vendors");
-    console.log("api.createVendorProfile request:", { url, payload });
-    const res = await apiClient.post(url, payload, { headers: { "Content-Type": "application/json" } });
+    const token = localStorage.getItem("authToken");
+    const tokenType = localStorage.getItem("tokenType") || "Bearer";
+    const headers: any = { "Content-Type": "application/json" };
+    if (token) {
+      headers.Authorization = `${tokenType} ${token}`;
+    }
+    console.log("api.createVendorProfile request:", { url, headers, payload });
+    const res = await axios.post(url, payload, { headers });
     console.log("api.createVendorProfile response:", res && res.data ? res.data : res);
     return res.data;
   } catch (err: any) {
@@ -318,7 +324,7 @@ export async function createVendorProfile(payload: any) {
 export async function registerVendor(payload: any) {
   try {
     const url = buildUrl("/api/vendor/register");
-    const res = await apiClient.post(url, payload, { headers: { "Content-Type": "application/json" } });
+    const res = await axios.post(url, payload, { headers: { "Content-Type": "application/json" } });
     return res.data;
   } catch (err: any) {
     const { message, status } = extractError(err);
@@ -338,7 +344,7 @@ export async function registerVendorMultipart(vendor: any, files?: File[]) {
       }
     }
 
-    const res = await apiClient.post(url, fd, {
+    const res = await axios.post(url, fd, {
       headers: { "Content-Type": "multipart/form-data" },
     });
     return res.data;
@@ -351,7 +357,7 @@ export async function registerVendorMultipart(vendor: any, files?: File[]) {
 export async function loginVendor(payload: any) {
   try {
     const url = buildUrl("/api/vendor/login");
-    const res = await apiClient.post(url, payload, { headers: { "Content-Type": "application/json" } });
+    const res = await axios.post(url, payload, { headers: { "Content-Type": "application/json" } });
     return res.data;
   } catch (err: any) {
     const { message, status } = extractError(err);
@@ -363,8 +369,14 @@ export async function loginVendor(payload: any) {
 export async function getVendorMe() {
   try {
     const url = buildUrl("/api/v1/vendors/me");
-    console.log("api.getVendorMe request:", { url });
-    const res = await apiClient.get(url, { headers: { "Content-Type": "application/json" } });
+    const token = localStorage.getItem("authToken");
+    const tokenType = localStorage.getItem("tokenType") || "Bearer";
+    const headers: any = { "Content-Type": "application/json" };
+    if (token) {
+      headers.Authorization = `${tokenType} ${token}`;
+    }
+    console.log("api.getVendorMe request:", { url, headers });
+    const res = await axios.get(url, { headers });
     console.log("api.getVendorMe response:", res && res.data ? res.data : res);
     return res.data;
   } catch (err: any) {
@@ -378,7 +390,13 @@ export async function getVendorMe() {
 export async function getVendorProfile(vendorOrganizationId: string) {
   try {
     const url = buildUrl(`/api/vendor/org/${vendorOrganizationId}`);
-    const res = await apiClient.get(url, { headers: { "Content-Type": "application/json" } });
+    const token = localStorage.getItem("authToken");
+    const tokenType = localStorage.getItem("tokenType") || "Bearer";
+    const headers: any = { "Content-Type": "application/json" };
+    if (token) {
+      headers.Authorization = `${tokenType} ${token}`;
+    }
+    const res = await axios.get(url, { headers });
     return res.data;
   } catch (err: any) {
     const { message, status } = extractError(err);
@@ -390,8 +408,13 @@ export async function getVendorProfile(vendorOrganizationId: string) {
 export async function updateVendorProfile(vendorId: string, payload: any) {
   try {
     const url = buildUrl(`/api/v1/vendors/${vendorId}`);
-    console.log("api.updateVendorProfile request:", { url, payload });
-    const res = await apiClient.put(url, payload, { headers: { "Content-Type": "application/json" } });
+    const token = localStorage.getItem("authToken");
+    const headers: any = { "Content-Type": "application/json" };
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+    console.log("api.updateVendorProfile request:", { url, headers, payload });
+    const res = await axios.put(url, payload, { headers });
     console.log("api.updateVendorProfile response:", res && res.data ? res.data : res);
     return res.data;
   } catch (err: any) {
@@ -411,7 +434,7 @@ export async function createOrUpdateServiceDetails(vendorId: string, payload: an
       headers.Authorization = `Bearer ${token}`;
     }
     // Log payload for debugging
-    const res = await apiClient.post(url, payload, { headers });
+    const res = await axios.post(url, payload, { headers });
     return res.data;
   } catch (err: any) {
     const { message, status } = extractError(err);
@@ -422,7 +445,12 @@ export async function createOrUpdateServiceDetails(vendorId: string, payload: an
 export async function getServiceDetailsByVendorId(vendorId: string) {
   try {
     const url = buildUrl(`/api/service-details/vendor/${vendorId}`);
-    const res = await apiClient.get(url);
+    const token = localStorage.getItem("authToken");
+    const headers: any = {};
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+    const res = await axios.get(url, { headers });
     return res.data;
   } catch (err: any) {
     const { message, status } = extractError(err);
@@ -433,7 +461,12 @@ export async function getServiceDetailsByVendorId(vendorId: string) {
 export async function getServiceDetailsByVendorOrgId(vendorOrgId: string) {
   try {
     const url = buildUrl(`/api/service-details/org/${vendorOrgId}`);
-    const res = await apiClient.get(url);
+    const token = localStorage.getItem("authToken");
+    const headers: any = {};
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+    const res = await axios.get(url, { headers });
     return res.data;
   } catch (err: any) {
     const { message, status } = extractError(err);
@@ -444,7 +477,7 @@ export async function getServiceDetailsByVendorOrgId(vendorOrgId: string) {
 export async function searchServicesByServiceType(serviceType: string) {
   try {
     const url = buildUrl(`/api/service-details/search/service-type`);
-    const res = await apiClient.get(url, { params: { type: serviceType } });
+    const res = await axios.get(url, { params: { type: serviceType } });
     return res.data;
   } catch (err: any) {
     const { message, status } = extractError(err);
@@ -455,7 +488,7 @@ export async function searchServicesByServiceType(serviceType: string) {
 export async function searchServicesByCuisine(cuisine: string) {
   try {
     const url = buildUrl(`/api/service-details/search/cuisine`);
-    const res = await apiClient.get(url, { params: { cuisine } });
+    const res = await axios.get(url, { params: { cuisine } });
     return res.data;
   } catch (err: any) {
     const { message, status } = extractError(err);
@@ -466,7 +499,7 @@ export async function searchServicesByCuisine(cuisine: string) {
 export async function searchServicesByArea(area: string) {
   try {
     const url = buildUrl(`/api/service-details/search/area`);
-    const res = await apiClient.get(url, { params: { area } });
+    const res = await axios.get(url, { params: { area } });
     return res.data;
   } catch (err: any) {
     const { message, status } = extractError(err);
@@ -477,7 +510,12 @@ export async function searchServicesByArea(area: string) {
 export async function deleteServiceDetails(vendorId: string) {
   try {
     const url = buildUrl(`/api/service-details/vendor/${vendorId}`);
-    const res = await apiClient.delete(url);
+    const token = localStorage.getItem("authToken");
+    const headers: any = {};
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+    const res = await axios.delete(url, { headers });
     return res.data;
   } catch (err: any) {
     const { message, status } = extractError(err);
@@ -491,7 +529,7 @@ export async function getMenuItems(vendorOrganizationId: string) {
     const url = buildUrl(`/api/vendor/${vendorOrganizationId}/menu`);
     const token = localStorage.getItem("authToken");
     const tokenType = localStorage.getItem("tokenType") || "Bearer";
-    const res = await apiClient.get(url, { headers: token ? { Authorization: `${tokenType} ${token}` } : undefined });
+    const res = await axios.get(url, { headers: token ? { Authorization: `${tokenType} ${token}` } : undefined });
     return res.data;
   } catch (err: any) {
     const { message, status } = extractError(err);
@@ -503,7 +541,7 @@ export async function getMenuItems(vendorOrganizationId: string) {
 export async function getBidsByVendor(vendorOrgId: string) {
   try {
     const url = buildUrl(`/api/vendor/${vendorOrgId}/bids`);
-    const res = await apiClient.get(url);
+    const res = await axios.get(url);
     return res.data;
   } catch (err: any) {
     const { message, status } = extractError(err);
@@ -514,7 +552,7 @@ export async function getBidsByVendor(vendorOrgId: string) {
 export async function getBidById(vendorOrgId: string, bidId: string) {
   try {
     const url = buildUrl(`/api/vendor/${vendorOrgId}/bids/${bidId}`);
-    const res = await apiClient.get(url);
+    const res = await axios.get(url);
     return res.data;
   } catch (err: any) {
     const { message, status } = extractError(err);
@@ -525,7 +563,9 @@ export async function getBidById(vendorOrgId: string, bidId: string) {
 export async function createMenuItem(vendorOrganizationId: string, payload: any) {
   try {
     const url = buildUrl(`/api/vendor/${vendorOrganizationId}/menu`);
-    const res = await apiClient.post(url, payload, { headers: { "Content-Type": "application/json" } });
+    const token = localStorage.getItem("authToken");
+    const tokenType = localStorage.getItem("tokenType") || "Bearer";
+    const res = await axios.post(url, payload, { headers: { "Content-Type": "application/json", ...(token ? { Authorization: `${tokenType} ${token}` } : {}) } });
     return res.data;
   } catch (err: any) {
     const { message, status } = extractError(err);
@@ -536,7 +576,7 @@ export async function createMenuItem(vendorOrganizationId: string, payload: any)
 export async function submitBidQuote(vendorOrgId: string, bidId: string, payload: { orderId: string; proposedMessage: string; proposedTotalPrice: number; }) {
   try {
     const url = buildUrl(`/api/vendor/${vendorOrgId}/bids/${bidId}/quote`);
-    const res = await apiClient.put(url, payload, { headers: { "Content-Type": "application/json" } });
+    const res = await axios.put(url, payload, { headers: { "Content-Type": "application/json" } });
     return res.data;
   } catch (err: any) {
     const { message, status } = extractError(err);
@@ -547,7 +587,9 @@ export async function submitBidQuote(vendorOrgId: string, bidId: string, payload
 export async function updateMenuItem(vendorOrganizationId: string, id: string, payload: any) {
   try {
     const url = buildUrl(`/api/vendor/${vendorOrganizationId}/menu/${id}`);
-    const res = await apiClient.put(url, payload, { headers: { "Content-Type": "application/json" } });
+    const token = localStorage.getItem("authToken");
+    const tokenType = localStorage.getItem("tokenType") || "Bearer";
+    const res = await axios.put(url, payload, { headers: { "Content-Type": "application/json", ...(token ? { Authorization: `${tokenType} ${token}` } : {}) } });
     return res.data;
   } catch (err: any) {
     const { message, status } = extractError(err);
@@ -558,7 +600,9 @@ export async function updateMenuItem(vendorOrganizationId: string, id: string, p
 export async function acceptBid(vendorOrgId: string, bidId: string) {
   try {
     const url = buildUrl(`/api/vendor/${vendorOrgId}/bids/${bidId}/accept`);
-    const res = await apiClient.put(url);
+    const token = localStorage.getItem("authToken");
+    const tokenType = localStorage.getItem("tokenType") || "Bearer";
+    const res = await axios.put(url, undefined, { headers: token ? { Authorization: `${tokenType} ${token}` } : undefined });
     return res.data;
   } catch (err: any) {
     const { message, status } = extractError(err);
@@ -570,7 +614,9 @@ export async function deleteMenuItem(vendorOrganizationId: string, id: string) {
 
   try {
     const url = buildUrl(`/api/vendor/${vendorOrganizationId}/menu/${id}`);
-    const res = await apiClient.delete(url);
+    const token = localStorage.getItem("authToken");
+    const tokenType = localStorage.getItem("tokenType") || "Bearer";
+    const res = await axios.delete(url, { headers: token ? { Authorization: `${tokenType} ${token}` } : undefined });
     return res.data;
   } catch (err: any) {
     const { message, status } = extractError(err);
@@ -582,7 +628,7 @@ export async function deleteMenuItem(vendorOrganizationId: string, id: string) {
 export async function getOrdersByVendor(vendorOrgId: string) {
   try {
     const url = buildUrl(`/api/vendor/${vendorOrgId}/orders`);
-    const res = await apiClient.get(url);
+    const res = await axios.get(url);
     return res.data;
   } catch (err: any) {
     const { message, status } = extractError(err);
@@ -594,6 +640,10 @@ export async function getOrderById(vendorOrgId: string, orderId: string) {
   try {
     // Use the detailed endpoint that includes full menu item information
     const url = buildUrl(`/api/vendor/${vendorOrgId}/orders/${orderId}/details`);
+    const token = localStorage.getItem("authToken");
+    const tokenType = localStorage.getItem("tokenType") || "Bearer";
+    const headers: Record<string, string> = { Accept: "application/json" };
+    if (token) headers["Authorization"] = `${tokenType} ${token}`;
       if (!vendorOrgId) {
       }
       if (!orderId) {
@@ -604,7 +654,7 @@ export async function getOrderById(vendorOrgId: string, orderId: string) {
       const encOrder = encodeURIComponent(orderId || "");
       const finalUrl = buildUrl(`/api/vendor/${encVendor}/orders/${encOrder}/details`);
       // Request raw text so we can handle JSON or XML responses robustly
-      const res = await apiClient.get(finalUrl, { headers: { Accept: "application/json" }, responseType: "text" });
+      const res = await axios.get(finalUrl, { headers, responseType: "text" });
     const dataText = res.data as string;
     // First try JSON
     try {
@@ -720,7 +770,7 @@ export async function getOrderById(vendorOrgId: string, orderId: string) {
 export async function updateOrderStatus(vendorOrgId: string, orderId: string, status: string) {
   try {
     const url = buildUrl(`/api/vendor/${vendorOrgId}/orders/${orderId}/status?status=${encodeURIComponent(status)}`);
-    const res = await apiClient.put(url);
+    const res = await axios.put(url);
     return res.data;
   } catch (err: any) {
     const { message, status: errStatus } = extractError(err);
@@ -732,7 +782,7 @@ export async function updateOrderStatus(vendorOrgId: string, orderId: string, st
 export async function getVendorNotifications(vendorOrgId: string) {
   try {
     const url = buildUrl(`/api/notifications/vendor/${vendorOrgId}`);
-    const res = await apiClient.get(url);
+    const res = await axios.get(url);
     return res.data;
   } catch (err: any) {
     const { message, status } = extractError(err);
@@ -744,7 +794,7 @@ export async function getVendorNotifications(vendorOrgId: string) {
 export async function getVendorReviews(vendorOrgId: string) {
   try {
     const url = buildUrl(`/api/vendor/${vendorOrgId}/review`);
-    const res = await apiClient.get(url);
+    const res = await axios.get(url);
     return res.data;
   } catch (err: any) {
     const { message, status } = extractError(err);
@@ -755,7 +805,7 @@ export async function getVendorReviews(vendorOrgId: string) {
 export async function getLatestVendorReviews(vendorOrgId: string) {
   try {
     const url = buildUrl(`/api/vendor/${vendorOrgId}/review/latest`);
-    const res = await apiClient.get(url);
+    const res = await axios.get(url);
     return res.data;
   } catch (err: any) {
     const { message, status } = extractError(err);
@@ -766,7 +816,7 @@ export async function getLatestVendorReviews(vendorOrgId: string) {
 export async function deleteVendorReview(vendorOrgId: string, reviewId: string) {
   try {
     const url = buildUrl(`/api/vendor/${vendorOrgId}/review/${reviewId}`);
-    const res = await apiClient.delete(url);
+    const res = await axios.delete(url);
     return res.data;
   } catch (err: any) {
     const { message, status } = extractError(err);
@@ -777,7 +827,7 @@ export async function deleteVendorReview(vendorOrgId: string, reviewId: string) 
 export async function markNotificationAsRead(notificationId: string) {
   try {
     const url = buildUrl(`/api/notifications/${notificationId}/read`);
-    const res = await apiClient.put(url);
+    const res = await axios.put(url);
     return res.data;
   } catch (err: any) {
     const { message, status } = extractError(err);
@@ -788,7 +838,7 @@ export async function markNotificationAsRead(notificationId: string) {
 export async function sendOtp(payload: { identifier: string; type: "EMAIL" | "PHONE"; channel?: "WHATSAPP" | "SMS" }) {
   try {
     const url = buildUrl(`/api/v1/auth/send-otp`);
-    const res = await apiClient.post(url, payload);
+    const res = await axios.post(url, payload);
     return res.data;
   } catch (err: any) {
     const { message, status } = extractError(err);
@@ -799,7 +849,7 @@ export async function sendOtp(payload: { identifier: string; type: "EMAIL" | "PH
 export async function verifyOtp(payload: { identifier: string; otp: string; type: "EMAIL" | "PHONE" }) {
   try {
     const url = buildUrl(`/api/v1/auth/verify-otp`);
-    const res = await apiClient.post(url, payload);
+    const res = await axios.post(url, payload);
     return res.data;
   } catch (err: any) {
     const { message, status } = extractError(err);
@@ -816,9 +866,7 @@ export default {
   resetPassword,
   registerVendor,
   loginVendor,
-  getVendorMe,
   getVendorProfile,
-  createVendorProfile,
   updateVendorProfile,
   createOrUpdateServiceDetails,
   getServiceDetailsByVendorId,
