@@ -1,4 +1,4 @@
-import axios from "axios";
+import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
 
 type ApiError = { message?: string; status?: number };
 
@@ -17,6 +17,128 @@ function buildUrl(path: string) {
 
   return `${BASE}${p}`;
 }
+
+// Create axios instance for API calls
+const apiClient = axios.create();
+
+// Flag to prevent multiple simultaneous refresh requests
+let isRefreshing = false;
+let refreshSubscribers: ((token: string) => void)[] = [];
+
+// Subscribe to token refresh
+function subscribeTokenRefresh(callback: (token: string) => void) {
+  refreshSubscribers.push(callback);
+}
+
+// Notify all subscribers when token is refreshed
+function onTokenRefreshed(newToken: string) {
+  refreshSubscribers.forEach(callback => callback(newToken));
+  refreshSubscribers = [];
+}
+
+// Refresh access token using refresh token
+async function refreshAccessToken(): Promise<string | null> {
+  try {
+    const refreshToken = localStorage.getItem("refreshToken");
+    if (!refreshToken) {
+      console.error("No refresh token available");
+      return null;
+    }
+
+    const url = buildUrl("/api/v1/auth/refresh-token");
+    const response = await axios.post(url, { refreshToken });
+    
+    const { accessToken, tokenType } = response.data;
+    
+    // Update tokens in localStorage
+    if (accessToken) {
+      localStorage.setItem("accessToken", accessToken);
+      localStorage.setItem("authToken", accessToken); // Keep legacy key for compatibility
+      if (tokenType) {
+        localStorage.setItem("tokenType", tokenType);
+      }
+      return accessToken;
+    }
+    
+    return null;
+  } catch (error) {
+    console.error("Failed to refresh token:", error);
+    return null;
+  }
+}
+
+// Request interceptor: Add authorization header
+apiClient.interceptors.request.use(
+  (config: InternalAxiosRequestConfig) => {
+    const token = localStorage.getItem("accessToken") || localStorage.getItem("authToken");
+    const tokenType = localStorage.getItem("tokenType") || "Bearer";
+    
+    if (token && config.headers) {
+      config.headers.Authorization = `${tokenType} ${token}`;
+    }
+    
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
+// Response interceptor: Handle 401 errors with silent refresh
+apiClient.interceptors.response.use(
+  (response) => response,
+  async (error: AxiosError) => {
+    const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
+    
+    // Check if error is 401 and we haven't already retried
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      if (isRefreshing) {
+        // If already refreshing, wait for the new token
+        return new Promise((resolve) => {
+          subscribeTokenRefresh((newToken: string) => {
+            if (originalRequest.headers) {
+              const tokenType = localStorage.getItem("tokenType") || "Bearer";
+              originalRequest.headers.Authorization = `${tokenType} ${newToken}`;
+            }
+            resolve(apiClient(originalRequest));
+          });
+        });
+      }
+
+      originalRequest._retry = true;
+      isRefreshing = true;
+
+      try {
+        const newToken = await refreshAccessToken();
+        
+        if (newToken) {
+          isRefreshing = false;
+          onTokenRefreshed(newToken);
+          
+          // Retry original request with new token
+          if (originalRequest.headers) {
+            const tokenType = localStorage.getItem("tokenType") || "Bearer";
+            originalRequest.headers.Authorization = `${tokenType} ${newToken}`;
+          }
+          return apiClient(originalRequest);
+        } else {
+          // Refresh failed, logout user
+          isRefreshing = false;
+          localStorage.clear();
+          window.location.href = "/login";
+          return Promise.reject(error);
+        }
+      } catch (refreshError) {
+        isRefreshing = false;
+        localStorage.clear();
+        window.location.href = "/login";
+        return Promise.reject(refreshError);
+      }
+    }
+    
+    return Promise.reject(error);
+  }
+);
 
 function extractError(err: any): { message?: string; status?: number } {
   if (!err) return { message: "Network error" };
@@ -713,6 +835,28 @@ export async function markNotificationAsRead(notificationId: string) {
   }
 }
 
+export async function sendOtp(payload: { identifier: string; type: "EMAIL" | "PHONE"; channel?: "WHATSAPP" | "SMS" }) {
+  try {
+    const url = buildUrl(`/api/v1/auth/send-otp`);
+    const res = await axios.post(url, payload);
+    return res.data;
+  } catch (err: any) {
+    const { message, status } = extractError(err);
+    throw { message, status } as ApiError;
+  }
+}
+
+export async function verifyOtp(payload: { identifier: string; otp: string; type: "EMAIL" | "PHONE" }) {
+  try {
+    const url = buildUrl(`/api/v1/auth/verify-otp`);
+    const res = await axios.post(url, payload);
+    return res.data;
+  } catch (err: any) {
+    const { message, status } = extractError(err);
+    throw { message, status } as ApiError;
+  }
+}
+
 export default {
   registerUser,
   registerAuth,
@@ -742,4 +886,6 @@ export default {
   updateOrderStatus,
   getVendorNotifications,
   markNotificationAsRead,
+  sendOtp,
+  verifyOtp,
 };

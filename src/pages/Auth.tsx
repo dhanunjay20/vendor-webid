@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Mail, Lock, Eye, EyeOff, ArrowRight, Loader2 } from "lucide-react";
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
+import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter } from "@/components/ui/alert-dialog";
 import { toast } from "@/hooks/use-toast";
 import * as api from "@/lib/api";
 import heroImg from "@/assets/dashboard-hero.jpg";
@@ -49,6 +50,7 @@ const Auth: React.FC = () => {
   const [direction, setDirection] = useState(1);
   const [showForgotPasswordModal, setShowForgotPasswordModal] = useState(false);
   const [showForgotUsernameModal, setShowForgotUsernameModal] = useState(false);
+  const [checkingProfile, setCheckingProfile] = useState(false);
         
   // Sign in fields
   const [email, setEmail] = useState("");
@@ -69,6 +71,11 @@ const Auth: React.FC = () => {
   const [showRegPassword, setShowRegPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [serverError, setServerError] = useState("");
+  
+  // Account lockout states
+  const [failedAttempts, setFailedAttempts] = useState(0);
+  const [showAccountLockedDialog, setShowAccountLockedDialog] = useState(false);
+  const [accountLockedMessage, setAccountLockedMessage] = useState("");
 
   
 
@@ -86,6 +93,7 @@ const Auth: React.FC = () => {
     if (/[a-z]/.test(pw)) score += 1;
     if (/[0-9]/.test(pw)) score += 1;
     if (/[^A-Za-z0-9]/.test(pw)) score += 1;
+
     const label = score <= 2 ? "Weak" : score <= 4 ? "Good" : "Strong";
     const color = score <= 2 ? "bg-red-500" : score <= 4 ? "bg-yellow-400" : "bg-green-500";
     return { score, label, color };
@@ -107,6 +115,57 @@ const Auth: React.FC = () => {
     setMode(newMode);
   };
 
+  const handleCompleteProfile = async () => {
+    const token = localStorage.getItem("authToken");
+    
+    if (token) {
+      // Token exists, check if vendor profile exists
+      setCheckingProfile(true);
+      try {
+        const vendorProfile = await api.getVendorMe();
+        
+        if (vendorProfile && vendorProfile.id) {
+          // Profile exists, check approval status
+          const approvalStatus = vendorProfile.approvalStatus || vendorProfile.approval_status;
+          
+          if (approvalStatus === "PENDING") {
+            toast({
+              title: "Profile Pending Approval",
+              description: "Your profile is awaiting admin approval. You'll be notified once approved.",
+              variant: "default",
+            });
+            return;
+          } else if (approvalStatus === "APPROVED") {
+            toast({
+              title: "Profile Already Complete",
+              description: "Your profile is complete and approved.",
+            });
+            navigate("/dashboard");
+            return;
+          }
+        }
+        
+        // No profile found, navigate to setup
+        navigate("/vendor-setup");
+      } catch (err: any) {
+        // Error fetching profile (likely 404 - no profile exists)
+        // This is expected for onboarding state, allow navigation
+        console.log("No vendor profile found, proceeding to setup:", err?.message);
+        navigate("/vendor-setup");
+      } finally {
+        setCheckingProfile(false);
+      }
+    } else {
+      // No token, show message to login first
+      toast({
+        title: "Login Required",
+        description: "Please login to complete your vendor profile.",
+        variant: "default",
+      });
+      setMode("signin");
+    }
+  };
+
   const handleSignIn = async (e?: React.FormEvent) => {
     e?.preventDefault();
     if (!email || !password) {
@@ -116,6 +175,9 @@ const Auth: React.FC = () => {
     setLoading(true);
     try {
       const res = await api.login({ login: email, password });
+
+      // Reset failed attempts on successful login
+      setFailedAttempts(0);
 
       // The API may return a wrapper { success, status, message, data: { accessToken, ... } }
       // or return the payload directly. Normalize both shapes.
@@ -177,16 +239,70 @@ const Auth: React.FC = () => {
             localStorage.setItem("vendorId", String(vendorProfile.id));
             localStorage.setItem("id", String(vendorProfile.id));
           }
+          
+          // Check approval status
+          const approvalStatus = vendorProfile.approvalStatus || vendorProfile.approval_status;
+          
+          if (approvalStatus === "PENDING") {
+            // Profile exists but pending approval
+            toast({ 
+              title: "Profile Pending Approval", 
+              description: "Your profile is awaiting admin approval. You'll be notified once approved.",
+              variant: "default"
+            });
+            // Clear token and prevent dashboard access
+            localStorage.clear();
+            setLoading(false);
+            return;
+          } else if (approvalStatus === "APPROVED") {
+            // Profile approved, proceed to dashboard
+            toast({ title: `Welcome back${fullName ? `, ${fullName}` : ""}` });
+            navigate("/dashboard");
+            return;
+          }
         }
-      } catch (vendorErr) {
-        // Non-critical - user can still proceed to dashboard
-        console.error("Failed to fetch vendor profile:", vendorErr);
+      } catch (vendorErr: any) {
+        // No vendor profile found (404 or similar)
+        // This means vendor is in "Onboarding State" - allow them to create profile
+        console.log("No vendor profile found - redirecting to profile setup:", vendorErr?.message);
+        toast({ 
+          title: "Complete Your Profile", 
+          description: "Please complete your vendor profile to get started.",
+        });
+        navigate("/vendor-setup");
+        setLoading(false);
+        return;
       }
 
       toast({ title: `Welcome back${fullName ? `, ${fullName}` : ""}` });
       navigate("/dashboard");
     } catch (err: any) {
-      toast({ title: "Login failed", description: err?.message || "Network error while logging in", variant: "destructive" });
+      // Extract backend error response
+      const errorData = err?.response?.data || err?.data || {};
+      const errorMessage = errorData?.message || err?.message || "Network error while logging in";
+      const errorDetails = errorData?.details || errorData?.detail || "";
+      const remainingAttempts = errorData?.remainingAttempts;
+      
+      // Check if account is locked
+      if (errorMessage.toLowerCase().includes("account is locked") || errorMessage.toLowerCase().includes("account has been locked")) {
+        // Show account locked dialog with backend details
+        setAccountLockedMessage(errorDetails || errorMessage);
+        setShowAccountLockedDialog(true);
+        setFailedAttempts(3); // Set to max
+      } else {
+        // Show error toast with remaining attempts if provided
+        let description = errorMessage;
+        if (remainingAttempts !== undefined && remainingAttempts !== null) {
+          description = `${errorMessage}. You have ${remainingAttempts} attempt(s) left.`;
+          setFailedAttempts(3 - remainingAttempts); // Track failed attempts
+        }
+        
+        toast({ 
+          title: "Login failed", 
+          description: description,
+          variant: "destructive" 
+        });
+      }
     } finally {
       setLoading(false);
     }
@@ -300,15 +416,38 @@ const Auth: React.FC = () => {
                 <p className="text-xs text-muted-foreground md:text-sm">{mode === "signin" ? "Sign in to manage your events and menus." : "It only takes a minute to get started."}</p>
               </motion.div>
 
-              <motion.div className="mt-5 inline-flex gap-2 rounded-2xl border border-border bg-background/60 p-1.5 backdrop-blur" initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.35 }}>
-                <button type="button" onClick={() => switchMode("signin")} className={`relative rounded-xl px-5 py-2 text-xs font-semibold transition-colors md:px-6 md:text-sm ${mode === "signin" ? "text-background" : "text-muted-foreground hover:text-foreground"}`}>
-                  {mode === "signin" && <motion.div layoutId="authTab" className="absolute inset-0 rounded-xl bg-primary shadow-md" transition={{ type: "spring", stiffness: 380, damping: 30 }} />}
-                  <span className="relative z-10">Sign In</span>
-                </button>
-                <button type="button" onClick={() => switchMode("signup")} className={`relative rounded-xl px-5 py-2 text-xs font-semibold transition-colors md:px-6 md:text-sm ${mode === "signup" ? "text-background" : "text-muted-foreground hover:text-foreground"}`}>
-                  {mode === "signup" && <motion.div layoutId="authTab" className="absolute inset-0 rounded-xl bg-primary shadow-md" transition={{ type: "spring", stiffness: 380, damping: 30 }} />}
-                  <span className="relative z-10">Sign Up</span>
-                </button>
+              <motion.div className="mt-5 flex items-center gap-3" initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.35 }}>
+                <div className="inline-flex gap-2 rounded-2xl border border-border bg-background/60 p-1.5 backdrop-blur flex-1">
+                  <button type="button" onClick={() => switchMode("signin")} className={`relative rounded-xl px-5 py-2 text-xs font-semibold transition-colors md:px-6 md:text-sm flex-1 ${mode === "signin" ? "text-background" : "text-muted-foreground hover:text-foreground"}`}>
+                    {mode === "signin" && <motion.div layoutId="authTab" className="absolute inset-0 rounded-xl bg-primary shadow-md" transition={{ type: "spring", stiffness: 380, damping: 30 }} />}
+                    <span className="relative z-10">Sign In</span>
+                  </button>
+                  <button type="button" onClick={() => switchMode("signup")} className={`relative rounded-xl px-5 py-2 text-xs font-semibold transition-colors md:px-6 md:text-sm flex-1 ${mode === "signup" ? "text-background" : "text-muted-foreground hover:text-foreground"}`}>
+                    {mode === "signup" && <motion.div layoutId="authTab" className="absolute inset-0 rounded-xl bg-primary shadow-md" transition={{ type: "spring", stiffness: 380, damping: 30 }} />}
+                    <span className="relative z-10">Sign Up</span>
+                  </button>
+                </div>
+                
+                {/* Complete Profile Button - Right Side */}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleCompleteProfile}
+                  disabled={checkingProfile}
+                  className="rounded-xl border-primary/40 bg-primary/5 text-primary hover:bg-primary/10 hover:text-primary font-semibold text-xs h-[42px] px-4 whitespace-nowrap"
+                  title="Already registered? Complete your vendor profile setup."
+                >
+                  {checkingProfile ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <>
+                      <ArrowRight className="h-3.5 w-3.5 mr-1.5" />
+                      <span className="hidden sm:inline">Complete Profile</span>
+                      <span className="sm:hidden">Profile</span>
+                    </>
+                  )}
+                </Button>
               </motion.div>
             </div>
 
@@ -468,6 +607,46 @@ const Auth: React.FC = () => {
           setShowForgotPasswordModal(true);
         }}
       />
+
+      {/* Account Locked Dialog */}
+      <AlertDialog open={showAccountLockedDialog} onOpenChange={setShowAccountLockedDialog}>
+        <AlertDialogContent className="max-w-md">
+          <AlertDialogHeader>
+            <div className="flex justify-center mb-4">
+              <div className="rounded-full bg-red-100 p-3">
+                <svg className="h-12 w-12 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
+              </div>
+            </div>
+            <AlertDialogTitle className="text-center text-2xl text-red-600">Account Locked</AlertDialogTitle>
+            <AlertDialogDescription className="text-center text-base leading-relaxed pt-2">
+              {accountLockedMessage || "Your account has been locked. Please reset your password to unlock your account."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-col sm:flex-row gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowAccountLockedDialog(false);
+                setFailedAttempts(0);
+              }}
+              className="w-full sm:w-auto"
+            >
+              Close
+            </Button>
+            <Button
+              onClick={() => {
+                setShowAccountLockedDialog(false);
+                setShowForgotPasswordModal(true);
+              }}
+              className="w-full sm:w-auto bg-primary"
+            >
+              Reset Password
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </motion.section>
   );
 };
