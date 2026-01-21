@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,22 +24,36 @@ export default function ForgotPasswordModal({
 }: ForgotPasswordModalProps) {
   const [step, setStep] = useState<Step>("request");
   const [loading, setLoading] = useState(false);
-  const [contact, setContact] = useState("");
+  const [email, setEmail] = useState("");
+  const [verificationId, setVerificationId] = useState("");
+  const [expiresIn, setExpiresIn] = useState(0);
   const [token, setToken] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
   const [tokenSent, setTokenSent] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
+  const [otpMessage, setOtpMessage] = useState("");
 
   const resetModal = () => {
     setStep("request");
-    setContact("");
+    setEmail("");
+    setVerificationId("");
+    setExpiresIn(0);
     setToken("");
     setNewPassword("");
     setConfirmPassword("");
     setError("");
     setTokenSent(false);
+    setSuccessMessage("");
+    setOtpMessage("");
   };
+
+  // Clear modal fields each time it is opened to avoid autofill/populated values
+  useEffect(() => {
+    if (isOpen) resetModal();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
 
   const handleClose = () => {
     resetModal();
@@ -50,26 +64,57 @@ export default function ForgotPasswordModal({
     e.preventDefault();
     setError("");
 
-    if (!contact) {
-      setError("Please enter your email or mobile number");
+    if (!email) {
+      setError("Please enter your email address");
       return;
     }
 
-    const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact);
-    const isMobile = /^\+?[1-9]\d{9,14}$/.test(contact.trim());
+    const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
-    if (!isEmail && !isMobile) {
-      setError("Please enter a valid email address or mobile number.");
+    if (!isEmail) {
+      setError("Please enter a valid email address.");
       return;
     }
 
     setLoading(true);
     try {
-      const payload: any = {};
-      if (isEmail) payload.email = contact.trim();
-      else payload.mobile = contact.trim();
+      console.log("Calling forgotPassword with email:", email.trim());
+      const response = await api.forgotPassword(email.trim());
+      console.log("forgotPassword response:", response);
+      
+      // Extract data from response
+      const data = response?.data || response;
+      const vId = data?.data?.verificationId || data?.verificationId;
+      const expires = data?.data?.expiresInSeconds || data?.expiresInSeconds || 0;
+      
+      // Get the main message from backend
+      let displayMessage = data?.message || "";
+      const dataMessage = data?.data?.message || "";
+      
+      // Use backend message or create user-friendly one
+      if (!displayMessage) {
+        displayMessage = "Password reset OTP has been sent to your email. Please check your inbox.";
+      }
+      
+      if (vId) {
+        console.log("Verification ID:", vId);
+        setVerificationId(vId);
+      }
+      
+      if (expires) {
+        console.log("Expires in seconds:", expires);
+        setExpiresIn(expires);
+      }
 
-      await api.forgotPassword(payload);
+      console.log("=== FORGOT PASSWORD RESPONSE ===");
+      console.log("Full response:", response);
+      console.log("Main message:", displayMessage);
+      console.log("Data message:", dataMessage);
+      console.log("Verification ID:", vId);
+      console.log("Expires:", expires);
+      
+      // set OTP message for the reset step UI
+      setOtpMessage(displayMessage);
       setTokenSent(true);
       setStep("reset");
     } catch (err: any) {
@@ -104,13 +149,35 @@ export default function ForgotPasswordModal({
     }
 
     if (!token) {
-      setError("Please enter the OTP sent to your contact");
+      setError("Please enter the OTP sent to your email");
       return;
     }
 
     setLoading(true);
     try {
-      await api.resetPassword({ contact, otp: token, newPassword });
+      console.log("Calling resetPassword with:", { email: email.trim(), otp: token.trim() });
+      const response = await api.resetPassword({ 
+        email: email.trim(), 
+        otp: token.trim(), 
+        newPassword, 
+        confirmPassword 
+      });
+      console.log("resetPassword response:", response);
+      
+      // Extract success message
+      const data = response?.data || response;
+      let displayMessage = data?.message || "";
+      
+      if (!displayMessage) {
+        displayMessage = "Password reset successfully";
+      }
+      
+      console.log("=== PASSWORD RESET RESPONSE ===");
+      console.log("Full response:", response);
+      console.log("Success message:", displayMessage);
+      
+      setSuccessMessage(displayMessage);
+      
       setStep("success");
     } catch (err: any) {
       setError(err?.message || "Unable to reset password. Please try again.");
@@ -122,12 +189,21 @@ export default function ForgotPasswordModal({
   const handleResendToken = async () => {
     setLoading(true);
     try {
-      const payload: any = {};
-      const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact);
-      if (isEmail) payload.email = contact.trim();
-      else payload.mobile = contact.trim();
-
-      await api.forgotPassword(payload);
+      const response = await api.forgotPassword(email.trim());
+      
+      // Extract data from response
+      const data = response?.data || response;
+      const vId = data?.data?.verificationId || data?.verificationId;
+      const expires = data?.data?.expiresInSeconds || data?.expiresInSeconds || 0;
+      
+      if (vId) {
+        setVerificationId(vId);
+      }
+      
+      if (expires) {
+        setExpiresIn(expires);
+      }
+      
       setTokenSent(true);
     } catch (err: any) {
       setError(err?.message || "Unable to resend reset link. Please try again.");
@@ -163,6 +239,7 @@ export default function ForgotPasswordModal({
               animate={{ scale: 1, y: 0, opacity: 1 }}
               exit={{ scale: 0.5, y: 20, opacity: 0 }}
               transition={{ type: "spring", stiffness: 300, damping: 30 }}
+              onClick={(e) => e.stopPropagation()}
             >
               {/* Close button */}
               <motion.button
@@ -176,48 +253,42 @@ export default function ForgotPasswordModal({
               </motion.button>
 
               {/* Success State */}
-              {step === "success" && (
-                <motion.div
-                  className="relative px-6 py-8 text-center"
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.2 }}
-                >
-                  <motion.div
-                    className="mx-auto w-16 h-16 bg-gradient-to-br from-green-400 to-green-600 rounded-full flex items-center justify-center mb-4 shadow-lg"
-                    animate={{ scale: [0, 1.2, 1] }}
-                    transition={{ type: "spring", stiffness: 200, damping: 15 }}
-                  >
+              {step === "success" ? (
+                <div className="relative px-6 py-8 text-center">
+                  <div className="mx-auto w-16 h-16 bg-gradient-to-br from-green-400 to-green-600 rounded-full flex items-center justify-center mb-4 shadow-lg">
                     <CheckCircle2 className="h-10 w-10 text-white" />
-                  </motion.div>
+                  </div>
 
-                  <h2 className="text-2xl font-bold text-gray-900 mt-4">Password Reset Successful!</h2>
-                  <p className="text-gray-600 mt-2">Your password has been updated</p>
+                  <h2 className="text-2xl font-bold text-gray-900 mt-4">
+                    Password Reset Successful!
+                  </h2>
+                  
+                  <p className="text-gray-600 mt-2">
+                    {successMessage}
+                  </p>
 
-                  <Alert className="bg-green-50 border-green-200 mt-4">
-                    <AlertDescription className="text-gray-700 text-sm">
+                  <div className="bg-green-50 border border-green-200 rounded-xl p-4 mt-4">
+                    <p className="text-gray-700 text-sm">
                       You can now log in to your account using your new password.
-                    </AlertDescription>
-                  </Alert>
+                    </p>
+                  </div>
 
                   <div className="space-y-3 mt-6">
-                    <motion.button
+                    <button
                       onClick={() => {
                         handleClose();
                         onLoginClick?.();
                       }}
                       className="w-full py-3 px-4 bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-700 hover:to-amber-700 text-white font-semibold rounded-xl transition-all shadow-lg"
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
                     >
                       Proceed to Login
-                    </motion.button>
+                    </button>
                   </div>
-                </motion.div>
-              )}
+                </div>
+              ) : null}
 
               {/* Request Step */}
-              {step === "request" && (
+              {step === "request" ? (
                 <motion.div
                   className="relative px-6 py-8"
                   initial={{ opacity: 0, y: 10 }}
@@ -228,7 +299,7 @@ export default function ForgotPasswordModal({
                   >
                     <h2 className="text-2xl font-bold text-gray-900">Password Recovery</h2>
                     <p className="text-gray-600 text-sm mt-2">
-                      Enter your registered contact information
+                      Enter your registered email address
                     </p>
                   </div>
 
@@ -244,19 +315,21 @@ export default function ForgotPasswordModal({
                     )}
 
                     <div className="space-y-2">
-                      <Label htmlFor="contact" className="text-gray-700 font-medium">
-                        Email or Mobile Number
+                      <Label htmlFor="email" className="text-gray-700 font-medium">
+                        Email Address
                       </Label>
                       <div className="relative">
                         <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-orange-500" />
                         <Input
-                          id="contact"
-                          value={contact}
+                          id="email"
+                          type="email"
+                          value={email}
                           onChange={(e) => {
-                            setContact(e.target.value);
+                            setEmail(e.target.value);
                             setError("");
                           }}
-                          placeholder="Enter email or mobile"
+                          placeholder="Enter your email"
+                          autoComplete="off"
                           className="h-11 pl-10 border-2 border-gray-200 focus:border-orange-500 rounded-xl bg-white/80 backdrop-blur-sm"
                         />
                       </div>
@@ -264,7 +337,7 @@ export default function ForgotPasswordModal({
 
                     <Alert className="bg-blue-50 border-blue-200 rounded-xl">
                       <AlertDescription className="text-blue-800 text-xs">
-                        We'll send a password reset link to your email if an account exists.
+                        We'll send a password reset OTP to your email if an account exists.
                       </AlertDescription>
                     </Alert>
 
@@ -275,7 +348,7 @@ export default function ForgotPasswordModal({
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
                     >
-                      {loading ? "Sending..." : "Send Reset Link"}
+                      {loading ? "Sending..." : "Send OTP"}
                     </motion.button>
 
                     <div className="relative my-4">
@@ -297,7 +370,7 @@ export default function ForgotPasswordModal({
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
                     >
-                      Forgot username instead?
+                      Forgot email/phone instead?
                     </motion.button>
 
                     <motion.button
@@ -312,10 +385,10 @@ export default function ForgotPasswordModal({
                     </motion.button>
                   </form>
                 </motion.div>
-              )}
+              ) : null}
 
               {/* Reset Step */}
-              {step === "reset" && (
+              {step === "reset" ? (
                 <motion.div
                   className="relative px-6 py-8"
                   initial={{ opacity: 0, y: 10 }}
@@ -327,7 +400,18 @@ export default function ForgotPasswordModal({
                     <p className="text-gray-600 text-sm mt-2">
                       Enter the OTP and create your new password
                     </p>
+                    {expiresIn > 0 && (
+                      <p className="text-xs text-orange-600 mt-1">
+                        OTP expires in {Math.floor(expiresIn / 60)} minutes
+                      </p>
+                    )}
                   </div>
+
+                  {otpMessage ? (
+                    <div className="mb-4 bg-blue-50 border border-blue-200 rounded-xl p-4">
+                      <p className="text-blue-800 text-sm">{otpMessage}</p>
+                    </div>
+                  ) : null}
 
                   <form onSubmit={handleResetPassword} className="space-y-4">
                     {error && (
@@ -352,6 +436,7 @@ export default function ForgotPasswordModal({
                           setError("");
                         }}
                         placeholder="Enter OTP"
+                        autoComplete="off"
                         className="h-11 border-2 border-gray-200 focus:border-orange-500 rounded-xl bg-white/80 backdrop-blur-sm"
                       />
                     </div>
@@ -371,6 +456,7 @@ export default function ForgotPasswordModal({
                             setError("");
                           }}
                           placeholder="Enter new password"
+                          autoComplete="off"
                           className="h-11 pl-10 border-2 border-gray-200 focus:border-orange-500 rounded-xl bg-white/80 backdrop-blur-sm"
                         />
                       </div>
@@ -394,6 +480,7 @@ export default function ForgotPasswordModal({
                             setError("");
                           }}
                           placeholder="Re-enter new password"
+                          autoComplete="off"
                           className="h-11 pl-10 border-2 border-gray-200 focus:border-orange-500 rounded-xl bg-white/80 backdrop-blur-sm"
                         />
                       </div>
@@ -432,7 +519,7 @@ export default function ForgotPasswordModal({
                     </motion.button>
                   </form>
                 </motion.div>
-              )}
+              ) : null}
             </motion.div>
           </motion.div>
         </>

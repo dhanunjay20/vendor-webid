@@ -266,10 +266,13 @@ export async function login(payload: { login: string; password: string; }) {
   }
 }
 
-export async function forgotUsername(payload: { contact: string; }) {
+export async function forgotEmail(phone: string) {
   try {
-    const url = buildUrl("/api/auth/forgot-username");
-    const res = await axios.post(url, payload, { headers: { "Content-Type": "application/json" } });
+    const url = buildUrl("/api/v1/auth/recover/forgot-email");
+    const res = await axios.post(url, null, { 
+      params: { phone },
+      headers: { "Content-Type": "application/json" } 
+    });
     return res.data;
   } catch (err: any) {
     const { message, status } = extractError(err);
@@ -277,10 +280,13 @@ export async function forgotUsername(payload: { contact: string; }) {
   }
 }
 
-export async function forgotPassword(payload: { login: string; }) {
+export async function forgotPhone(email: string) {
   try {
-    const url = buildUrl("/api/auth/forgot-password");
-    const res = await axios.post(url, payload, { headers: { "Content-Type": "application/json" } });
+    const url = buildUrl("/api/v1/auth/recover/forgot-phone");
+    const res = await axios.post(url, null, { 
+      params: { email },
+      headers: { "Content-Type": "application/json" } 
+    });
     return res.data;
   } catch (err: any) {
     const { message, status } = extractError(err);
@@ -288,9 +294,20 @@ export async function forgotPassword(payload: { login: string; }) {
   }
 }
 
-export async function resetPassword(payload: { contact: string; otp: string; newPassword: string; }) {
+export async function forgotPassword(email: string) {
   try {
-    const url = buildUrl("/api/auth/reset-password");
+    const url = buildUrl("/api/v1/auth/forgot-password");
+    const res = await axios.post(url, { email }, { headers: { "Content-Type": "application/json" } });
+    return res.data;
+  } catch (err: any) {
+    const { message, status } = extractError(err);
+    throw { message, status } as ApiError;
+  }
+}
+
+export async function resetPassword(payload: { email: string; otp: string; newPassword: string; confirmPassword: string; }) {
+  try {
+    const url = buildUrl("/api/v1/auth/reset-password");
     const res = await axios.post(url, payload, { headers: { "Content-Type": "application/json" } });
     return res.data;
   } catch (err: any) {
@@ -861,7 +878,8 @@ export default {
   registerUser,
   registerAuth,
   login,
-  forgotUsername,
+  forgotEmail,
+  forgotPhone,
   forgotPassword,
   resetPassword,
   registerVendor,
