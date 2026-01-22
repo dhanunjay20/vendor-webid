@@ -168,6 +168,14 @@ const Auth: React.FC = () => {
 
   const handleSignIn = async (e?: React.FormEvent) => {
     e?.preventDefault();
+    
+    // Check if account is already locked
+    if (failedAttempts >= 3) {
+      setAccountLockedMessage("Your account has been blocked due to reaching maximum login attempts (3). Please reset your password to unlock your account.");
+      setShowAccountLockedDialog(true);
+      return;
+    }
+    
     if (!email || !password) {
       toast({ title: "Missing fields", description: "Please enter email and password", variant: "destructive" });
       return;
@@ -277,29 +285,20 @@ const Auth: React.FC = () => {
       toast({ title: `Welcome back${fullName ? `, ${fullName}` : ""}` });
       navigate("/dashboard");
     } catch (err: any) {
-      // Extract backend error response
-      const errorData = err?.response?.data || err?.data || {};
-      const errorMessage = errorData?.message || err?.message || "Network error while logging in";
-      const errorDetails = errorData?.details || errorData?.detail || "";
-      const remainingAttempts = errorData?.remainingAttempts;
+      // Increment failed attempts
+      const newFailedAttempts = failedAttempts + 1;
+      setFailedAttempts(newFailedAttempts);
       
-      // Check if account is locked
-      if (errorMessage.toLowerCase().includes("account is locked") || errorMessage.toLowerCase().includes("account has been locked")) {
-        // Show account locked dialog with backend details
-        setAccountLockedMessage(errorDetails || errorMessage);
+      // Check if account should be locked (3 failed attempts)
+      if (newFailedAttempts >= 3) {
+        setAccountLockedMessage("Your account has been blocked due to reaching maximum login attempts (3). Please reset your password to unlock your account.");
         setShowAccountLockedDialog(true);
-        setFailedAttempts(3); // Set to max
       } else {
-        // Show error toast with remaining attempts if provided
-        let description = errorMessage;
-        if (remainingAttempts !== undefined && remainingAttempts !== null) {
-          description = `${errorMessage}. You have ${remainingAttempts} attempt(s) left.`;
-          setFailedAttempts(3 - remainingAttempts); // Track failed attempts
-        }
-        
+        // Show remaining attempts
+        const remainingAttempts = 3 - newFailedAttempts;
         toast({ 
           title: "Login failed", 
-          description: description,
+          description: `Invalid credentials. You have ${remainingAttempts} attempt(s) left.`,
           variant: "destructive" 
         });
       }
@@ -619,9 +618,9 @@ const Auth: React.FC = () => {
                 </svg>
               </div>
             </div>
-            <AlertDialogTitle className="text-center text-2xl text-red-600">Account Locked</AlertDialogTitle>
+            <AlertDialogTitle className="text-center text-2xl text-red-600">Account Blocked</AlertDialogTitle>
             <AlertDialogDescription className="text-center text-base leading-relaxed pt-2">
-              {accountLockedMessage || "Your account has been locked. Please reset your password to unlock your account."}
+              {accountLockedMessage || "Your account has been blocked due to reaching maximum login attempts. Please reset your password to unlock your account."}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="flex-col sm:flex-row gap-2">
