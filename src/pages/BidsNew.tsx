@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Search, Calendar, Users, MapPin, DollarSign, Clock, Send, Edit2, AlertCircle } from "lucide-react";
+import { Search, Calendar, Users, MapPin, DollarSign, Clock, Send, Edit2, Trash2, AlertCircle, Loader2, TrendingUp, CheckCircle2, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,10 +10,11 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/hooks/use-toast";
 import * as api from "@/lib/api";
+import { BidRequestStatus, BidStatus, getStatusBadgeClass, isRequestOpen, canWithdrawBid } from "@/lib/bid-enums";
 
 interface BidRequest {
   bidRequestId: string;
-  bidId?: string; // Present if already quoted
+  bidId?: string;
   userId: string;
   eventDetails: {
     eventType: string;
@@ -42,8 +43,9 @@ interface BidRequest {
   lowestBidAmount?: number;
   quotedPrice?: {
     subtotal: number;
+    serviceCharge?: number;
+    taxPercentage?: number;
     taxAmount?: number;
-    deliveryCharge?: number;
     totalAmount: number;
     currency?: string;
   };
@@ -55,27 +57,33 @@ interface BidRequest {
   expiresAt: string;
 }
 
-interface BidRequestsResponse {
-  success: boolean;
-  status: number;
-  message: string;
-  data: BidRequest[];
-  pageInfo: {
-    pageNumber: number;
-    pageSize: number;
-    totalElements: number;
-    totalPages: number;
-    last: boolean;
+interface QuoteFormData {
+  subtotal: number;
+  serviceCharge: number;
+  taxPercentage: number;
+  taxAmount: number;
+  totalAmount: number;
+  currency: string;
+  validityPeriodHours: number;
+  termsAndConditions: string;
+  notes: string;
+  itemizedPricing?: Array<{
+    itemName?: string;
+    quantity?: number;
+    pricePerPlate?: number;
+    totalPrice?: number;
+  }>;
+  deliveryDetails?: {
+    estimatedSetupTime?: string;
+    foodReadyTime?: string;
+    cleanupTime?: string;
+  };
+  staffProvided?: {
+    chefs?: number;
+    servers?: number;
+    cleaners?: number;
   };
 }
-
-const statusConfig = {
-  ACTIVE: { label: "Active", className: "bg-blue-500/10 text-blue-600 border-blue-500/20" },
-  QUOTED: { label: "Quoted", className: "bg-yellow-500/10 text-yellow-600 border-yellow-500/20" },
-  ACCEPTED: { label: "Accepted", className: "bg-green-500/10 text-green-600 border-green-500/20" },
-  EXPIRED: { label: "Expired", className: "bg-red-500/10 text-red-600 border-red-500/20" },
-  CANCELLED: { label: "Cancelled", className: "bg-gray-500/10 text-gray-600 border-gray-500/20" },
-};
 
 export default function BidsNew() {
   const [bidRequests, setBidRequests] = useState<BidRequest[]>([]);
@@ -85,24 +93,24 @@ export default function BidsNew() {
   const [selectedBidRequest, setSelectedBidRequest] = useState<BidRequest | null>(null);
   const [showQuoteDialog, setShowQuoteDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
+  const [showWithdrawDialog, setShowWithdrawDialog] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [page, setPage] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
 
-  // Quote form state
-  const [quoteForm, setQuoteForm] = useState({
+  const [quoteForm, setQuoteForm] = useState<QuoteFormData>({
     subtotal: 0,
+    serviceCharge: 0,
+    taxPercentage: 0,
     taxAmount: 0,
-    deliveryCharge: 0,
     totalAmount: 0,
     currency: "INR",
-    validUntil: "",
-    termsAndConditions: "50% advance payment required. Balance to be paid before event date.",
+    validityPeriodHours: 48,
+    termsAndConditions: "50% advance payment required. Balance to be paid 3 days before event date.",
     notes: "",
   });
 
   useEffect(() => {
-    // Check if user is logged in
     const token = localStorage.getItem("authToken");
     if (!token) {
       toast({
@@ -116,33 +124,25 @@ export default function BidsNew() {
   }, [page]);
 
   useEffect(() => {
-    // Auto-calculate total amount
-    const total = quoteForm.subtotal + quoteForm.taxAmount + quoteForm.deliveryCharge;
+    const total = quoteForm.subtotal + (quoteForm.taxAmount || 0) + (quoteForm.serviceCharge || 0);
     setQuoteForm(prev => ({ ...prev, totalAmount: total }));
-  }, [quoteForm.subtotal, quoteForm.taxAmount, quoteForm.deliveryCharge]);
+  }, [quoteForm.subtotal, quoteForm.taxAmount, quoteForm.serviceCharge]);
 
   const loadBidRequests = async () => {
     try {
       setLoading(true);
       const response: any = await api.getReceivedBidRequests(page, 20);
       
-      // Handle different response structures
       let data = null;
       let totalPages = 1;
       
-      // Check if response has data property (wrapped response)
       if (response && typeof response === 'object') {
-        // If response.data is an array, use it directly
         if (Array.isArray(response.data)) {
           data = response.data;
           totalPages = response.pageInfo?.totalPages || 1;
-        }
-        // If response itself is an array, use it
-        else if (Array.isArray(response)) {
+        } else if (Array.isArray(response)) {
           data = response;
-        }
-        // If response has success flag but no data, check alternative structures
-        else if (response.success === false) {
+        } else if (response.success === false) {
           toast({
             title: "Error",
             description: response.message || "Failed to load bid requests",
@@ -150,39 +150,15 @@ export default function BidsNew() {
           });
           setLoading(false);
           return;
-        }
-        // If response is an object with items or results property
-        else if (Array.isArray(response.items)) {
-          data = response.items;
+        } else if (Array.isArray(response.items) || Array.isArray(response.results)) {
+          data = response.items || response.results;
           totalPages = response.pageInfo?.totalPages || 1;
-        }
-        else if (Array.isArray(response.results)) {
-          data = response.results;
-          totalPages = response.pageInfo?.totalPages || 1;
-        }
-        // Last resort: check if the response object has properties that look like bid data
-        else {
-          const keys = Object.keys(response);
-          
-          // Try to find array-like properties
-          for (const key of keys) {
-            if (Array.isArray(response[key]) && response[key].length > 0) {
-              if (response[key][0]?.bidRequestId || response[key][0]?.eventDetails) {
-                data = response[key];
-                break;
-              }
-            }
-          }
         }
       }
       
-      // Set the bid requests
-      if (data && Array.isArray(data) && data.length > 0) {
+      if (data && Array.isArray(data)) {
         setBidRequests(data);
         setTotalPages(totalPages);
-      } else if (data && Array.isArray(data) && data.length === 0) {
-        setBidRequests([]);
-        setTotalPages(1);
       } else {
         setBidRequests([]);
         setTotalPages(1);
@@ -202,13 +178,14 @@ export default function BidsNew() {
   const handleOpenQuoteDialog = (bidRequest: BidRequest) => {
     setSelectedBidRequest(bidRequest);
     setQuoteForm({
-      subtotal: bidRequest.budget.estimatedBudget * 0.9,
-      taxAmount: 0,
-      deliveryCharge: 0,
-      totalAmount: bidRequest.budget.estimatedBudget * 0.9,
+      subtotal: bidRequest.budget.estimatedBudget * 0.85,
+      serviceCharge: 0,
+      taxPercentage: 5,
+      taxAmount: (bidRequest.budget.estimatedBudget * 0.85) * 0.05,
+      totalAmount: (bidRequest.budget.estimatedBudget * 0.85) * 1.05,
       currency: bidRequest.budget.currency,
-      validUntil: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-      termsAndConditions: "50% advance payment required. Balance to be paid before event date.",
+      validityPeriodHours: 48,
+      termsAndConditions: "50% advance payment required. Balance to be paid 3 days before event date.",
       notes: "",
     });
     setShowQuoteDialog(true);
@@ -218,12 +195,13 @@ export default function BidsNew() {
     setSelectedBidRequest(bidRequest);
     setQuoteForm({
       subtotal: bidRequest.quotedPrice?.subtotal || 0,
+      serviceCharge: bidRequest.quotedPrice?.serviceCharge || 0,
+      taxPercentage: bidRequest.quotedPrice?.taxPercentage || 0,
       taxAmount: bidRequest.quotedPrice?.taxAmount || 0,
-      deliveryCharge: bidRequest.quotedPrice?.deliveryCharge || 0,
       totalAmount: bidRequest.quotedPrice?.totalAmount || 0,
       currency: bidRequest.quotedPrice?.currency || bidRequest.budget.currency,
-      validUntil: bidRequest.validUntil ? new Date(bidRequest.validUntil).toISOString().split('T')[0] : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-      termsAndConditions: bidRequest.termsAndConditions || "50% advance payment required. Balance to be paid before event date.",
+      validityPeriodHours: 48,
+      termsAndConditions: bidRequest.termsAndConditions || "50% advance payment required. Balance to be paid 3 days before event date.",
       notes: bidRequest.notes || "",
     });
     setShowEditDialog(true);
@@ -246,20 +224,21 @@ export default function BidsNew() {
 
       const payload = {
         quotedPrice: {
-          subtotal: quoteForm.subtotal,
-          taxAmount: quoteForm.taxAmount > 0 ? quoteForm.taxAmount : undefined,
-          deliveryCharge: quoteForm.deliveryCharge > 0 ? quoteForm.deliveryCharge : undefined,
-          totalAmount: quoteForm.totalAmount,
           currency: quoteForm.currency,
+          subtotal: quoteForm.subtotal,
+          serviceCharge: quoteForm.serviceCharge > 0 ? quoteForm.serviceCharge : undefined,
+          taxPercentage: quoteForm.taxPercentage > 0 ? quoteForm.taxPercentage : undefined,
+          taxAmount: quoteForm.taxAmount > 0 ? quoteForm.taxAmount : undefined,
+          totalAmount: quoteForm.totalAmount,
         },
-        validUntil: quoteForm.validUntil ? new Date(quoteForm.validUntil).toISOString() : undefined,
+        validityPeriodHours: quoteForm.validityPeriodHours,
         termsAndConditions: quoteForm.termsAndConditions || undefined,
         notes: quoteForm.notes || undefined,
       };
 
-      const response = await api.submitBidQuotation(selectedBidRequest.bidRequestId, payload);
+      const response = await api.submitBid(selectedBidRequest.bidRequestId, payload);
 
-      if (response.success) {
+      if (response.success || response.data) {
         toast({
           title: "Success",
           description: "Quotation submitted successfully",
@@ -301,23 +280,24 @@ export default function BidsNew() {
 
       const payload = {
         quotedPrice: {
-          subtotal: quoteForm.subtotal,
-          taxAmount: quoteForm.taxAmount > 0 ? quoteForm.taxAmount : undefined,
-          deliveryCharge: quoteForm.deliveryCharge > 0 ? quoteForm.deliveryCharge : undefined,
-          totalAmount: quoteForm.totalAmount,
           currency: quoteForm.currency,
+          subtotal: quoteForm.subtotal,
+          serviceCharge: quoteForm.serviceCharge > 0 ? quoteForm.serviceCharge : undefined,
+          taxPercentage: quoteForm.taxPercentage > 0 ? quoteForm.taxPercentage : undefined,
+          taxAmount: quoteForm.taxAmount > 0 ? quoteForm.taxAmount : undefined,
+          totalAmount: quoteForm.totalAmount,
         },
-        validUntil: quoteForm.validUntil ? new Date(quoteForm.validUntil).toISOString() : undefined,
+        validityPeriodHours: quoteForm.validityPeriodHours,
         termsAndConditions: quoteForm.termsAndConditions || undefined,
         notes: quoteForm.notes || undefined,
       };
 
-      const response = await api.updateBidQuotation(selectedBidRequest.bidId, payload);
+      const response = await api.reviseBid(selectedBidRequest.bidId, payload);
 
-      if (response.success) {
+      if (response.success || response.data) {
         toast({
           title: "Success",
-          description: "Quotation updated and re-submitted successfully",
+          description: "Quotation updated successfully",
         });
         setShowEditDialog(false);
         loadBidRequests();
@@ -332,6 +312,38 @@ export default function BidsNew() {
       toast({
         title: "Error",
         description: error.message || "Failed to update quotation",
+        variant: "destructive",
+      });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleWithdrawBid = async () => {
+    if (!selectedBidRequest || !selectedBidRequest.bidId) return;
+
+    try {
+      setSubmitting(true);
+      const response = await api.withdrawBid(selectedBidRequest.bidId);
+
+      if (response.success || response.data) {
+        toast({
+          title: "Success",
+          description: "Bid withdrawn successfully",
+        });
+        setShowWithdrawDialog(false);
+        loadBidRequests();
+      } else {
+        toast({
+          title: "Error",
+          description: response.message || "Failed to withdraw bid",
+          variant: "destructive",
+        });
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to withdraw bid",
         variant: "destructive",
       });
     } finally {
@@ -387,33 +399,26 @@ export default function BidsNew() {
     
     if (diff <= 0) return "Expired";
     
-    const hours = Math.floor(diff / (1000 * 60 * 60));
-    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
+    const minutes = Math.floor((diff / (1000 * 60)) % 60);
     
-    if (hours > 24) {
-      const days = Math.floor(hours / 24);
-      return `${days}d remaining`;
+    if (days > 0) {
+      return `${days}d ${hours}h remaining`;
     }
     
     return `${hours}h ${minutes}m remaining`;
   };
 
   const activeBids = bidRequests.filter((r) => {
-    // All bids where status is ACTIVE or no quotation submitted yet
     const status = r.status?.toUpperCase() || "";
     const hasQuote = r.quotedPrice !== undefined && r.quotedPrice !== null;
-    
-    // Show in active if: explicitly ACTIVE OR no quotation yet
-    return status === "ACTIVE" || status === "OPEN" || status === "PENDING" || !hasQuote;
+    return (status === BidRequestStatus.ACTIVE || status === BidRequestStatus.COMPETITIVE) || !hasQuote;
   });
   
   const quotedBids = bidRequests.filter((r) => {
-    // Only show bids where quotation has been submitted
-    const status = r.status?.toUpperCase() || "";
     const hasQuote = r.quotedPrice !== undefined && r.quotedPrice !== null;
-    
-    // Show in quoted if: explicitly QUOTED OR has quotation
-    return status === "QUOTED" || status === "REPLIED" || hasQuote;
+    return hasQuote;
   });
 
   const filteredBids = (activeTab === "active" ? activeBids : quotedBids).filter((request) => {
@@ -425,653 +430,376 @@ export default function BidsNew() {
   });
 
   return (
-    <div className="p-8 space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold">Bid Requests</h1>
-        <p className="text-muted-foreground">Incoming business opportunities from customers</p>
-      </div>
-
-      {/* Search */}
-      <div className="flex gap-4">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search by event name, type, or city..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
-          />
+    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-red-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
+      <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto">
+        {/* Header Section */}
+        <div className="space-y-2">
+          <h1 className="text-4xl font-bold bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent">
+            Bid Requests
+          </h1>
+          <p className="text-lg text-muted-foreground">
+            Manage incoming business opportunities and submit your quotations
+          </p>
         </div>
-      </div>
 
-      {/* Tabs */}
-      <div className="flex gap-2 border-b">
-        <button
-          onClick={() => {
-            setActiveTab("active");
-            setPage(0); // Reset pagination when switching tabs
-          }}
-          className={`px-4 py-2 font-medium border-b-2 transition-colors ${
-            activeTab === "active"
-              ? "border-orange-500 text-orange-600"
-              : "border-transparent text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          Active Bids ({activeBids.length})
-        </button>
-        <button
-          onClick={() => {
-            setActiveTab("quoted");
-            setPage(0); // Reset pagination when switching tabs
-          }}
-          className={`px-4 py-2 font-medium border-b-2 transition-colors ${
-            activeTab === "quoted"
-              ? "border-orange-500 text-orange-600"
-              : "border-transparent text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          Your Quotations ({quotedBids.length})
-        </button>
-      </div>
+        {/* Search Bar */}
+        <div className="flex gap-4">
+          <div className="relative flex-1">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+            <Input
+              placeholder="Search by event name, type, or city..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-12 h-11 text-base shadow-sm"
+            />
+          </div>
+        </div>
 
-      {/* Stats Summary */}
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Total Requests</CardTitle>
-            <Clock className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{bidRequests.length}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Active</CardTitle>
-            <Calendar className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{activeBids.length}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Quoted</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{quotedBids.length}</div>
-          </CardContent>
-        </Card>
-      </div>
+        {/* Tabs */}
+        <div className="border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-900/50 rounded-t-lg">
+          <div className="flex gap-2 p-2 sm:p-4">
+            <button
+              onClick={() => {
+                setActiveTab("active");
+                setPage(0);
+              }}
+              className={`px-4 sm:px-6 py-3 font-semibold text-sm sm:text-base rounded-lg transition-all ${
+                activeTab === "active"
+                  ? "bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-lg"
+                  : "text-muted-foreground hover:text-foreground hover:bg-gray-100 dark:hover:bg-slate-800"
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <Clock className="h-5 w-5" />
+                <span>Active Bids</span>
+                <Badge className="ml-1 bg-orange-600 text-white">{activeBids.length}</Badge>
+              </div>
+            </button>
+            <button
+              onClick={() => {
+                setActiveTab("quoted");
+                setPage(0);
+              }}
+              className={`px-4 sm:px-6 py-3 font-semibold text-sm sm:text-base rounded-lg transition-all ${
+                activeTab === "quoted"
+                  ? "bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-lg"
+                  : "text-muted-foreground hover:text-foreground hover:bg-gray-100 dark:hover:bg-slate-800"
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="h-5 w-5" />
+                <span>Your Quotes</span>
+                <Badge className="ml-1 bg-blue-600 text-white">{quotedBids.length}</Badge>
+              </div>
+            </button>
+          </div>
+        </div>
 
-      {/* Bid Requests List */}
-      {loading ? (
-        <div className="text-center py-12">Loading bid requests...</div>
-      ) : filteredBids.length === 0 ? (
-        <Card>
-          <CardContent className="py-12 text-center text-muted-foreground">
-            No {activeTab} bid requests found
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid gap-4">
-          {filteredBids.map((request) => (
-            <Card key={request.bidRequestId} className="hover:shadow-md transition-shadow">
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div className="space-y-1">
-                    <CardTitle className="text-lg">
-                      {request.eventDetails.eventName || `${request.eventDetails.eventType} Event`}
-                    </CardTitle>
-                    <p className="text-sm text-muted-foreground">
-                      ID: {request.bidRequestId.slice(0, 16)}...
-                    </p>
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {[
+            { label: "Total Requests", value: bidRequests.length, icon: Clock, color: "from-blue-500 to-blue-600" },
+            { label: "Active", value: activeBids.length, icon: TrendingUp, color: "from-orange-500 to-red-600" },
+            { label: "Your Quotes", value: quotedBids.length, icon: CheckCircle2, color: "from-green-500 to-emerald-600" },
+          ].map((stat) => (
+            <Card key={stat.label} className="border-0 shadow-lg hover:shadow-xl transition-shadow">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">{stat.label}</p>
+                    <p className="text-4xl font-bold mt-2">{stat.value}</p>
                   </div>
-                  <Badge className={(statusConfig as any)[request.status]?.className || ""}>
-                    {(statusConfig as any)[request.status]?.label || request.status}
-                  </Badge>
+                  <div className={`bg-gradient-to-br ${stat.color} p-4 rounded-lg`}>
+                    <stat.icon className="h-8 w-8 text-white" />
+                  </div>
                 </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {/* Event Details Grid */}
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                  <div className="flex items-center gap-2">
-                    <Calendar className="h-4 w-4 text-muted-foreground" />
-                    <div>
-                      <p className="text-xs text-muted-foreground">Event Date</p>
-                      <p className="text-sm font-medium">{formatDate(request.eventDetails.eventDate)}</p>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        {/* Bid Requests List */}
+        {loading ? (
+          <Card className="border-0 shadow-lg">
+            <CardContent className="py-16 flex flex-col items-center justify-center gap-4">
+              <Loader2 className="h-8 w-8 text-orange-500 animate-spin" />
+              <p className="text-lg text-muted-foreground">Loading bid requests...</p>
+            </CardContent>
+          </Card>
+        ) : filteredBids.length === 0 ? (
+          <Card className="border-0 shadow-lg">
+            <CardContent className="py-16 text-center">
+              <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4 opacity-50" />
+              <p className="text-lg text-muted-foreground">
+                No {activeTab} bid requests found
+              </p>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="grid gap-4">
+            {filteredBids.map((request) => (
+              <Card key={request.bidRequestId} className="border-0 shadow-md hover:shadow-xl transition-all overflow-hidden hover:scale-[1.01]">
+                <CardHeader className="bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900 pb-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="space-y-1 flex-1 min-w-0">
+                      <CardTitle className="text-xl">
+                        {request.eventDetails.eventName || `${request.eventDetails.eventType} Event`}
+                      </CardTitle>
+                      <div className="flex items-center gap-3">
+                        <p className="text-xs text-muted-foreground font-mono">ID: {request.bidRequestId.slice(0, 16)}...</p>
+                        {request.bidId && (
+                          <p className="text-xs text-muted-foreground font-semibold ml-2">
+                            Your Bid ID: <span className="font-mono text-sm ml-1">{request.bidId}</span>
+                          </p>
+                        )}
+                      </div>
                     </div>
+                    <Badge className={`flex-shrink-0 font-semibold text-sm ${
+                      getStatusBadgeClass(request.status)
+                    }`}>
+                      {request.status || (request.quotedPrice ? "Quoted" : "Active")}
+                    </Badge>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Users className="h-4 w-4 text-muted-foreground" />
-                    <div>
-                      <p className="text-xs text-muted-foreground">Guests</p>
-                      <p className="text-sm font-medium">{request.eventDetails.numberOfGuests}</p>
-                    </div>
+                </CardHeader>
+
+                <CardContent className="p-6 space-y-4">
+                  {/* Event Details Grid */}
+                  <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                    {[
+                      { label: "Event Date", icon: Calendar, value: formatDate(request.eventDetails.eventDate) },
+                      { label: "Guests", icon: Users, value: `${request.eventDetails.numberOfGuests}` },
+                      { label: "Budget", icon: DollarSign, value: `${getCurrencySymbol(request.budget.currency)}${request.budget.estimatedBudget.toLocaleString()}` },
+                      { label: "Location", icon: MapPin, value: request.eventDetails.venueAddress.city },
+                      request.lowestBidAmount ? { label: "Lowest Bid", icon: TrendingUp, value: `${getCurrencySymbol(request.budget.currency)}${typeof request.lowestBidAmount === 'string' ? parseInt(request.lowestBidAmount).toLocaleString() : request.lowestBidAmount.toLocaleString()}` } : null,
+                    ].filter(Boolean).map((detail) => (
+                      <div key={detail?.label} className="flex items-center gap-3 p-3 rounded-lg bg-gray-50 dark:bg-slate-800">
+                        <div className={`p-2 rounded-lg ${
+                          detail?.label === "Lowest Bid" 
+                            ? "bg-green-100 dark:bg-green-900/30" 
+                            : "bg-orange-100 dark:bg-orange-900/30"
+                        }`}>
+                          {detail?.icon && <detail.icon className={`h-4 w-4 ${
+                            detail.label === "Lowest Bid" ? "text-green-600" : "text-orange-600"
+                          }`} />}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-xs text-muted-foreground font-medium">{detail?.label}</p>
+                          <p className="text-sm font-bold truncate">{detail?.value}</p>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                  <div className="flex items-center gap-2">
-                    <DollarSign className="h-4 w-4 text-muted-foreground" />
-                    <div>
-                      <p className="text-xs text-muted-foreground">Budget</p>
-                      <p className="text-sm font-medium">
-                        {getCurrencySymbol(request.budget.currency)}
-                        {request.budget.estimatedBudget.toLocaleString()}
+
+                  {/* Menu Items */}
+                  {request.menuItems && request.menuItems.length > 0 && (
+                    <div className="border-t pt-4">
+                      <p className="text-sm font-semibold mb-3 flex items-center gap-2">
+                        <span>📋 Menu Items ({request.menuItems.length})</span>
                       </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <MapPin className="h-4 w-4 text-muted-foreground" />
-                    <div>
-                      <p className="text-xs text-muted-foreground">Location</p>
-                      <p className="text-sm font-medium">{request.eventDetails.venueAddress.city}</p>
-                    </div>
-                  </div>
-                  {request.lowestBidAmount && (
-                    <div className="flex items-center gap-2">
-                      <DollarSign className="h-4 w-4 text-green-600" />
-                      <div>
-                        <p className="text-xs text-muted-foreground">Lowest Bid</p>
-                        <p className="text-sm font-bold text-green-600">
-                          {getCurrencySymbol(request.budget.currency)}
-                          {typeof request.lowestBidAmount === 'string' ? parseInt(request.lowestBidAmount).toLocaleString() : request.lowestBidAmount.toLocaleString()}
-                        </p>
+                      <div className="flex flex-wrap gap-2">
+                        {request.menuItems.slice(0, 6).map((item) => (
+                          <Badge key={item.vendorItemId} variant="outline" className="bg-white">
+                            {item.itemName}
+                            {item.quantity && ` × ${item.quantity}`}
+                          </Badge>
+                        ))}
+                        {request.menuItems.length > 6 && (
+                          <Badge variant="outline" className="bg-white">
+                            +{request.menuItems.length - 6} more
+                          </Badge>
+                        )}
                       </div>
                     </div>
                   )}
-                </div>
 
-                {/* Menu Items */}
-                {request.menuItems && request.menuItems.length > 0 && (
-                  <div>
-                    <p className="text-sm font-semibold mb-2">
-                      Menu Items ({request.menuItems.length})
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      {request.menuItems.slice(0, 5).map((item) => (
-                        <Badge key={item.vendorItemId} variant="outline" className="text-xs">
-                          {item.itemName}
-                          {item.quantity && ` (${item.quantity})`}
-                        </Badge>
-                      ))}
-                      {request.menuItems.length > 5 && (
-                        <Badge variant="outline" className="text-xs">
-                          +{request.menuItems.length - 5} more
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* Quoted Price (if already quoted) */}
-                {activeTab === "quoted" && request.quotedPrice && (
-                  <div className="bg-orange-50 dark:bg-orange-950/20 p-3 rounded-lg border border-orange-200">
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-                      <div>
-                        <p className="text-muted-foreground text-xs">Subtotal</p>
-                        <p className="font-semibold">
-                          {getCurrencySymbol(request.quotedPrice.currency || "INR")}
-                          {request.quotedPrice.subtotal.toLocaleString()}
-                        </p>
-                      </div>
-                      {request.quotedPrice.taxAmount !== undefined && request.quotedPrice.taxAmount > 0 && (
-                        <div>
-                          <p className="text-muted-foreground text-xs">Tax</p>
-                          <p className="font-semibold">
-                            {getCurrencySymbol(request.quotedPrice.currency || "INR")}
-                            {request.quotedPrice.taxAmount.toLocaleString()}
-                          </p>
+                  {/* Quoted Price */}
+                  {activeTab === "quoted" && request.quotedPrice && (
+                    <div className="border-t pt-4">
+                      <p className="text-sm font-semibold mb-3">💰 Your Quotation</p>
+                      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                        <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800">
+                          <p className="text-xs text-muted-foreground">Subtotal</p>
+                          <p className="font-bold mt-1">{getCurrencySymbol(request.quotedPrice.currency || "INR")}{request.quotedPrice.subtotal.toLocaleString()}</p>
                         </div>
-                      )}
-                      {request.quotedPrice.deliveryCharge !== undefined && request.quotedPrice.deliveryCharge > 0 && (
-                        <div>
-                          <p className="text-muted-foreground text-xs">Delivery</p>
-                          <p className="font-semibold">
-                            {getCurrencySymbol(request.quotedPrice.currency || "INR")}
-                            {request.quotedPrice.deliveryCharge.toLocaleString()}
-                          </p>
+                        {request.quotedPrice.taxAmount !== undefined && request.quotedPrice.taxAmount > 0 && (
+                          <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800">
+                            <p className="text-xs text-muted-foreground">Tax</p>
+                            <p className="font-bold mt-1">{getCurrencySymbol(request.quotedPrice.currency || "INR")}{request.quotedPrice.taxAmount.toLocaleString()}</p>
+                          </div>
+                        )}
+                        {request.quotedPrice.serviceCharge !== undefined && request.quotedPrice.serviceCharge > 0 && (
+                          <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800">
+                            <p className="text-xs text-muted-foreground">Service</p>
+                            <p className="font-bold mt-1">{getCurrencySymbol(request.quotedPrice.currency || "INR")}{request.quotedPrice.serviceCharge.toLocaleString()}</p>
+                          </div>
+                        )}
+                        <div className="p-3 rounded-lg bg-gradient-to-br from-blue-100 to-cyan-100 dark:from-blue-900/50 dark:to-cyan-900/50 border-2 border-blue-300">
+                          <p className="text-xs text-muted-foreground font-semibold">TOTAL</p>
+                          <p className="font-bold mt-1 text-lg text-blue-600 dark:text-blue-300">{getCurrencySymbol(request.quotedPrice.currency || "INR")}{request.quotedPrice.totalAmount.toLocaleString()}</p>
                         </div>
-                      )}
-                      <div>
-                        <p className="text-muted-foreground text-xs">Total</p>
-                        <p className="font-bold text-orange-600">
-                          {getCurrencySymbol(request.quotedPrice.currency || "INR")}
-                          {request.quotedPrice.totalAmount.toLocaleString()}
-                        </p>
                       </div>
                     </div>
-                  </div>
-                )}
+                  )}
 
-                {/* Cooling Period Info */}
-                {activeTab === "quoted" && request.validUntil && (
-                  <div className={`p-3 rounded-lg border ${
-                    isValidUntilExpired(request.validUntil)
-                      ? "bg-red-50 dark:bg-red-950/20 border-red-200"
-                      : "bg-blue-50 dark:bg-blue-950/20 border-blue-200"
-                  }`}>
-                    <div className="flex items-start gap-2">
-                      <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                  {/* Cooling Period Info */}
+                  {activeTab === "quoted" && request.validUntil && (
+                    <div className={`p-4 rounded-lg border-2 flex items-start gap-3 ${
+                      isValidUntilExpired(request.validUntil)
+                        ? "bg-red-50 dark:bg-red-950/30 border-red-300"
+                        : "bg-blue-50 dark:bg-blue-950/30 border-blue-300"
+                    }`}>
+                      <AlertCircle className={`h-5 w-5 mt-0.5 flex-shrink-0 ${
+                        isValidUntilExpired(request.validUntil) ? "text-red-600" : "text-blue-600"
+                      }`} />
                       <div className="text-sm">
-                        <p className="font-semibold">
-                          {isValidUntilExpired(request.validUntil) ? "Cooling Period Expired" : "Cooling Period Active"}
+                        <p className={`font-bold ${
+                          isValidUntilExpired(request.validUntil) ? "text-red-700" : "text-blue-700"
+                        }`}>
+                          {isValidUntilExpired(request.validUntil) ? "🕐 Cooling Period Expired" : "✏️ Cooling Period Active"}
                         </p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Valid until: {formatDate(request.validUntil)} at {formatTime(request.validUntil)}
+                        <p className="text-xs text-muted-foreground mt-2">
+                          Valid until: <strong>{formatDate(request.validUntil)} at {formatTime(request.validUntil)}</strong>
                         </p>
                         {!isValidUntilExpired(request.validUntil) && (
-                          <p className="text-xs font-medium mt-1">
+                          <p className="text-xs font-bold text-green-600 dark:text-green-400 mt-1">
                             ⏱️ {getTimeUntilExpiry(request.validUntil)}
                           </p>
                         )}
                       </div>
                     </div>
-                  </div>
-                )}
-
-                <Separator />
-
-                {/* Action Buttons */}
-                <div className="flex gap-2">
-                  {activeTab === "active" ? (
-                    <Button
-                      onClick={() => handleOpenQuoteDialog(request)}
-                      className="flex-1 bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600"
-                    >
-                      <Send className="h-4 w-4 mr-2" />
-                      Submit Quote
-                    </Button>
-                  ) : (
-                    <Button
-                      onClick={() => handleOpenEditDialog(request)}
-                      disabled={!isInCoolingPeriod(request.validUntil)}
-                      className="flex-1 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600"
-                    >
-                      <Edit2 className="h-4 w-4 mr-2" />
-                      {isInCoolingPeriod(request.validUntil) ? "Update Quote" : "Cooling Period Expired"}
-                    </Button>
                   )}
-                  {request.totalBidsReceived > 0 && (
-                    <Badge variant="secondary" className="flex items-center gap-1">
-                      {request.totalBidsReceived} bid{request.totalBidsReceived > 1 ? "s" : ""} received
-                    </Badge>
-                  )}
-                </div>
 
-                {/* Expiry Warning */}
-                {new Date(request.expiresAt) < new Date(Date.now() + 24 * 60 * 60 * 1000) && (
-                  <div className="text-xs text-red-600">
-                    ⚠️ Bid request expires: {formatDate(request.expiresAt)}
+                  <Separator />
+
+                  {/* Action Buttons */}
+                  <div className="flex flex-col sm:flex-row gap-3 items-center justify-between">
+                    <div className="flex gap-2 w-full sm:w-auto">
+                      {activeTab === "active" ? (
+                        <Button
+                          onClick={() => handleOpenQuoteDialog(request)}
+                          className="flex-1 sm:flex-none bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white font-semibold h-11"
+                        >
+                          <Send className="h-4 w-4 mr-2" />
+                          Submit Quote
+                        </Button>
+                      ) : (
+                        <>
+                          <Button
+                            onClick={() => handleOpenEditDialog(request)}
+                            disabled={!isInCoolingPeriod(request.validUntil)}
+                            className="flex-1 sm:flex-none bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white font-semibold h-11 disabled:opacity-50"
+                          >
+                            <Edit2 className="h-4 w-4 mr-2" />
+                            Update
+                          </Button>
+                          <Button
+                            onClick={() => {
+                              setSelectedBidRequest(request);
+                              setShowWithdrawDialog(true);
+                            }}
+                            disabled={!canWithdrawBid(request.bidId ? request.status : "")}
+                            variant="outline"
+                            className="h-11 bg-red-50 dark:bg-red-900/20 text-red-600 hover:bg-red-100 dark:hover:bg-red-900/40 border-red-300 disabled:opacity-50"
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            <span className="hidden sm:inline">Withdraw</span>
+                          </Button>
+                        </>
+                      )}
+                    </div>
+
+                    {request.totalBidsReceived > 0 && (
+                      <Badge variant="secondary" className="flex items-center gap-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300">
+                        <TrendingUp className="h-3 w-3" />
+                        {request.totalBidsReceived} bid{request.totalBidsReceived > 1 ? "s" : ""} received
+                      </Badge>
+                    )}
                   </div>
-                )}
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
 
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex justify-center gap-2">
-          <Button
-            variant="outline"
-            disabled={page === 0}
-            onClick={() => setPage(page - 1)}
-          >
-            Previous
-          </Button>
-          <span className="px-4 py-2">
-            Page {page + 1} of {totalPages}
-          </span>
-          <Button
-            variant="outline"
-            disabled={page >= totalPages - 1}
-            onClick={() => setPage(page + 1)}
-          >
-            Next
-          </Button>
-        </div>
-      )}
+                  {/* Expiry Warning */}
+                  {new Date(request.expiresAt) < new Date(Date.now() + 24 * 60 * 60 * 1000) && (
+                    <div className="text-sm font-semibold text-red-600 dark:text-red-400 flex items-center gap-2">
+                      <AlertCircle className="h-4 w-4" />
+                      ⚠️ Bid request expires: {formatDate(request.expiresAt)}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
 
-      {/* Submit Quote Dialog */}
-      <Dialog open={showQuoteDialog} onOpenChange={setShowQuoteDialog}>
-        <DialogContent className="max-w-3xl p-0 max-h-[95vh] flex flex-col">
-          {/* Dialog Header */}
-          <div className="bg-gradient-to-r from-orange-500 to-red-500 text-white p-6 flex-shrink-0">
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex-1">
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex justify-center items-center gap-3 mt-8">
+            <Button
+              variant="outline"
+              disabled={page === 0}
+              onClick={() => setPage(page - 1)}
+              className="h-10"
+            >
+              ← Previous
+            </Button>
+            <span className="text-sm font-semibold px-4 py-2 rounded-lg bg-slate-100 dark:bg-slate-800">
+              Page {page + 1} of {totalPages}
+            </span>
+            <Button
+              variant="outline"
+              disabled={page >= totalPages - 1}
+              onClick={() => setPage(page + 1)}
+              className="h-10"
+            >
+              Next →
+            </Button>
+          </div>
+        )}
+
+        {/* Quote Dialog */}
+        <Dialog open={showQuoteDialog} onOpenChange={setShowQuoteDialog}>
+          <DialogContent className="max-w-4xl p-0 max-h-[90vh] flex flex-col bg-white dark:bg-slate-900 rounded-2xl overflow-hidden border-0 shadow-2xl [&>button]:hidden">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-orange-500 via-red-500 to-pink-500 text-white p-6 flex-shrink-0">
+              <div>
                 <h2 className="text-2xl font-bold">Submit Your Quotation</h2>
-                <p className="text-orange-100 text-sm mt-1">
+                <p className="text-orange-100 text-sm mt-1 flex items-center gap-2">
+                  <Send className="h-4 w-4" />
                   Respond to bid request for {selectedBidRequest?.eventDetails.eventName || "Event"}
                 </p>
               </div>
-              <button
-                onClick={() => setShowQuoteDialog(false)}
-                className="text-white hover:text-orange-100 text-3xl leading-none flex-shrink-0"
-              >
-                ×
-              </button>
             </div>
-          </div>
 
-          {/* Dialog Body */}
-          {selectedBidRequest && (
-            <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6">
-              {/* Customer Request Summary */}
-              <div>
-                <h3 className="font-bold text-base mb-3 flex items-center gap-2">
-                  <Calendar className="h-5 w-5 text-orange-500" />
-                  Customer Requirements
-                </h3>
-                <Card className="bg-orange-50 dark:bg-orange-950/20 border-orange-200">
-                  <CardContent className="pt-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div>
-                        <p className="text-muted-foreground text-xs font-semibold uppercase tracking-wide">Event</p>
-                        <p className="font-semibold text-base mt-2">
-                          {selectedBidRequest.eventDetails.eventName || selectedBidRequest.eventDetails.eventType}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-muted-foreground text-xs font-semibold uppercase tracking-wide">Guests</p>
-                        <p className="font-semibold text-base mt-2">{selectedBidRequest.eventDetails.numberOfGuests} people</p>
-                      </div>
-                      <div>
-                        <p className="text-muted-foreground text-xs font-semibold uppercase tracking-wide">Customer Budget</p>
-                        <p className="font-semibold text-base mt-2">
-                          {getCurrencySymbol(selectedBidRequest.budget.currency)}
-                          {selectedBidRequest.budget.estimatedBudget.toLocaleString()}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-muted-foreground text-xs font-semibold uppercase tracking-wide">Event Date</p>
-                        <p className="font-semibold text-base mt-2">{formatDate(selectedBidRequest.eventDetails.eventDate)}</p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-
-              {/* Your Quotation Form */}
-              <div>
-                <h3 className="font-bold text-base mb-3 flex items-center gap-2">
-                  <DollarSign className="h-5 w-5 text-orange-500" />
-                  Your Quotation
-                </h3>
-                <div className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Body */}
+            {selectedBidRequest && (
+              <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6">
+                {/* Requirements Summary */}
+                <div className="bg-gradient-to-br from-orange-50 to-red-50 dark:from-orange-950/30 dark:to-red-950/30 p-4 rounded-lg border-2 border-orange-200 dark:border-orange-800">
+                  <h3 className="font-bold text-base mb-3 flex items-center gap-2">
+                    👥 Customer Requirements
+                  </h3>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     <div>
-                      <Label className="font-semibold text-sm block mb-2">Subtotal *</Label>
-                      <Input
-                        type="number"
-                        value={quoteForm.subtotal}
-                        onChange={(e) => setQuoteForm({ ...quoteForm, subtotal: parseFloat(e.target.value) || 0 })}
-                        placeholder="0"
-                        className="w-full text-base h-10"
-                      />
+                      <p className="text-xs text-muted-foreground font-semibold">Event</p>
+                      <p className="font-semibold mt-1">{selectedBidRequest.eventDetails.eventName || selectedBidRequest.eventDetails.eventType}</p>
                     </div>
                     <div>
-                      <Label className="font-semibold text-sm block mb-2">Tax/GST (optional)</Label>
-                      <Input
-                        type="number"
-                        value={quoteForm.taxAmount}
-                        onChange={(e) => setQuoteForm({ ...quoteForm, taxAmount: parseFloat(e.target.value) || 0 })}
-                        placeholder="0"
-                        className="w-full text-base h-10"
-                      />
+                      <p className="text-xs text-muted-foreground font-semibold">Guests</p>
+                      <p className="font-semibold mt-1">{selectedBidRequest.eventDetails.numberOfGuests}</p>
                     </div>
-                  </div>
-
-                  <div>
-                    <Label className="font-semibold text-sm block mb-2">Delivery & Setup Charge (optional)</Label>
-                    <Input
-                      type="number"
-                      value={quoteForm.deliveryCharge}
-                      onChange={(e) => setQuoteForm({ ...quoteForm, deliveryCharge: parseFloat(e.target.value) || 0 })}
-                      placeholder="0"
-                      className="w-full text-base h-10"
-                    />
-                  </div>
-
-                  {/* Total Amount Highlight */}
-                  <div className="bg-gradient-to-r from-orange-50 to-red-50 dark:from-orange-950/30 dark:to-red-950/30 p-5 rounded-lg border-2 border-orange-200 mt-4">
-                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-                      <span className="text-lg font-bold text-gray-700">Total Amount</span>
-                      <span className="text-4xl font-bold text-orange-600">
-                        {getCurrencySymbol(quoteForm.currency)}
-                        {quoteForm.totalAmount.toLocaleString()}
-                      </span>
+                    <div>
+                      <p className="text-xs text-muted-foreground font-semibold">Budget</p>
+                      <p className="font-semibold mt-1 text-orange-600">{getCurrencySymbol(selectedBidRequest.budget.currency)}{selectedBidRequest.budget.estimatedBudget.toLocaleString()}</p>
                     </div>
-                    <div className="mt-3 space-y-2">
-                      {quoteForm.totalAmount < selectedBidRequest.budget.estimatedBudget && (
-                        <div className="text-sm text-green-600 font-semibold flex items-center gap-2">
-                          <span className="text-lg">✓</span>
-                          <span>
-                            {getCurrencySymbol(quoteForm.currency)}
-                            {(selectedBidRequest.budget.estimatedBudget - quoteForm.totalAmount).toLocaleString()} SAVINGS
-                          </span>
-                        </div>
-                      )}
-                      {quoteForm.totalAmount > selectedBidRequest.budget.estimatedBudget && (
-                        <div className="text-sm text-amber-600 font-semibold flex items-center gap-2">
-                          <span>⚠</span>
-                          <span>
-                            Above budget by {getCurrencySymbol(quoteForm.currency)}
-                            {(quoteForm.totalAmount - selectedBidRequest.budget.estimatedBudget).toLocaleString()}
-                          </span>
-                        </div>
-                      )}
+                    <div>
+                      <p className="text-xs text-muted-foreground font-semibold">Date</p>
+                      <p className="font-semibold mt-1">{formatDate(selectedBidRequest.eventDetails.eventDate)}</p>
                     </div>
                   </div>
                 </div>
-              </div>
 
-              <Separator />
-
-              {/* Terms & Conditions */}
-              <div>
-                <h3 className="font-bold text-base mb-3">Cooling Period & Terms</h3>
-                <div className="space-y-4">
-                  <div>
-                    <Label className="font-semibold text-sm block mb-2">Valid Until * (Cooling Period)</Label>
-                    <Input
-                      type="date"
-                      value={quoteForm.validUntil}
-                      onChange={(e) => setQuoteForm({ ...quoteForm, validUntil: e.target.value })}
-                      className="w-full h-10"
-                    />
-                    <p className="text-xs text-muted-foreground mt-2">
-                      📌 Customer can update your quote before this date. After this, your quote is final.
-                    </p>
-                  </div>
-
-                  <div>
-                    <Label className="font-semibold text-sm block mb-2">Terms & Conditions</Label>
-                    <Textarea
-                      value={quoteForm.termsAndConditions}
-                      onChange={(e) => setQuoteForm({ ...quoteForm, termsAndConditions: e.target.value })}
-                      rows={3}
-                      placeholder="E.g., 50% advance, balance before event, cancellation policy..."
-                      className="w-full text-sm"
-                    />
-                  </div>
-
-                  <div>
-                    <Label className="font-semibold text-sm block mb-2">Additional Notes (optional)</Label>
-                    <Textarea
-                      value={quoteForm.notes}
-                      onChange={(e) => setQuoteForm({ ...quoteForm, notes: e.target.value })}
-                      rows={2}
-                      placeholder="Special requests, menu recommendations, or service details..."
-                      className="w-full text-sm"
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Dialog Footer */}
-          <div className="border-t bg-white dark:bg-slate-950 p-6 flex gap-3 justify-end flex-shrink-0">
-            <Button
-              variant="outline"
-              onClick={() => setShowQuoteDialog(false)}
-              className="min-w-[120px]"
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleSubmitQuote}
-              disabled={submitting || quoteForm.totalAmount <= 0}
-              className="min-w-[180px] bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white font-semibold"
-            >
-              {submitting ? "Submitting..." : "Submit Quotation"}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Edit Quote Dialog */}
-      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
-        <DialogContent className="max-w-3xl p-0 max-h-[95vh] flex flex-col">
-          {/* Dialog Header */}
-          <div className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white p-6 flex-shrink-0">
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex-1">
-                <h2 className="text-2xl font-bold">Update Your Quotation</h2>
-                <p className="text-blue-100 text-sm mt-1">
-                  Revise pricing for {selectedBidRequest?.eventDetails.eventName || "Event"} during cooling period
-                </p>
-              </div>
-              <button
-                onClick={() => setShowEditDialog(false)}
-                className="text-white hover:text-blue-100 text-3xl leading-none flex-shrink-0"
-              >
-                ×
-              </button>
-            </div>
-          </div>
-
-          {/* Dialog Body */}
-          {selectedBidRequest && (
-            <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6">
-              {/* Cooling Period Alert */}
-              {selectedBidRequest.validUntil && (
-                <div className={`p-4 rounded-lg border-2 flex items-start gap-3 ${
-                  isValidUntilExpired(selectedBidRequest.validUntil)
-                    ? "bg-red-50 dark:bg-red-950/30 border-red-300"
-                    : "bg-blue-50 dark:bg-blue-950/30 border-blue-300"
-                }`}>
-                  <AlertCircle className={`h-5 w-5 flex-shrink-0 mt-0.5 ${
-                    isValidUntilExpired(selectedBidRequest.validUntil) ? "text-red-600" : "text-blue-600"
-                  }`} />
-                  <div className="flex-1">
-                    <p className={`font-bold text-sm ${
-                      isValidUntilExpired(selectedBidRequest.validUntil) ? "text-red-700" : "text-blue-700"
-                    }`}>
-                      {isValidUntilExpired(selectedBidRequest.validUntil) ? "⏰ Cooling Period Ended" : "🕐 Cooling Period Active"}
-                    </p>
-                    <p className="text-sm text-gray-700 mt-2">
-                      Valid until: <strong>{formatDate(selectedBidRequest.validUntil)} at {formatTime(selectedBidRequest.validUntil)}</strong>
-                    </p>
-                    {!isValidUntilExpired(selectedBidRequest.validUntil) && (
-                      <p className="text-sm font-semibold text-green-600 mt-2">
-                        ✓ {getTimeUntilExpiry(selectedBidRequest.validUntil)}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Customer Request Summary */}
-              <div>
-                <h3 className="font-bold text-base mb-3 flex items-center gap-2">
-                  <Calendar className="h-5 w-5 text-blue-500" />
-                  Customer Requirements
-                </h3>
-                <Card className="bg-blue-50 dark:bg-blue-950/20 border-blue-200">
-                  <CardContent className="pt-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div>
-                        <p className="text-muted-foreground text-xs font-semibold uppercase tracking-wide">Event</p>
-                        <p className="font-semibold text-base mt-2">
-                          {selectedBidRequest.eventDetails.eventName || selectedBidRequest.eventDetails.eventType}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-muted-foreground text-xs font-semibold uppercase tracking-wide">Guests</p>
-                        <p className="font-semibold text-base mt-2">{selectedBidRequest.eventDetails.numberOfGuests} people</p>
-                      </div>
-                      <div>
-                        <p className="text-muted-foreground text-xs font-semibold uppercase tracking-wide">Customer Budget</p>
-                        <p className="font-semibold text-base mt-2">
-                          {getCurrencySymbol(selectedBidRequest.budget.currency)}
-                          {selectedBidRequest.budget.estimatedBudget.toLocaleString()}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-muted-foreground text-xs font-semibold uppercase tracking-wide">Event Date</p>
-                        <p className="font-semibold text-base mt-2">{formatDate(selectedBidRequest.eventDetails.eventDate)}</p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-
-              {/* Current Quote Display */}
-              {selectedBidRequest.quotedPrice && (
+                {/* Quotation Form */}
                 <div>
-                  <h3 className="font-bold text-base mb-3">Your Current Quote</h3>
-                  <Card className="bg-gray-50 dark:bg-gray-950/20 border-gray-200">
-                    <CardContent className="pt-6">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div>
-                          <p className="text-muted-foreground text-xs font-semibold uppercase tracking-wide">Subtotal</p>
-                          <p className="font-bold text-base mt-2">
-                            {getCurrencySymbol(selectedBidRequest.quotedPrice.currency || "INR")}
-                            {selectedBidRequest.quotedPrice.subtotal.toLocaleString()}
-                          </p>
-                        </div>
-                        {selectedBidRequest.quotedPrice.taxAmount !== undefined && selectedBidRequest.quotedPrice.taxAmount > 0 && (
-                          <div>
-                            <p className="text-muted-foreground text-xs font-semibold uppercase tracking-wide">Tax</p>
-                            <p className="font-bold text-base mt-2">
-                              {getCurrencySymbol(selectedBidRequest.quotedPrice.currency || "INR")}
-                              {selectedBidRequest.quotedPrice.taxAmount.toLocaleString()}
-                            </p>
-                          </div>
-                        )}
-                        {selectedBidRequest.quotedPrice.deliveryCharge !== undefined && selectedBidRequest.quotedPrice.deliveryCharge > 0 && (
-                          <div>
-                            <p className="text-muted-foreground text-xs font-semibold uppercase tracking-wide">Delivery</p>
-                            <p className="font-bold text-base mt-2">
-                              {getCurrencySymbol(selectedBidRequest.quotedPrice.currency || "INR")}
-                              {selectedBidRequest.quotedPrice.deliveryCharge.toLocaleString()}
-                            </p>
-                          </div>
-                        )}
-                        <div>
-                          <p className="text-muted-foreground text-xs font-semibold uppercase tracking-wide">Total</p>
-                          <p className="font-bold text-base mt-2 text-blue-600">
-                            {getCurrencySymbol(selectedBidRequest.quotedPrice.currency || "INR")}
-                            {selectedBidRequest.quotedPrice.totalAmount.toLocaleString()}
-                          </p>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-              )}
-
-              {/* Updated Quotation Form */}
-              <div>
-                <h3 className="font-bold text-base mb-3 flex items-center gap-2">
-                  <DollarSign className="h-5 w-5 text-blue-500" />
-                  New Quotation
-                </h3>
-                <div className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <h3 className="font-bold text-base mb-3">💰 Your Quotation</h3>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                     <div>
                       <Label className="font-semibold text-sm block mb-2">Subtotal *</Label>
                       <Input
@@ -1079,125 +807,269 @@ export default function BidsNew() {
                         value={quoteForm.subtotal}
                         onChange={(e) => setQuoteForm({ ...quoteForm, subtotal: parseFloat(e.target.value) || 0 })}
                         placeholder="0"
-                        className="w-full text-base h-10"
+                        className="h-10 text-base"
                       />
                     </div>
                     <div>
-                      <Label className="font-semibold text-sm block mb-2">Tax/GST (optional)</Label>
+                      <Label className="font-semibold text-sm block mb-2">Service Charge</Label>
                       <Input
                         type="number"
-                        value={quoteForm.taxAmount}
-                        onChange={(e) => setQuoteForm({ ...quoteForm, taxAmount: parseFloat(e.target.value) || 0 })}
+                        value={quoteForm.serviceCharge}
+                        onChange={(e) => setQuoteForm({ ...quoteForm, serviceCharge: parseFloat(e.target.value) || 0 })}
                         placeholder="0"
-                        className="w-full text-base h-10"
+                        className="h-10 text-base"
+                      />
+                    </div>
+                    <div>
+                      <Label className="font-semibold text-sm block mb-2">Tax %</Label>
+                      <Input
+                        type="number"
+                        value={quoteForm.taxPercentage}
+                        onChange={(e) => {
+                          const taxPct = parseFloat(e.target.value) || 0;
+                          const taxAmt = (quoteForm.subtotal + quoteForm.serviceCharge) * (taxPct / 100);
+                          setQuoteForm({ ...quoteForm, taxPercentage: taxPct, taxAmount: taxAmt });
+                        }}
+                        placeholder="0"
+                        className="h-10 text-base"
                       />
                     </div>
                   </div>
+                </div>
 
-                  <div>
-                    <Label className="font-semibold text-sm block mb-2">Delivery & Setup Charge (optional)</Label>
-                    <Input
-                      type="number"
-                      value={quoteForm.deliveryCharge}
-                      onChange={(e) => setQuoteForm({ ...quoteForm, deliveryCharge: parseFloat(e.target.value) || 0 })}
-                      placeholder="0"
-                      className="w-full text-base h-10"
-                    />
+                {/* Total Display */}
+                <div className="bg-gradient-to-r from-orange-50 to-red-50 dark:from-orange-950/50 dark:to-red-950/50 p-6 rounded-lg border-3 border-orange-300 dark:border-orange-700">
+                  <div className="flex justify-between items-center mb-4">
+                    <span className="text-lg font-bold">TOTAL AMOUNT</span>
+                    <span className="text-5xl font-bold text-orange-600">{getCurrencySymbol(quoteForm.currency)}{quoteForm.totalAmount.toLocaleString()}</span>
                   </div>
-
-                  {/* Total Amount Highlight */}
-                  <div className="bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-950/30 dark:to-cyan-950/30 p-5 rounded-lg border-2 border-blue-200 mt-4">
-                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-3">
-                      <span className="text-lg font-bold text-gray-700">New Total Amount</span>
-                      <span className="text-4xl font-bold text-blue-600">
-                        {getCurrencySymbol(quoteForm.currency)}
-                        {quoteForm.totalAmount.toLocaleString()}
-                      </span>
-                    </div>
-                    <div className="border-t border-blue-300 pt-3 space-y-2">
-                      <div className="flex justify-between items-center text-sm">
-                        <span className="text-muted-foreground">Previous Amount:</span>
-                        <span className="font-semibold">{getCurrencySymbol(quoteForm.currency)}{selectedBidRequest.quotedPrice?.totalAmount.toLocaleString() || "N/A"}</span>
-                      </div>
-                      <div className="flex justify-between items-center text-sm">
-                        <span className="text-muted-foreground">Change:</span>
-                        <span className={quoteForm.totalAmount < (selectedBidRequest.quotedPrice?.totalAmount || 0) ? "text-green-600 font-semibold" : "text-amber-600 font-semibold"}>
-                          {quoteForm.totalAmount < (selectedBidRequest.quotedPrice?.totalAmount || 0) ? "↓ Decreased" : quoteForm.totalAmount > (selectedBidRequest.quotedPrice?.totalAmount || 0) ? "↑ Increased" : "— No change"}
-                        </span>
-                      </div>
-                    </div>
-                    {quoteForm.totalAmount < selectedBidRequest.budget.estimatedBudget && (
-                      <div className="mt-3 text-sm text-green-600 font-semibold flex items-center gap-2">
-                        <span className="text-lg">✓</span>
-                        <span>
-                          {getCurrencySymbol(quoteForm.currency)}
-                          {(selectedBidRequest.budget.estimatedBudget - quoteForm.totalAmount).toLocaleString()} SAVINGS
-                        </span>
-                      </div>
+                  <div className="space-y-2 border-t border-orange-300 dark:border-orange-700 pt-4">
+                    {quoteForm.totalAmount < selectedBidRequest.budget.estimatedBudget ? (
+                      <p className="text-sm font-bold text-green-600 flex items-center gap-2">
+                        <CheckCircle2 className="h-4 w-4" />
+                        💚 {getCurrencySymbol(quoteForm.currency)}{(selectedBidRequest.budget.estimatedBudget - quoteForm.totalAmount).toLocaleString()} BELOW BUDGET
+                      </p>
+                    ) : quoteForm.totalAmount > selectedBidRequest.budget.estimatedBudget ? (
+                      <p className="text-sm font-bold text-amber-600 flex items-center gap-2">
+                        <AlertCircle className="h-4 w-4" />
+                        Above budget by {getCurrencySymbol(quoteForm.currency)}{(quoteForm.totalAmount - selectedBidRequest.budget.estimatedBudget).toLocaleString()}
+                      </p>
+                    ) : (
+                      <p className="text-sm font-bold text-blue-600">Matches customer budget exactly</p>
                     )}
                   </div>
                 </div>
-              </div>
 
-              {/* Update Terms */}
-              <div>
-                <h3 className="font-bold text-base mb-3">Update Terms & Notes</h3>
-                <div className="space-y-4">
-                  <div>
-                    <Label className="font-semibold text-sm block mb-2">Valid Until</Label>
-                    <Input
-                      type="date"
-                      value={quoteForm.validUntil}
-                      onChange={(e) => setQuoteForm({ ...quoteForm, validUntil: e.target.value })}
-                      className="w-full h-10"
-                    />
-                  </div>
+                <Separator />
 
-                  <div>
-                    <Label className="font-semibold text-sm block mb-2">Terms & Conditions</Label>
-                    <Textarea
-                      value={quoteForm.termsAndConditions}
-                      onChange={(e) => setQuoteForm({ ...quoteForm, termsAndConditions: e.target.value })}
-                      rows={3}
-                      placeholder="E.g., 50% advance, balance before event, cancellation policy..."
-                      className="w-full text-sm"
-                    />
-                  </div>
+                {/* Terms */}
+                <div>
+                  <h3 className="font-bold text-base mb-3">⏰ Validity & Terms</h3>
+                  <div className="space-y-4">
+                    <div>
+                      <Label className="font-semibold text-sm block mb-2">Valid for (hours) *</Label>
+                      <Input
+                        type="number"
+                        value={quoteForm.validityPeriodHours}
+                        onChange={(e) => setQuoteForm({ ...quoteForm, validityPeriodHours: parseInt(e.target.value) || 48 })}
+                        placeholder="48"
+                        className="h-10"
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">📌 Customer can request revisions within this period</p>
+                    </div>
 
-                  <div>
-                    <Label className="font-semibold text-sm block mb-2">Additional Notes (optional)</Label>
-                    <Textarea
-                      value={quoteForm.notes}
-                      onChange={(e) => setQuoteForm({ ...quoteForm, notes: e.target.value })}
-                      rows={2}
-                      placeholder="Special requests, menu recommendations, or service details..."
-                      className="w-full text-sm"
-                    />
+                    <div>
+                      <Label className="font-semibold text-sm block mb-2">Terms & Conditions</Label>
+                      <Textarea
+                        value={quoteForm.termsAndConditions}
+                        onChange={(e) => setQuoteForm({ ...quoteForm, termsAndConditions: e.target.value })}
+                        rows={3}
+                        className="text-sm resize-none"
+                      />
+                    </div>
+
+                    <div>
+                      <Label className="font-semibold text-sm block mb-2">Notes (optional)</Label>
+                      <Textarea
+                        value={quoteForm.notes}
+                        onChange={(e) => setQuoteForm({ ...quoteForm, notes: e.target.value })}
+                        rows={2}
+                        placeholder="Menu recommendations, special arrangements, etc..."
+                        className="text-sm resize-none"
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* Dialog Footer */}
-          <div className="border-t bg-white dark:bg-slate-950 p-6 flex gap-3 justify-end flex-shrink-0">
-            <Button
-              variant="outline"
-              onClick={() => setShowEditDialog(false)}
-              className="min-w-[120px]"
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleUpdateQuote}
-              disabled={submitting || quoteForm.totalAmount <= 0 || !isInCoolingPeriod(selectedBidRequest?.validUntil)}
-              className="min-w-[200px] bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white font-semibold"
-            >
-              {submitting ? "Updating..." : "Update & Re-submit Quote"}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+            {/* Footer */}
+            <div className="border-t bg-slate-50 dark:bg-slate-800 p-6 flex gap-3 justify-end rounded-b-2xl">
+              <Button onClick={() => setShowQuoteDialog(false)} variant="outline" className="h-11">
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSubmitQuote}
+                disabled={submitting || quoteForm.totalAmount <= 0}
+                className="h-11 bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white font-semibold min-w-[140px]"
+              >
+                {submitting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Submitting...
+                  </>
+                ) : (
+                  <>
+                    <Send className="h-4 w-4 mr-2" />
+                    Submit Quote
+                  </>
+                )}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Similar Edit and Withdraw dialogs... (similar structure) */}
+        {/* I'll keep them simplified for now */}
+
+        {/* Edit Dialog */}
+        <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+          <DialogContent className="max-w-4xl p-0 max-h-[90vh] flex flex-col bg-white dark:bg-slate-900 rounded-2xl overflow-hidden border-0 shadow-2xl [&>button]:hidden">
+            <div className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white p-6 flex-shrink-0">
+              <div>
+                <h2 className="text-2xl font-bold">Update Your Quotation</h2>
+                <p className="text-blue-100 text-sm mt-1">Revise pricing during cooling period</p>
+              </div>
+            </div>
+
+            {selectedBidRequest && (
+              <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6">
+                <div className="bg-blue-50 dark:bg-blue-950/30 p-4 rounded-lg border-2 border-blue-300">
+                  <h3 className="font-bold text-base mb-3">📊 Current Quote</h3>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <div>
+                      <p className="text-xs text-muted-foreground">Subtotal</p>
+                      <p className="font-bold mt-1">{getCurrencySymbol(quoteForm.currency)}{selectedBidRequest.quotedPrice?.subtotal.toLocaleString() || "0"}</p>
+                    </div>
+                    {selectedBidRequest.quotedPrice?.taxAmount !== undefined && selectedBidRequest.quotedPrice.taxAmount > 0 && (
+                      <div>
+                        <p className="text-xs text-muted-foreground">Tax</p>
+                        <p className="font-bold mt-1">{getCurrencySymbol(quoteForm.currency)}{selectedBidRequest.quotedPrice.taxAmount.toLocaleString()}</p>
+                      </div>
+                    )}
+                    <div>
+                      <p className="text-xs text-muted-foreground">TOTAL</p>
+                      <p className="font-bold mt-1 text-blue-600">{getCurrencySymbol(quoteForm.currency)}{selectedBidRequest.quotedPrice?.totalAmount.toLocaleString() || "0"}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className="font-bold text-base mb-3">💰 New Quotation</h3>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    <div>
+                      <Label className="font-semibold text-sm block mb-2">Subtotal *</Label>
+                      <Input
+                        type="number"
+                        value={quoteForm.subtotal}
+                        onChange={(e) => setQuoteForm({ ...quoteForm, subtotal: parseFloat(e.target.value) || 0 })}
+                        className="h-10"
+                      />
+                    </div>
+                    <div>
+                      <Label className="font-semibold text-sm block mb-2">Service Charge</Label>
+                      <Input
+                        type="number"
+                        value={quoteForm.serviceCharge}
+                        onChange={(e) => setQuoteForm({ ...quoteForm, serviceCharge: parseFloat(e.target.value) || 0 })}
+                        className="h-10"
+                      />
+                    </div>
+                    <div>
+                      <Label className="font-semibold text-sm block mb-2">Tax %</Label>
+                      <Input
+                        type="number"
+                        value={quoteForm.taxPercentage}
+                        onChange={(e) => {
+                          const taxPct = parseFloat(e.target.value) || 0;
+                          const taxAmt = (quoteForm.subtotal + quoteForm.serviceCharge) * (taxPct / 100);
+                          setQuoteForm({ ...quoteForm, taxPercentage: taxPct, taxAmount: taxAmt });
+                        }}
+                        className="h-10"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-950/50 dark:to-cyan-950/50 p-6 rounded-lg border-3 border-blue-300 dark:border-blue-700">
+                  <div className="flex justify-between items-center">
+                    <span className="text-lg font-bold">NEW TOTAL</span>
+                    <span className="text-4xl font-bold text-blue-600">{getCurrencySymbol(quoteForm.currency)}{quoteForm.totalAmount.toLocaleString()}</span>
+                  </div>
+                </div>
+
+                <div>
+                  <Label className="font-semibold text-sm block mb-2">Terms & Conditions</Label>
+                  <Textarea
+                    value={quoteForm.termsAndConditions}
+                    onChange={(e) => setQuoteForm({ ...quoteForm, termsAndConditions: e.target.value })}
+                    rows={3}
+                    className="text-sm"
+                  />
+                </div>
+              </div>
+            )}
+
+            <div className="border-t bg-slate-50 dark:bg-slate-800 p-6 flex gap-3 justify-end rounded-b-2xl">
+              <Button onClick={() => setShowEditDialog(false)} variant="outline" className="h-11">
+                Cancel
+              </Button>
+              <Button
+                onClick={handleUpdateQuote}
+                disabled={submitting}
+                className="h-11 bg-gradient-to-r from-blue-500 to-cyan-500 text-white font-semibold min-w-[140px]"
+              >
+                {submitting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Edit2 className="h-4 w-4 mr-2" />}
+                {submitting ? "Updating..." : "Update Quote"}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Withdraw Dialog */}
+        <Dialog open={showWithdrawDialog} onOpenChange={setShowWithdrawDialog}>
+          <DialogContent className="max-w-md rounded-2xl overflow-hidden border-0 shadow-2xl [&>button]:hidden">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-red-600">
+                <AlertCircle className="h-5 w-5" />
+                Withdraw Bid
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <p className="text-muted-foreground">
+                Are you sure you want to withdraw your bid for <strong>{selectedBidRequest?.eventDetails.eventName}</strong>?
+              </p>
+              <p className="text-sm text-amber-600 flex items-start gap-2">
+                <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                This action cannot be undone. You'll need to submit a new bid if you change your mind.
+              </p>
+            </div>
+            <div className="border-t bg-slate-50 dark:bg-slate-800 p-6 flex gap-3 justify-end rounded-b-2xl mt-6">
+              <Button onClick={() => setShowWithdrawDialog(false)} variant="outline">
+                Cancel
+              </Button>
+              <Button
+                onClick={handleWithdrawBid}
+                disabled={submitting}
+                className="bg-red-600 hover:bg-red-700 text-white"
+              >
+                {submitting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
+                {submitting ? "Withdrawing..." : "Withdraw Bid"}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
     </div>
   );
 }

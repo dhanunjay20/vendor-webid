@@ -138,3 +138,30 @@ All colors MUST be HSL.
     @apply bg-background text-foreground;
   }
 }
+
+/* Dialog Overlay Styling */
+[data-radix-dialog-overlay] {
+  background-color: transparent !important;
+  backdrop-filter: none !important;
+}
+
+/* Hide default close button in dialogs */
+[data-radix-dialog-content] > button {
+  display: none !important;
+}
+
+/* Smooth dialog animations */
+[data-state="open"] {
+  animation: dialogSlideIn 0.3s ease-out !important;
+}
+
+@keyframes dialogSlideIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -48%);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%);
+  }
+}
