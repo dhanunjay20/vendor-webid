@@ -627,6 +627,114 @@ export async function acceptBid(vendorOrgId: string, bidId: string) {
   }
 }
 
+// ============ New Bid Request Flow ============
+
+/**
+ * Get received bid requests for vendor
+ * GET /api/v1/bids/vendor/received
+ */
+export async function getReceivedBidRequests(page = 0, size = 20) {
+  try {
+    const url = buildUrl(`/api/v1/bids/vendor/received?page=${page}&size=${size}`);
+    const token = localStorage.getItem("authToken");
+    const tokenType = localStorage.getItem("tokenType") || "Bearer";
+    
+    const res = await axios.get(url, { 
+      headers: token ? { Authorization: `${tokenType} ${token}` } : undefined 
+    });
+    
+    return res.data;
+  } catch (err: any) {
+    const { message, status } = extractError(err);
+    throw { message, status } as ApiError;
+  }
+}
+
+/**
+ * Submit quotation for a bid request
+ * POST /api/v1/bids/requests/{bidRequestId}/submit-bid
+ */
+export async function submitBidQuotation(bidRequestId: string, payload: {
+  quotedPrice: {
+    subtotal: number;
+    taxAmount?: number;
+    deliveryCharge?: number;
+    totalAmount: number;
+    currency?: string;
+  };
+  validUntil?: string;
+  termsAndConditions?: string;
+  notes?: string;
+}) {
+  try {
+    const url = buildUrl(`/api/v1/bids/requests/${bidRequestId}/submit-bid`);
+    const token = localStorage.getItem("authToken");
+    const tokenType = localStorage.getItem("tokenType") || "Bearer";
+    const res = await axios.post(url, payload, { 
+      headers: { 
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `${tokenType} ${token}` } : {})
+      } 
+    });
+    return res.data;
+  } catch (err: any) {
+    const { message, status } = extractError(err);
+    throw { message, status } as ApiError;
+  }
+}
+
+/**
+ * Get bid request details by ID
+ * GET /api/v1/bids/requests/{bidRequestId}
+ */
+export async function getBidRequestDetails(bidRequestId: string) {
+  try {
+    const url = buildUrl(`/api/v1/bids/requests/${bidRequestId}`);
+    const token = localStorage.getItem("authToken");
+    const tokenType = localStorage.getItem("tokenType") || "Bearer";
+    const res = await axios.get(url, {
+      headers: token ? { Authorization: `${tokenType} ${token}` } : undefined
+    });
+    return res.data;
+  } catch (err: any) {
+    const { message, status } = extractError(err);
+    throw { message, status } as ApiError;
+  }
+}
+
+/**
+ * Update an existing quotation during cooling period
+ * PUT /api/v1/bids/{bidId}/quotation
+ */
+export async function updateBidQuotation(bidId: string, payload: {
+  quotedPrice: {
+    subtotal: number;
+    taxAmount?: number;
+    deliveryCharge?: number;
+    totalAmount: number;
+    currency?: string;
+  };
+  validUntil?: string;
+  termsAndConditions?: string;
+  notes?: string;
+}) {
+  try {
+    const url = buildUrl(`/api/v1/bids/${bidId}/quotation`);
+    const token = localStorage.getItem("authToken");
+    const tokenType = localStorage.getItem("tokenType") || "Bearer";
+    const res = await axios.put(url, payload, { 
+      headers: { 
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `${tokenType} ${token}` } : {})
+      } 
+    });
+    return res.data;
+  } catch (err: any) {
+    const { message, status } = extractError(err);
+    throw { message, status } as ApiError;
+  }
+}
+
 export async function deleteMenuItem(vendorOrganizationId: string, id: string) {
 
   try {
@@ -900,6 +1008,10 @@ export default {
   getBidsByVendor,
   submitBidQuote,
   acceptBid,
+  getReceivedBidRequests,
+  submitBidQuotation,
+  updateBidQuotation,
+  getBidRequestDetails,
   getOrdersByVendor,
   updateOrderStatus,
   getVendorNotifications,

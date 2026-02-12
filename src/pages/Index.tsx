@@ -12,13 +12,9 @@ import { useDashboardData } from "@/hooks/use-dashboard-data";
 import dashboardHero from "@/assets/dashboard-hero.jpg";
 
 const Index = () => {
-  // Get vendor organization ID from localStorage
-  // The analytics API expects vendorOrganizationId
-  const vendorOrganizationId = localStorage.getItem("vendorOrganizationId");
-
   // Fetch dashboard data with auto-refresh every 30 minutes (1800000ms)
+  // No need to pass vendorId as it's determined from the auth token
   const { data, loading, error, refetch } = useDashboardData({
-    vendorId: vendorOrganizationId,
     autoFetch: true,
     refreshInterval: 1800000, // Auto-refresh every 30 minutes
   });
@@ -68,14 +64,6 @@ const Index = () => {
 
       {/* Main Content - Mobile Responsive */}
       <main className="container mx-auto px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8">
-        {/* Missing Vendor ID Warning */}
-        {!vendorOrganizationId && (
-          <Alert variant="destructive" className="mb-4 sm:mb-6">
-            <AlertDescription className="text-sm">
-              Vendor organization ID not found. Please log in again.
-            </AlertDescription>
-          </Alert>
-        )}
 
         {/* Error Alert with CORS Help */}
         {error && (

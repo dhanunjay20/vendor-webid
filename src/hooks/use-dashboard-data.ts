@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback } from 'react';
 import { analyticsApi, DashboardDataDto } from '@/lib/analyticsApi';
 
 interface UseDashboardDataOptions {
-  vendorId: string | null;
   autoFetch?: boolean;
   refreshInterval?: number; // in milliseconds, 0 to disable
 }
@@ -23,29 +22,23 @@ interface UseDashboardDataReturn {
  * @example
  * ```tsx
  * const { data, loading, error, refetch } = useDashboardData({
- *   vendorId: 'vendor123',
  *   autoFetch: true,
  *   refreshInterval: 60000, // Refresh every 60 seconds
  * });
  * ```
  */
-export const useDashboardData = (options: UseDashboardDataOptions): UseDashboardDataReturn => {
-  const { vendorId, autoFetch = true, refreshInterval = 0 } = options;
+export const useDashboardData = (options: UseDashboardDataOptions = {}): UseDashboardDataReturn => {
+  const { autoFetch = true, refreshInterval = 0 } = options;
 
   const [data, setData] = useState<DashboardDataDto | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
-    if (!vendorId) {
-      setError('Vendor ID is required');
-      return;
-    }
-
     try {
       setLoading(true);
       setError(null);
-      const dashboardData = await analyticsApi.getCompleteDashboard(vendorId);
+      const dashboardData = await analyticsApi.getCompleteDashboard();
       setData(dashboardData);
     } catch (err: any) {
       const backendMessage = err?.response?.data?.message || err?.response?.data;
@@ -56,25 +49,25 @@ export const useDashboardData = (options: UseDashboardDataOptions): UseDashboard
     } finally {
       setLoading(false);
     }
-  }, [vendorId]);
+  }, []);
 
   // Initial fetch
   useEffect(() => {
-    if (autoFetch && vendorId) {
+    if (autoFetch) {
       fetchData();
     }
-  }, [autoFetch, vendorId, fetchData]);
+  }, [autoFetch, fetchData]);
 
   // Auto-refresh interval
   useEffect(() => {
-    if (refreshInterval > 0 && vendorId) {
+    if (refreshInterval > 0) {
       const intervalId = setInterval(() => {
         fetchData();
       }, refreshInterval);
 
       return () => clearInterval(intervalId);
     }
-  }, [refreshInterval, vendorId, fetchData]);
+  }, [refreshInterval, fetchData]);
 
   return {
     data,
@@ -82,46 +75,4 @@ export const useDashboardData = (options: UseDashboardDataOptions): UseDashboard
     error,
     refetch: fetchData,
   };
-};
-
-/**
- * Hook for fetching individual analytics components
- * Use this when you only need specific data instead of the complete dashboard
- */
-export const useAnalyticsComponent = <T,>(
-  fetchFunction: (vendorId: string, ...args: any[]) => Promise<T>,
-  vendorId: string | null,
-  ...params: any[]
-) => {
-  const [data, setData] = useState<T | null>(null);
-  const [loading, setLoading] = useState<boolean>(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const fetchData = useCallback(async () => {
-    if (!vendorId) {
-      setError('Vendor ID is required');
-      return;
-    }
-
-    try {
-      setLoading(true);
-      setError(null);
-
-      const result = await fetchFunction(vendorId, ...params);
-      setData(result);
-    } catch (err: any) {
-      const errorMessage = err?.response?.data?.message || err?.message || 'Failed to fetch data';
-      setError(errorMessage);
-    } finally {
-      setLoading(false);
-    }
-  }, [vendorId, fetchFunction, ...params]);
-
-  useEffect(() => {
-    if (vendorId) {
-      fetchData();
-    }
-  }, [vendorId, fetchData]);
-
-  return { data, loading, error, refetch: fetchData };
 };

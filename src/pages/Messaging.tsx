@@ -1,786 +1,636 @@
-import { useState, useEffect, useRef } from "react";
-import { useSearchParams } from "react-router-dom";
-import { Send, Phone, Mail, Search, Circle, MessageSquare } from "lucide-react";
+import { useState, useRef, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
+import {
+  Send, Lock, Loader2, Menu, Paperclip, Image as ImageIcon, FileText, X,
+  Check, CheckCheck, ChevronDown,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent } from "@/components/ui/card";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Textarea } from "@/components/ui/textarea";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { useToast } from "@/hooks/use-toast";
-import { useNotifications } from "@/contexts/NotificationContext";
-import { WebSocketDebugPanel } from "@/components/WebSocketDebugPanel";
+import { Avatar } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import {
-  webSocketService,
-  ChatMessage as WSChatMessage,
-  MessageStatus,
-  ChatNotification,
-  TypingStatus,
-  UserStatus,
-} from "@/lib/websocket";
-import { chatApi } from "@/lib/chatApi";
-import { chatNotificationApi, ChatListItemDto } from "@/lib/chatNotificationApi";
-import { notifyNewMessage } from "@/lib/notifications";
-
-interface Conversation {
-  id: string;
-  name: string;
-  avatar: string | undefined;
-  lastMessage: string;
-  time: string;
-  unread: number;
-  orderId: string;
-  userId: string;
-  status?: "ONLINE" | "OFFLINE" | "AWAY";
-  isTyping?: boolean;
-  typingSenderType?: "VENDOR" | "USER" | string;
-  timestamp?: string; // For sorting
-}
-
-interface Message {
-  id: string;
-  sender: string;
-  senderId: string; // MongoDB ObjectId
-  recipientId: string; // MongoDB ObjectId
-  text: string;
-  time: string;
-  status?: MessageStatus;
-}
-
-const Messaging: React.FC = () => {
-  const [searchParams] = useSearchParams();
-  const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
-  const [messageText, setMessageText] = useState("");
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [conversationList, setConversationList] = useState<Conversation[]>([]);
-  const [isTyping, setIsTyping] = useState(false);
-  const [isConnected, setIsConnected] = useState(false);
-  const { toast } = useToast();
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Per-sender typing timeouts to auto-clear indicators when backend misses a stop event
-  const typingTimeoutsRef = useRef<Record<string, ReturnType<typeof setTimeout> | null>>({});
-
-  // Debug state
-  const [debugEvents, setDebugEvents] = useState<Array<{timestamp: string; type: string; data: any}>>([]);
-  const [debugTypingStates, setDebugTypingStates] = useState<Record<string, boolean>>({});
-
-  // Instead of module-level read, read user id into state so the component reacts
-  const [currentUserId, setCurrentUserId] = useState<string>(
-    () => localStorage.getItem("vendorId") || localStorage.getItem("id") || ""
-  );
-
-  // Keep a ref for conversationList to avoid stale closures inside websocket handlers
-  const conversationListRef = useRef<Conversation[]>(conversationList);
-  useEffect(() => {
-    conversationListRef.current = conversationList;
-  }, [conversationList]);
-
-  // Listen to storage events so that logging in (or other tabs) updates this component
-  useEffect(() => {
-    const onStorage = (e: StorageEvent) => {
-      if (e.key === "vendorId" || e.key === "id") {
-        const newId = localStorage.getItem("vendorId") || localStorage.getItem("id") || "";
-        setCurrentUserId(newId);
-      }
-    };
-    window.addEventListener("storage", onStorage);
-    return () => window.removeEventListener("storage", onStorage);
-  }, []);
-
-  // Request browser notification permission on component mount
-  useEffect(() => {
-    if ("Notification" in window && Notification.permission === "default") {
-      Notification.requestPermission().then((permission) => {
-      });
-    }
-  }, []);
-
-  // Format timestamp to readable time
-  const formatTimestamp = (timestamp: string): string => {
-    const date = new Date(timestamp);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-
-    if (diffMins < 1) return "Just now";
-    if (diffMins < 60) return `${diffMins}m ago`;
-
-    const diffHours = Math.floor(diffMins / 60);
-    if (diffHours < 24) return `${diffHours}h ago`;
-
-    const diffDays = Math.floor(diffHours / 24);
-    if (diffDays < 7) return `${diffDays}d ago`;
-
-    return date.toLocaleDateString();
-  };
-
-  // Load chat list from backend; accept optional userId (falls back to currentUserId)
-  const loadChatList = async (userId = currentUserId) => {
-    if (!userId) {
-      return;
-    }
-
-    try {
-      const chatList: ChatListItemDto[] = await chatNotificationApi.getChatList(userId);
-      const conversations: Conversation[] = chatList
-        .filter((chat) => chat.participantId && chat.participantName)
-        .map((chat) => ({
-          id: chat.participantId,
-          name: chat.participantName || "Unknown User",
-          avatar: chat.participantProfileUrl,
-          lastMessage: chat.lastMessage || "Start a conversation...",
-          time: chat.lastMessageTimestamp ? formatTimestamp(chat.lastMessageTimestamp) : "Now",
-          unread: chat.unreadCount || 0,
-          orderId: "Order",
-          userId: chat.participantId,
-          status: (chat.onlineStatus as "ONLINE" | "OFFLINE" | "AWAY") || "OFFLINE",
-          isTyping: chat.isTyping || false,
-          timestamp: chat.lastMessageTimestamp || new Date().toISOString(),
-        }));
-
-      // Sort by latest message timestamp (most recent first)
-      conversations.sort((a, b) => {
-        const timeA = new Date(a.timestamp || 0).getTime();
-        const timeB = new Date(b.timestamp || 0).getTime();
-        return timeB - timeA;
-      });
-
-      setConversationList(conversations);
-    } catch (error) {
-      setConversationList([]);
-    }
-  };
-
-  // Handle incoming chat from Orders page (via query params)
-  useEffect(() => {
-    const userId = searchParams.get("userId");
-    const userName = searchParams.get("userName");
-
-    if (userId && userName) {
-      loadChatList().then(() => {
-        // Use the ref to read latest conversation list to avoid stale closure
-        let existingConv = conversationListRef.current.find((c) => c.userId === userId);
-
-        if (!existingConv) {
-          const newConv: Conversation = {
-            id: userId,
-            name: decodeURIComponent(userName),
-            avatar: undefined,
-            lastMessage: "Start a conversation...",
-            time: "Now",
-            unread: 0,
-            orderId: "New",
-            userId: userId,
-            status: "OFFLINE",
-            timestamp: new Date().toISOString(),
-          };
-          setConversationList((prev) => [newConv, ...prev]);
-          existingConv = newConv;
-        }
-
-        setSelectedConversation(existingConv);
-      });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams]);
-
-  // Scroll to bottom of messages
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
-
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
-
-  // Load chat list on mount and poll every 10 seconds
-  useEffect(() => {
-    // Initial load — subsequent updates come from WebSocket events
-    loadChatList();
-
-    // NOTE: polling removed to avoid frequent backend hits; WebSocket events
-    // (message/typing/status) will trigger `loadChatList` when needed.
-    return () => {};
-    // we intentionally do not include currentUserId here to avoid rapid re-creation; loadChatList internally uses currentUserId
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Connect to WebSocket when we have a user id
-  useEffect(() => {
-    if (!currentUserId) {
-      toast({
-        title: "Connection error",
-        description: "Vendor ID not found. Please log in again.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const handleMessageReceived = (notification: ChatNotification) => {
-      const newMessage: Message = {
-        id: notification.id,
-        sender: "client",
-        senderId: notification.senderId,
-        recipientId: currentUserId,
-        text: notification.content,
-        time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-        status: MessageStatus.DELIVERED,
-      };
-
-      setMessages((prev) => [...prev, newMessage]);
-
-      // Reload chat list to get updated unread counts
-      loadChatList();
-
-      // Mark as delivered
-      chatApi.markAsDelivered(notification.senderId, currentUserId).catch(() => {});
-
-      // Get sender name from the latest conversation list ref
-      const senderName =
-        conversationListRef.current.find((c) => c.userId === notification.senderId)?.name || "Unknown User";
-
-      // Show in-app notification with sound
-      notifyNewMessage(
-        notification.senderId,
-        senderName,
-        notification.content.substring(0, 50) + (notification.content.length > 50 ? "..." : "")
-      );
-
-      // Show browser notification
-      if ("Notification" in window && Notification.permission === "granted") {
-        const browserNotif = new Notification(`New message from ${senderName}`, {
-          body: notification.content,
-          icon: "/favicon.ico",
-          badge: "/favicon.ico",
-          tag: `msg-${notification.senderId}`,
-          requireInteraction: false,
-          silent: false,
-        });
-
-        browserNotif.onclick = () => {
-          window.focus();
-          const conv = conversationListRef.current.find((c) => c.userId === notification.senderId);
-          if (conv) {
-            setSelectedConversation(conv);
-          }
-          browserNotif.close();
-        };
-      }
-    };
-
-    const handleTypingReceived = (typingStatus: TypingStatus) => {
-      // Debug logging
-      const debugEvent = {
-        timestamp: new Date().toLocaleTimeString(),
-        type: 'TYPING_RECEIVED',
-        data: { ...typingStatus, currentUserId, matches: typingStatus.recipientId === currentUserId }
-      };
-      setDebugEvents(prev => [...prev, debugEvent]);
-      // Only handle typing notifications that are intended for this vendor
-      if (typingStatus.recipientId && typingStatus.recipientId !== currentUserId) {
-        return;
-      }
-
-      const sender = typingStatus.senderId;
-      const senderType = typingStatus.senderType || undefined;
-      const isTypingFlag = typeof (typingStatus as any).isTyping !== 'undefined'
-        ? Boolean((typingStatus as any).isTyping)
-        : Boolean(typingStatus.typing);
-
-      // Clear any previous auto-clear timeout for this sender
-      if (typingTimeoutsRef.current[sender]) {
-        clearTimeout(typingTimeoutsRef.current[sender] as ReturnType<typeof setTimeout>);
-        typingTimeoutsRef.current[sender] = null;
-      }
-
-      if (isTypingFlag) {
-        // Update debug state
-        setDebugTypingStates(prev => ({ ...prev, [sender]: true }));
-
-        // Show typing indicator for this sender
-        if (selectedConversation && sender === selectedConversation.userId) {
-          setIsTyping(true);
-          setSelectedConversation((prev) => (prev ? { ...prev, isTyping: true, typingSenderType: senderType } : prev));
-        }
-
-        setConversationList((prev) =>
-          prev.map((conv) => (conv.userId === sender ? { ...conv, isTyping: true, typingSenderType: senderType } : conv))
-        );
-
-        // Auto-clear typing indicator after 4s if no further typing events arrive
-        typingTimeoutsRef.current[sender] = setTimeout(() => {
-          typingTimeoutsRef.current[sender] = null;
-          setConversationList((prev) => prev.map((conv) => (conv.userId === sender ? { ...conv, isTyping: false, typingSenderType: undefined } : conv)));
-          setSelectedConversation((prev) => (prev && prev.userId === sender ? { ...prev, isTyping: false, typingSenderType: undefined } : prev));
-          if (selectedConversation && selectedConversation.userId === sender) {
-            setIsTyping(false);
-          }
-        }, 4000);
-      } else {
-        // Update debug state
-        setDebugTypingStates(prev => ({ ...prev, [sender]: false }));
-
-        // Explicit stop typing: clear timeout and hide indicator
-        setConversationList((prev) => prev.map((conv) => (conv.userId === sender ? { ...conv, isTyping: false, typingSenderType: undefined } : conv)));
-        setSelectedConversation((prev) => (prev && prev.userId === sender ? { ...prev, isTyping: false, typingSenderType: undefined } : prev));
-        if (selectedConversation && selectedConversation.userId === sender) {
-          setIsTyping(false);
-        }
-      }
-    };
-
-    const handleReadReceived = (notification: ChatNotification) => {
-      setMessages((prev) =>
-        prev.map((msg) =>
-          // If the vendor sent the message and the other user notified read, mark read
-          msg.senderId === currentUserId && msg.recipientId === notification.senderId
-            ? { ...msg, status: MessageStatus.READ }
-            : msg
-        )
-      );
-    };
-
-    const handleUserStatusReceived = (status: UserStatus) => {
-      setConversationList((prev) =>
-        prev.map((conv) =>
-          conv.userId === status.userId
-            ? { ...conv, status: status.status }
-            : conv
-        )
-      );
-      // If the selected conversation is the one whose status changed, update it too
-      setSelectedConversation((prev) =>
-        prev && prev.userId === status.userId
-          ? { ...prev, status: status.status }
-          : prev
-      );
-    };
-
-    const handleConnected = () => {
-      setIsConnected(true);
-
-      chatNotificationApi.updateOnlineStatus(currentUserId, "ONLINE").catch(() => {});
-
-      toast({
-        title: "Connected",
-        description: "Real-time messaging is active",
-      });
-    };
-
-    const handleError = (error: any) => {
-      setIsConnected(false);
-      toast({
-        title: "Connection error",
-        description: "Failed to connect to messaging service",
-        variant: "destructive",
-      });
-    };
-
-    webSocketService.connect(
-      currentUserId,
-      handleMessageReceived,
-      handleTypingReceived,
-      handleReadReceived,
-      handleUserStatusReceived,
-      handleConnected,
-      handleError
-    );
-
-    return () => {
-      chatNotificationApi.updateOnlineStatus(currentUserId, "OFFLINE").catch(() => {});
-      webSocketService.disconnect();
-    };
-    // Only re-run when currentUserId changes (we want to connect once we have an id)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentUserId]);
-
-  // Listen for chat notifications from the notification context
-  const { chatNotifications } = useNotifications();
-  useEffect(() => {
-    if (chatNotifications.length === 0) return;
-
-    // Get the latest chat notification
-    const latestNotification = chatNotifications[0];
-
-    // Only process MESSAGE_SENT events (new messages)
-    if (latestNotification.eventType === "MESSAGE_SENT") {
-      // If this notification is for the currently selected conversation, add it to messages
-      if (selectedConversation && latestNotification.senderId === selectedConversation.userId) {
-        const newMessage: Message = {
-          id: latestNotification.messageId,
-          sender: selectedConversation.name,
-          senderId: latestNotification.senderId,
-          recipientId: latestNotification.recipientId,
-          text: latestNotification.content || "",
-          time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-          status: MessageStatus.DELIVERED,
-        };
-
-        setMessages((prev) => {
-          // Avoid duplicate messages by checking if message already exists
-          if (prev.find((m) => m.id === newMessage.id)) {
-            return prev;
-          }
-          return [...prev, newMessage];
-        });
-
-        // Mark as delivered via API
-        chatApi.markAsDelivered(latestNotification.senderId, currentUserId).catch(() => {});
-      } else {
-        // Message is from a different conversation, just reload chat list
-        loadChatList();
-      }
-    } else if (latestNotification.eventType === "MESSAGE_DELIVERED") {
-      // Update message status in UI
-      setMessages((prev) =>
-        prev.map((msg) =>
-          msg.id === latestNotification.messageId ? { ...msg, status: MessageStatus.DELIVERED } : msg
-        )
-      );
-    } else if (latestNotification.eventType === "MESSAGE_READ") {
-      // Update message status in UI
-      setMessages((prev) =>
-        prev.map((msg) =>
-          msg.id === latestNotification.messageId ? { ...msg, status: MessageStatus.READ } : msg
-        )
-      );
-    }
-  }, [chatNotifications, selectedConversation, currentUserId]);
-
-  // Load chat history when conversation changes
-  useEffect(() => {
-    if (!selectedConversation) return;
-
-    const loadChatHistory = async () => {
-      try {
-        const history = await chatApi.getChatHistory(currentUserId, selectedConversation.userId);
-        const formattedMessages: Message[] = history.map((msg: any) => ({
-          id: msg.id || "",
-          sender: msg.senderId === currentUserId ? "vendor" : "client",
-          senderId: msg.senderId,
-          recipientId: msg.recipientId,
-          text: msg.content,
-          time: msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "",
-          status: msg.status,
-        }));
-        setMessages(formattedMessages);
-
-        // Mark messages as read
-        await chatApi.markAsRead(selectedConversation.userId, currentUserId);
-
-        // Mark chat notification as read
-        await chatNotificationApi.markChatAsRead(currentUserId, selectedConversation.userId);
-
-        // Reload chat list to update unread counts
-        loadChatList();
-      } catch (error) {
-      }
-    };
-
-    loadChatHistory();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedConversation]);
-
-  const handleSendMessage = () => {
-    if (!selectedConversation) return;
-    if (messageText.trim() && isConnected) {
-      const chatMessage: WSChatMessage = {
-        senderId: currentUserId,
-        recipientId: selectedConversation.userId,
-        content: messageText.trim(),
-        timestamp: new Date().toISOString(),
-      };
-
-      webSocketService.sendMessage(chatMessage);
-
-      const newMessage: Message = {
-        id: Date.now().toString(),
-        sender: "vendor",
-        senderId: currentUserId,
-        recipientId: selectedConversation.userId,
-        text: messageText.trim(),
-        time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-        status: MessageStatus.SENT,
-      };
-
-      setMessages((prev) => [...prev, newMessage]);
-
-      // Reload chat list to update last message
-      loadChatList();
-
-      setMessageText("");
-
-      // Stop typing indicator
-      webSocketService.sendTypingStatus(selectedConversation.userId, false, 'VENDOR');
-    }
-  };
-
-  const handleTyping = () => {
-    if (!isConnected || !selectedConversation) return;
-
-    webSocketService.sendTypingStatus(selectedConversation.userId, true, 'VENDOR');
-
-    if (typingTimeoutRef.current) {
-      clearTimeout(typingTimeoutRef.current);
-    }
-
-    typingTimeoutRef.current = setTimeout(() => {
-      if (selectedConversation) {
-        webSocketService.sendTypingStatus(selectedConversation.userId, false, 'VENDOR');
-      }
-    }, 3000);
-  };
-
-  useEffect(() => {
-    return () => {
-      if (typingTimeoutRef.current) {
-        clearTimeout(typingTimeoutRef.current);
-      }
-    };
-  }, []);
-
-  const getStatusColor = (status?: string) => {
-    switch (status) {
-      case "ONLINE":
-        return "text-green-500";
-      case "AWAY":
-        return "text-yellow-500";
-      case "OFFLINE":
-      default:
-        return "text-gray-400";
-    }
-  };
-
-  // Early return when vendor ID not available
-  if (!currentUserId) {
-    return (
-      <div className="container px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8">
-        <div className="mb-4 sm:mb-6 md:mb-8">
-          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Messaging</h1>
-          <p className="text-sm sm:text-base text-muted-foreground">
-            Communicate with your clients in real-time
-            {isConnected && <span className="ml-2 text-green-500">● Connected</span>}
-            {!isConnected && <span className="ml-2 text-red-500">● Disconnected</span>}
-          </p>
-        </div>
-
-        <Card>
-          <CardContent className="py-8 sm:py-12 text-center px-4">
-            <MessageSquare className="h-12 w-12 sm:h-16 sm:w-16 text-red-500 mx-auto mb-4" />
-            <h2 className="text-lg sm:text-xl font-semibold text-red-600 mb-2">Chat Unavailable</h2>
-            <p className="text-sm sm:text-base text-muted-foreground mb-4">Vendor ID not found. Please log out and log in again.</p>
-            <Button onClick={() => (window.location.href = "/login")}>Go to Login</Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
+  chatApi,
+  type ConversationDto,
+  type MessageDto,
+  type WSIncomingMessage,
+  type WSTypingEvent,
+  type WSReadReceipt,
+  type WSUserStatus,
+} from "@/lib/chatApi";
+import { useWebSocketChat, type ChatHookCallbacks } from "@/hooks/useWebSocketChat";
+import { toast } from "sonner";
+
+// ======================================================================
+// MESSAGE BUBBLE COMPONENT
+// ======================================================================
+
+const MessageBubble = ({ message, isOwn, index }: { message: MessageDto; isOwn: boolean; index: number }) => {
+  const isImage = message.messageType === "IMAGE";
+  const isFile = message.messageType === "FILE";
 
   return (
-    <div className="container px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8">
-      <div className="mb-4 sm:mb-6 md:mb-8">
-        <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Messaging</h1>
-        <p className="text-sm sm:text-base text-muted-foreground">
-          Communicate with your clients in real-time
-          {isConnected && <span className="ml-2 text-green-500">● Connected</span>}
-          {!isConnected && <span className="ml-2 text-red-500">● Disconnected</span>}
-        </p>
-      </div>
+    <div
+      className={`flex ${isOwn ? "justify-end" : "justify-start"} animate-slide-up`}
+      style={{ animationDelay: `${index * 30}ms` }}
+    >
+      <div
+        className={`max-w-[85%] md:max-w-[75%] rounded-2xl p-3 md:p-4 shadow-sm ${
+          isOwn
+            ? "bg-primary text-primary-foreground rounded-tr-none"
+            : "bg-card border border-border/50 rounded-tl-none"
+        }`}
+      >
+        {!isOwn && message.senderName && (
+          <p className="font-bold text-xs mb-1 text-primary">{message.senderName}</p>
+        )}
 
-      <div className="grid gap-4 sm:gap-6 grid-cols-1 lg:grid-cols-3 h-full">
-        {/* Conversations List - Hidden on mobile when conversation is selected */}
-        <Card className={`lg:col-span-1 flex flex-col h-full ${selectedConversation ? 'hidden lg:flex' : 'flex'}`}>
-          <CardContent className="p-0 flex-1 flex flex-col">
-            <div className="border-b p-3 sm:p-4 flex-none">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input placeholder="Search conversations..." className="pl-10 text-sm sm:text-base" />
+        {isImage && message.attachments?.[0]?.fileUrl ? (
+          <img
+            src={message.attachments[0].fileUrl}
+            alt="Shared image"
+            className="rounded-lg max-w-full h-auto max-h-96 mb-2"
+          />
+        ) : isFile && message.attachments?.[0]?.fileUrl ? (
+          <div className="flex items-center gap-2 p-2 bg-background/10 rounded-lg mb-2">
+            <FileText className="h-6 w-6" />
+            <a href={message.attachments[0].fileUrl} target="_blank" rel="noopener noreferrer" className="underline text-sm hover:opacity-80">
+              {message.attachments[0].fileName || "File"}
+            </a>
+          </div>
+        ) : (
+          <p className="leading-relaxed break-words">{message.message}</p>
+        )}
+
+        <div className="flex items-center gap-2 justify-between mt-2">
+          <span className={`text-[10px] ${isOwn ? "text-primary-foreground/70" : "text-muted-foreground"}`}>
+            {new Date(message.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+          </span>
+          {isOwn && (
+            <span className="text-[10px] text-primary-foreground/70">
+              {message.isRead ? <CheckCheck className="h-3 w-3 inline text-blue-300" /> : <Check className="h-3 w-3 inline" />}
+            </span>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ======================================================================
+// CONVERSATION LIST ITEM COMPONENT
+// ======================================================================
+
+const ConversationListItem = ({
+  conversation,
+  isSelected,
+  isOnline,
+  onClick,
+  otherParticipant,
+}: {
+  conversation: ConversationDto;
+  isSelected: boolean;
+  isOnline: boolean;
+  onClick: () => void;
+  otherParticipant: { name: string; userId: string };
+}) => {
+  const unreadCount = conversation.unreadCount ? Object.values(conversation.unreadCount)[0] || 0 : 0;
+  
+  // Safely extract last message text from lastMessage object
+  const lastMessageText = (() => {
+    if (!conversation.lastMessage) return "No messages yet";
+    if (typeof conversation.lastMessage === "object" && "message" in conversation.lastMessage) {
+      return conversation.lastMessage.message;
+    }
+    return "No messages yet";
+  })();
+
+  return (
+    <div onClick={onClick} className={`p-4 border-b border-border/30 cursor-pointer hover:bg-muted/50 transition-colors ${isSelected ? "bg-muted" : ""}`}>
+      <div className="flex items-start gap-3">
+        <div className="relative shrink-0">
+          <Avatar className="h-12 w-12 border-2 border-background">
+            <div className="w-full h-full bg-primary/10 flex items-center justify-center text-primary font-bold">
+              {otherParticipant.name?.charAt(0).toUpperCase() || "U"}
+            </div>
+          </Avatar>
+          <div className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-background transition-colors ${isOnline ? "bg-green-500" : "bg-gray-400"}`} />
+        </div>
+
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center justify-between mb-1">
+            <h3 className="font-semibold truncate">{otherParticipant.name || "Unknown"}</h3>
+            {unreadCount > 0 && <Badge variant="default" className="ml-2 h-5 min-w-[20px] px-1.5 flex items-center justify-center text-xs">{unreadCount}</Badge>}
+          </div>
+          <p className="text-sm text-muted-foreground truncate">
+            {lastMessageText.substring(0, 50)}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ======================================================================
+// MAIN MESSAGING PAGE COMPONENT (VENDOR)
+// ======================================================================
+
+const Messaging = () => {
+  const navigate = useNavigate();
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // State: Conversations & Selection
+  const [conversations, setConversations] = useState<ConversationDto[]>([]);
+  const [selectedConversation, setSelectedConversation] = useState<ConversationDto | null>(null);
+  const [showChatList, setShowChatList] = useState(true);
+
+  // State: Messages
+  const [messages, setMessages] = useState<MessageDto[]>([]);
+  const [messageInput, setMessageInput] = useState("");
+  const [isLoadingMessages, setIsLoadingMessages] = useState(false);
+
+  // State: Real-time indicators
+  const [typingUserName, setTypingUserName] = useState<string | null>(null);
+  const [recipientStatus, setRecipientStatus] = useState<"ONLINE" | "OFFLINE">("OFFLINE");
+
+  // State: File upload
+  const [uploadingFile, setUploadingFile] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+
+  // State: UI
+  const [loading, setLoading] = useState(true);
+
+  // Current user info
+  const currentUserId = localStorage.getItem("webid_user_id") || "";
+  const currentUserName = localStorage.getItem("webid_user_name") || "You";
+
+  // ======================================================================
+  // UTILITY FUNCTIONS
+  // ======================================================================
+
+  /**
+   * Extract the USER participant from conversation
+   * Vendor website (vendor-webid) always shows the USER in the conversation
+   */
+  const getOtherParticipant = useCallback((conversation: ConversationDto) => {
+    if (!conversation.participants || conversation.participants.length === 0) {
+      return { name: "Unknown", userId: "" };
+    }
+    const userParticipant = conversation.participants.find(
+      (p) => p.userType === "USER"
+    );
+    return userParticipant || { name: "Unknown", userId: "" };
+  }, []);
+
+  // ======================================================================
+  // WEBSOCKET CALLBACKS
+  // ======================================================================
+
+  const handleIncomingMessage = useCallback((wsMessage: WSIncomingMessage) => {
+    console.log("[Messaging] Received message:", wsMessage.messageId);
+
+    const messageDto: MessageDto = {
+      messageId: wsMessage.messageId,
+      conversationId: wsMessage.conversationId,
+      senderId: wsMessage.senderId,
+      senderType: wsMessage.senderType,
+      senderName: wsMessage.senderName,
+      message: typeof wsMessage.message === "string" ? wsMessage.message : String(wsMessage.message),
+      messageType: wsMessage.messageType,
+      attachments: wsMessage.attachments,
+      timestamp: wsMessage.timestamp,
+      isRead: wsMessage.senderId === currentUserId,
+      createdAt: wsMessage.timestamp,
+    };
+
+    setMessages((prev) => {
+      if (!prev.some((m) => m.messageId === messageDto.messageId)) {
+        return [...prev, messageDto];
+      }
+      return prev;
+    });
+
+    setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }), 0);
+  }, [currentUserId]);
+
+  const handleTypingEvent = useCallback((event: WSTypingEvent) => {
+    if (event.userId === currentUserId) return;
+
+    if (event.typing && selectedConversation) {
+      const otherParticipant = getOtherParticipant(selectedConversation);
+      setTypingUserName(otherParticipant.name || "Someone");
+    } else {
+      setTypingUserName(null);
+    }
+  }, [currentUserId, selectedConversation, getOtherParticipant]);
+
+  const handleReadReceipt = useCallback((_receipt: WSReadReceipt) => {
+    console.log("[Messaging] Read receipt received");
+    setMessages((prev) =>
+      prev.map((msg) =>
+        msg.senderId === currentUserId ? { ...msg, isRead: true } : msg
+      )
+    );
+  }, [currentUserId]);
+
+  const handleUserStatus = useCallback((event: any) => {
+    if (!selectedConversation) return;
+
+    const otherParticipant = getOtherParticipant(selectedConversation);
+    
+    // Update online status if the event is for the recipient (user)
+    if (event.userId === otherParticipant.userId) {
+      setRecipientStatus(event.status === "ONLINE" ? "ONLINE" : "OFFLINE");
+      console.log(`[Messaging] ${otherParticipant.name} is now ${event.status}`);
+    }
+  }, [selectedConversation, getOtherParticipant]);
+
+  // WebSocket hook
+  const wsCallbacks: ChatHookCallbacks = {
+    onMessage: handleIncomingMessage,
+    onTyping: handleTypingEvent,
+    onReadReceipt: handleReadReceipt,
+    onUserStatus: handleUserStatus,
+  };
+
+  const { isConnected, sendMessage, sendTyping } = useWebSocketChat(
+    {
+      conversationId: selectedConversation?.conversationId || "",
+      autoConnect: Boolean(selectedConversation),
+      debug: true,
+    },
+    wsCallbacks
+  );
+
+  // ======================================================================
+  // DATA LOADING
+  // ======================================================================
+
+  const loadConversations = useCallback(async () => {
+    try {
+      setLoading(true);
+      const response = await chatApi.getConversations(0, 50);
+
+      if (response.success && response.data) {
+        setConversations(response.data);
+        console.log("[Messaging] Loaded conversations:", response.data.length);
+      } else {
+        toast.error(response.message || "Failed to load conversations");
+      }
+    } catch (error: any) {
+      console.error("[Messaging] Error loading conversations:", error);
+      toast.error("Error loading conversations");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const loadMessages = useCallback(async (conversationId: string) => {
+    try {
+      setIsLoadingMessages(true);
+      const response = await chatApi.getMessages(conversationId, 0, 50);
+
+      if (response.success && response.data) {
+        setMessages(response.data);
+        console.log("[Messaging] Loaded messages:", response.data.length);
+      } else {
+        toast.error("Failed to load message history");
+      }
+    } catch (error: any) {
+      console.error("[Messaging] Error loading messages:", error);
+      toast.error("Error loading messages");
+    } finally {
+      setIsLoadingMessages(false);
+    }
+  }, []);
+
+  const markAsRead = useCallback(async () => {
+    if (!selectedConversation) return;
+
+    try {
+      await chatApi.markAsRead(selectedConversation.conversationId);
+    } catch (error) {
+      console.error("[Messaging] Error marking as read:", error);
+    }
+  }, [selectedConversation]);
+
+  // ======================================================================
+  // USER INTERACTIONS
+  // ======================================================================
+
+  const handleSelectConversation = useCallback((conversation: ConversationDto) => {
+    console.log("[Messaging] Selected conversation:", conversation.conversationId);
+    setSelectedConversation(conversation);
+    setShowChatList(false);
+    setTypingUserName(null);
+  }, []);
+
+  const handleTyping = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const text = e.target.value;
+      setMessageInput(text);
+      if (text.length > 0) {
+        sendTyping(true);
+      }
+    },
+    [sendTyping]
+  );
+
+  const handleSendMessage = useCallback(async () => {
+    if (!selectedConversation) {
+      toast.error("No conversation selected");
+      return;
+    }
+
+    const messageText = messageInput.trim();
+    if (!messageText && !selectedFile) return;
+
+    try {
+      setUploadingFile(true);
+
+      // Handle file upload
+      let attachments: any[] = [];
+      if (selectedFile) {
+        const uploadResponse = await chatApi.uploadFile(selectedFile);
+        if (!uploadResponse.success) {
+          toast.error("File upload failed");
+          return;
+        }
+
+        const fileData = uploadResponse.data;
+        attachments = [
+          {
+            fileName: fileData.fileName,
+            fileUrl: fileData.fileUrl,
+            fileType: fileData.fileType,
+            fileSize: fileData.fileSize,
+          },
+        ];
+      }
+
+      const messageType = selectedFile ? (selectedFile.type.startsWith("image/") ? "IMAGE" : "FILE") : "TEXT";
+
+      // Create optimistic message
+      const optimisticMessage: MessageDto = {
+        messageId: `temp-${Date.now()}`,
+        conversationId: selectedConversation.conversationId,
+        senderId: currentUserId,
+        senderName: currentUserName,
+        message: messageText || "[File sent]",
+        messageType: messageType as "TEXT" | "IMAGE" | "FILE",
+        attachments,
+        timestamp: new Date().toISOString(),
+        isRead: true,
+      };
+
+      setMessages((prev) => [...prev, optimisticMessage]);
+      setMessageInput("");
+      setSelectedFile(null);
+      sendTyping(false); // Stop typing indicator
+
+      // Send via WebSocket
+      if (isConnected) {
+        const sent = sendMessage(messageText || "", messageType as "TEXT" | "IMAGE" | "FILE", attachments.length > 0 ? attachments : undefined);
+        if (!sent) {
+          // Fallback to REST
+          const response = await chatApi.sendMessage({
+            conversationId: selectedConversation.conversationId,
+            message: messageText || "",
+            messageType,
+            attachments,
+          });
+
+          if (!response.success) {
+            toast.error("Failed to send message");
+          }
+        }
+      } else {
+        // REST fallback
+        const response = await chatApi.sendMessage({
+          conversationId: selectedConversation.conversationId,
+          message: messageText || "",
+          messageType,
+          attachments,
+        });
+
+        if (!response.success) {
+          toast.error("Failed to send message");
+          setMessages((prev) => prev.slice(0, -1));
+        }
+      }
+    } catch (error: any) {
+      console.error("[Messaging] Error sending message:", error);
+      toast.error("Error sending message");
+    } finally {
+      setUploadingFile(false);
+    }
+  }, [selectedConversation, messageInput, selectedFile, currentUserId, currentUserName, isConnected, sendMessage]);
+
+  const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) setSelectedFile(file);
+  }, []);
+
+  const handleRemoveFile = useCallback(() => {
+    setSelectedFile(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }, []);
+
+  // ======================================================================
+  // EFFECTS
+  // ======================================================================
+
+  useEffect(() => {
+    loadConversations();
+  }, [loadConversations]);
+
+  useEffect(() => {
+    if (selectedConversation) {
+      loadMessages(selectedConversation.conversationId);
+      markAsRead();
+    }
+  }, [selectedConversation, loadMessages, markAsRead]);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  // ======================================================================
+  // RENDER
+  // ======================================================================
+
+  return (
+    <div className="h-screen bg-background flex flex-col overflow-hidden">
+      <div className="flex-1 flex overflow-hidden">
+        <div className="flex-1 flex overflow-hidden max-w-7xl mx-auto w-full md:px-4 md:py-4">
+          <div className="flex-1 flex overflow-hidden md:border md:border-border/50 md:rounded-lg md:shadow-xl">
+            {/* Left Sidebar - Conversations List */}
+            <div className={`${showChatList ? "flex" : "hidden"} md:flex flex-col w-full md:w-96 border-r border-border/50 bg-card`}>
+              <div className="p-4 border-b border-border/50 bg-card/50 backdrop-blur-sm">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-2xl font-bold">Messages</h2>
+                  <Button variant="ghost" size="icon" onClick={() => navigate("/vendor/bids")} className="md:hidden">
+                    <ChevronDown className="h-5 w-5" />
+                  </Button>
+                </div>
+                {conversations.length > 0 && <p className="text-sm text-muted-foreground mt-2">{conversations.length} conversation{conversations.length !== 1 ? "s" : ""}</p>}
+              </div>
+
+              <div className="flex-1 overflow-y-auto">
+                {loading ? (
+                  <div className="flex items-center justify-center p-8">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                  </div>
+                ) : conversations.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center p-8 text-center">
+                    <Lock className="h-12 w-12 text-muted-foreground mb-4" />
+                    <p className="text-muted-foreground">No conversations yet</p>
+                  </div>
+                ) : (
+                  conversations.map((conv) => {
+                    const otherParticipant = getOtherParticipant(conv);
+                    return (
+                      <ConversationListItem
+                        key={conv.conversationId}
+                        conversation={conv}
+                        isSelected={selectedConversation?.conversationId === conv.conversationId}
+                        isOnline={recipientStatus === "ONLINE"}
+                        otherParticipant={otherParticipant}
+                        onClick={() => handleSelectConversation(conv)}
+                      />
+                    );
+                  })
+                )}
               </div>
             </div>
-            <ScrollArea className="flex-1">
-              {conversationList.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-full p-4 sm:p-8 text-center">
-                  <MessageSquare className="h-10 w-10 sm:h-12 sm:w-12 text-muted-foreground mb-4" />
-                  <p className="text-sm sm:text-base text-muted-foreground">No conversations yet</p>
-                  <p className="text-xs sm:text-sm text-muted-foreground">Start chatting from the Orders page</p>
+
+            {/* Right Side - Chat */}
+            <div className={`${showChatList ? "hidden" : "flex"} md:flex flex-col flex-1 bg-background min-h-0`}>
+              {!selectedConversation ? (
+                <div className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-muted/5">
+                  <div className="w-24 h-24 rounded-full bg-primary/10 flex items-center justify-center mb-6">
+                    <Lock className="h-12 w-12 text-primary" />
+                  </div>
+                  <h3 className="text-2xl font-bold mb-2">Select a chat to start messaging</h3>
+                  <p className="text-muted-foreground max-w-md">Choose a conversation from the list to view messages</p>
                 </div>
               ) : (
-                conversationList.map((conv, idx) => (
-                  <div
-                    key={conv.id + '-' + conv.orderId + '-' + idx}
-                    onClick={() => setSelectedConversation(conv)}
-                    className={`flex cursor-pointer items-start gap-2 sm:gap-3 border-b p-3 sm:p-4 transition-smooth hover:bg-accent active:bg-accent/80 ${
-                      selectedConversation?.id === conv.id ? "bg-accent" : ""
-                    }`}
-                  >
-                    <div className="relative">
-                      <Avatar>
-                        <AvatarImage src={conv.avatar} />
-                        <AvatarFallback>{conv.name?.[0]?.toUpperCase() || "U"}</AvatarFallback>
+                <>
+                  {/* Chat Header */}
+                  <div className="p-4 border-b border-border/50 bg-card/50 backdrop-blur-sm flex items-center justify-between shrink-0">
+                    <div className="flex items-center gap-4 flex-1">
+                      <Button variant="ghost" size="icon" onClick={() => setShowChatList(true)} className="md:hidden">
+                        <Menu className="h-5 w-5" />
+                      </Button>
+
+                      <Avatar className="h-12 w-12 border-2 border-background">
+                        <div className="w-full h-full bg-primary/10 flex items-center justify-center text-primary font-bold">
+                          {getOtherParticipant(selectedConversation).name?.charAt(0).toUpperCase() || "U"}
+                        </div>
                       </Avatar>
-                      <Circle className={`absolute bottom-0 right-0 h-3 w-3 fill-current ${getStatusColor(conv.status)}`} />
-                    </div>
-                    <div className="flex-1 overflow-hidden min-w-0">
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="font-medium text-sm sm:text-base truncate">{conv.name}</p>
-                        <span className="text-xs text-muted-foreground whitespace-nowrap">{conv.time}</span>
-                      </div>
-                      <p className="truncate text-xs sm:text-sm text-muted-foreground">
-                        {conv.isTyping ? <span className="italic text-primary">typing...</span> : conv.lastMessage}
-                      </p>
-                      <p className="text-xs text-muted-foreground truncate">Order: {conv.orderId}</p>
-                    </div>
-                    {conv.unread > 0 && (
-                      <div className="flex h-5 w-5 sm:h-6 sm:w-6 items-center justify-center rounded-full bg-primary text-xs text-primary-foreground shrink-0">
-                        {conv.unread}
-                      </div>
-                    )}
-                  </div>
-                ))
-              )}
-            </ScrollArea>
-          </CardContent>
-        </Card>
 
-        {/* Chat Area - Full screen on mobile when conversation selected */}
-        {selectedConversation ? (
-          <Card className="lg:col-span-2 flex flex-col h-[calc(100vh-12rem)] sm:h-[calc(100vh-10rem)] lg:h-[600px] overflow-hidden">
-            <CardContent className="p-0 flex-1 flex flex-col min-h-0">
-              {/* Chat Header - Sticky */}
-              <div className="sticky top-0 z-10 bg-card flex items-center justify-between border-b p-3 sm:p-4 shrink-0">
-                <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
-                  {/* Back button on mobile */}
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="lg:hidden shrink-0 h-8 w-8"
-                    onClick={() => setSelectedConversation(null)}
-                  >
-                    ←
-                  </Button>
-                  <div className="relative shrink-0">
-                    <Avatar className="h-8 w-8 sm:h-10 sm:w-10">
-                      <AvatarImage src={selectedConversation.avatar} />
-                      <AvatarFallback>{selectedConversation.name?.[0]?.toUpperCase() || "U"}</AvatarFallback>
-                    </Avatar>
-                    <Circle className={`absolute bottom-0 right-0 h-2.5 w-2.5 sm:h-3 sm:w-3 fill-current ${getStatusColor(selectedConversation.status)}`} />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="font-medium text-sm sm:text-base truncate">{selectedConversation.name}</p>
-                    <p className="text-xs text-muted-foreground truncate">
-                      {selectedConversation.orderId}
-                      {selectedConversation.status === "ONLINE" && " • Online"}
-                      {selectedConversation.status === "AWAY" && " • Away"}
-                      {selectedConversation.status === "OFFLINE" && " • Offline"}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex gap-1 sm:gap-2 shrink-0">
-                  <Button variant="ghost" size="icon" className="h-8 w-8 sm:h-10 sm:w-10">
-                    <Phone className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                  </Button>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 sm:h-10 sm:w-10">
-                    <Mail className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                  </Button>
-                </div>
-              </div>
-
-              {/* Messages - Only this area scrolls */}
-              <div className="flex-1 overflow-y-auto p-3 sm:p-4 min-h-0">
-                <div className="space-y-3 sm:space-y-4">
-                  {messages.length === 0 ? (
-                    <div className="flex items-center justify-center h-full text-center px-4">
-                      <p className="text-sm sm:text-base text-muted-foreground">No messages yet. Start the conversation!</p>
-                    </div>
-                  ) : (
-                    messages.map((msg) => (
-                      <div key={msg.id} className={`flex ${msg.sender === "vendor" ? "justify-end" : "justify-start"}`}>
-                        <div className={`max-w-[85%] sm:max-w-[75%] lg:max-w-[70%] rounded-lg p-2.5 sm:p-3 break-words ${
-                          msg.sender === "vendor" ? "bg-primary text-primary-foreground" : "bg-muted"
-                        }`}>
-                          <p className="text-sm sm:text-base whitespace-pre-wrap break-words">{msg.text}</p>
-                          <div className="mt-1 flex items-center justify-between gap-2">
-                            <p className="text-xs opacity-70 whitespace-nowrap">{msg.time}</p>
-                            {msg.sender === "vendor" && msg.status && (
-                              <span className="text-xs opacity-70">
-                                {msg.status === MessageStatus.SENT && "✓"}
-                                {msg.status === MessageStatus.DELIVERED && "✓✓"}
-                                {msg.status === MessageStatus.READ && "✓✓ Read"}
-                              </span>
-                            )}
-                          </div>
+                      <div className="min-w-0">
+                        <h2 className="font-bold text-lg leading-none mb-1">{getOtherParticipant(selectedConversation).name || "Unknown"}</h2>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="secondary" className="gap-1 text-[10px] h-5 px-1.5 bg-primary/10 text-primary">
+                            <Lock className="h-2.5 w-2.5" />
+                            Encrypted
+                          </Badge>
+                          <span className="text-xs text-muted-foreground">{isConnected ? "Connected" : "Connecting..."}</span>
                         </div>
                       </div>
-                    ))
-                  )}
-                  {isTyping && (
-                    <div className="flex justify-start">
-                      <div className="max-w-[85%] sm:max-w-[75%] lg:max-w-[70%] rounded-lg bg-muted p-2.5 sm:p-3">
-                        <p className="text-xs sm:text-sm text-muted-foreground italic">
-                          {selectedConversation?.typingSenderType === 'VENDOR'
-                            ? `${selectedConversation?.name || 'Vendor'} is typing...`
-                            : `${selectedConversation?.name || 'User'} is typing...`}
-                        </p>
-                      </div>
                     </div>
-                  )}
-                  <div ref={messagesEndRef} />
-                </div>
-              </div>
+                  </div>
 
-              {/* Message Input - Sticky at bottom */}
-              <div className="sticky bottom-0 z-10 bg-card border-t p-3 sm:p-4 shrink-0">
-                <div className="flex gap-2">
-                  <Textarea
-                    placeholder="Type your message..."
-                    value={messageText}
-                    onChange={(e) => {
-                      setMessageText(e.target.value);
-                      handleTyping();
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && !e.shiftKey) {
-                        e.preventDefault();
-                        handleSendMessage();
-                      }
-                    }}
-                    rows={2}
-                    className="resize-none text-sm sm:text-base min-h-[44px]"
-                    disabled={!isConnected}
-                  />
-                  <Button 
-                    onClick={handleSendMessage} 
-                    size="icon" 
-                    className="h-auto min-h-[44px] min-w-[44px]" 
-                    disabled={!isConnected || !messageText.trim()}
-                  >
-                    <Send className="h-4 w-4 sm:h-5 sm:w-5" />
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ) : (
-          <Card className="hidden lg:flex lg:col-span-2">
-            <CardContent className="flex items-center justify-center h-[600px] w-full">
-              <div className="text-center px-4">
-                <MessageSquare className="h-12 w-12 sm:h-16 sm:w-16 text-muted-foreground mx-auto mb-4" />
-                <p className="text-base sm:text-lg font-medium text-muted-foreground">Select a conversation to start messaging</p>
-                <p className="text-sm text-muted-foreground mt-2">Or click the message icon from the Orders page</p>
-              </div>
-            </CardContent>
-          </Card>
-        )}
+                  {/* Messages Area */}
+                  <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 bg-muted/5 min-h-0">
+                    {isLoadingMessages ? (
+                      <div className="flex items-center justify-center py-8">
+                        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                      </div>
+                    ) : messages.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center py-8 text-center">
+                        <Send className="h-12 w-12 text-muted-foreground mb-4" />
+                        <p className="text-muted-foreground">No messages yet. Start the conversation!</p>
+                      </div>
+                    ) : (
+                      messages.map((msg, index) => (
+                        <MessageBubble key={msg.messageId} message={msg} isOwn={msg.senderId === currentUserId} index={index} />
+                      ))
+                    )}
+
+                    {typingUserName && (
+                      <div className="flex justify-start animate-slide-up">
+                        <div className="max-w-[85%] md:max-w-[75%] rounded-2xl p-3 md:p-4 shadow-sm bg-card border border-border/50 rounded-tl-none">
+                          <p className="text-sm text-muted-foreground italic">{typingUserName} is typing...</p>
+                        </div>
+                      </div>
+                    )}
+
+                    <div ref={messagesEndRef} />
+                  </div>
+
+                  {/* Message Input */}
+                  <div className="p-3 md:p-4 bg-card border-t border-border/50 shrink-0">
+                    {selectedFile && (
+                      <div className="mb-2 p-2 bg-muted/50 rounded-lg flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          {selectedFile.type.startsWith("image/") ? (
+                            <ImageIcon className="h-5 w-5 text-primary" />
+                          ) : (
+                            <FileText className="h-5 w-5 text-primary" />
+                          )}
+                          <span className="text-sm truncate max-w-[200px]">{selectedFile.name}</span>
+                        </div>
+                        <Button variant="ghost" size="icon" onClick={handleRemoveFile} className="h-6 w-6">
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    )}
+
+                    <div className="flex gap-2 md:gap-3 items-end">
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*,.pdf,.doc,.docx,.txt"
+                        onChange={handleFileSelect}
+                        className="hidden"
+                      />
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={!isConnected || uploadingFile}
+                        className="h-[44px] w-[44px] md:h-[50px] md:w-[50px] rounded-xl shrink-0"
+                      >
+                        <Paperclip className="h-5 w-5" />
+                      </Button>
+
+                      <Input
+                        placeholder="Type your message..."
+                        value={messageInput}
+                        onChange={handleTyping}
+                        onKeyPress={(e: React.KeyboardEvent<HTMLInputElement>) => e.key === "Enter" && !e.shiftKey && handleSendMessage()}
+                        disabled={!isConnected || uploadingFile}
+                        className="min-h-[44px] md:min-h-[50px] py-3 rounded-xl bg-muted/30 border-muted-foreground/20"
+                      />
+
+                      <Button
+                        onClick={handleSendMessage}
+                        size="icon"
+                        disabled={!isConnected || uploadingFile || (!messageInput.trim() && !selectedFile)}
+                        className="h-[44px] w-[44px] md:h-[50px] md:w-[50px] rounded-xl shrink-0"
+                      >
+                        {uploadingFile ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
+                      </Button>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
-
-      {/* WebSocket Debug Panel */}
-      <WebSocketDebugPanel
-        isConnected={isConnected}
-        currentUserId={currentUserId}
-        typingStatus={debugTypingStates}
-        events={debugEvents}
-      />
     </div>
   );
 };

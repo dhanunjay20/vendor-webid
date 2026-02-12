@@ -11,7 +11,6 @@ import Landing from "./pages/Landing";
 import Auth from "./pages/Auth";
 import VendorProfileSetup from "./pages/VendorProfileSetup.tsx";
 import Index from "./pages/Index";
-import Bids from "./pages/Bids";
 import Orders from "./pages/Orders";
 import Menu from "./pages/Menu";
 import Notifications from "./pages/Notifications";
@@ -19,6 +18,7 @@ import Messaging from "./pages/Messaging";
 import Reviews from "./pages/Reviews";
 import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound";
+import BidsNew from "./pages/BidsNew.tsx";
 
 const queryClient = new QueryClient();
 
@@ -39,7 +39,7 @@ const App = () => (
             {/* Dashboard Routes */}
             <Route path="/dashboard" element={<DashboardLayout />}>
               <Route index element={<Index />} />
-              <Route path="bids" element={<Bids />} />
+              <Route path="bids" element={<BidsNew />} />
               <Route path="orders" element={<Orders />} />
               <Route path="menu" element={<Menu />} />
               <Route path="notifications" element={<Notifications />} />
