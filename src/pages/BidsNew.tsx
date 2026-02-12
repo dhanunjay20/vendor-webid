@@ -17,6 +17,8 @@ interface BidRequest {
   bidRequestId: string;
   bidId?: string;
   userId: string;
+  vendorId?: string;
+  vendorName?: string;
   eventDetails: {
     eventType: string;
     eventName?: string;
@@ -67,10 +69,34 @@ interface BidRequest {
     totalAmount: number;
     currency?: string;
   };
+  itemizedPricing?: Array<{
+    vendorItemId?: string;
+    itemName?: string;
+    quantity?: number;
+    pricePerPlate?: number;
+    totalPrice?: number;
+  }>;
+  deliveryDetails?: {
+    estimatedSetupTime?: string;
+    foodReadyTime?: string;
+    cleanupTime?: string;
+  };
+  staffProvided?: {
+    chefs?: number;
+    servers?: number;
+    cleaners?: number;
+  };
   validUntil?: string;
   termsAndConditions?: string;
   notes?: string;
+  advancePercentage?: number;
+  requiredAdvanceAmount?: number;
   quotedAt?: string;
+  submittedAt?: string;
+  revisionCount?: number;
+  isLowest?: boolean;
+  rank?: number;
+  validityPeriodHours?: number;
   createdAt: string;
   expiresAt: string;
 }
@@ -82,6 +108,7 @@ interface QuoteFormData {
   taxAmount: number;
   totalAmount: number;
   currency: string;
+  advancePercentage: number;
   validityPeriodHours: number;
   termsAndConditions: string;
   notes?: string;
@@ -108,7 +135,7 @@ export default function BidsNew() {
   const [bidRequests, setBidRequests] = useState<BidRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeTab, setActiveTab] = useState<"active" | "quoted">("active");
+  const [activeTab, setActiveTab] = useState<"active" | "quoted" | "accepted" | "revised" | "withdrawn">("active");
   const [selectedBidRequest, setSelectedBidRequest] = useState<BidRequest | null>(null);
   const [showQuoteDialog, setShowQuoteDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
@@ -117,6 +144,7 @@ export default function BidsNew() {
   const [page, setPage] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [showQuotedDetailsModal, setShowQuotedDetailsModal] = useState(false);
 
   const [quoteForm, setQuoteForm] = useState<QuoteFormData>({
     subtotal: 0,
@@ -125,8 +153,9 @@ export default function BidsNew() {
     taxAmount: 0,
     totalAmount: 0,
     currency: "INR",
+    advancePercentage: 20,
     validityPeriodHours: 48,
-    termsAndConditions: "50% advance payment required. Balance to be paid 3 days before event date.",
+    termsAndConditions: "20% advance payment required. Balance to be paid 3 days before event date.",
     notes: "",
     itemizedPricing: [],
     deliveryDetails: {
@@ -207,13 +236,29 @@ export default function BidsNew() {
         );
         
         if (existingIndex >= 0) {
-          // Update existing request with quoted price and bid ID
+          // Update existing request with all submitted bid details
           mergedData[existingIndex] = {
             ...mergedData[existingIndex],
+            ...submittedBid,
+            // Ensure all submitted bid fields are present
             quotedPrice: submittedBid.quotedPrice,
             bidId: submittedBid.bidId,
             status: submittedBid.status,
             quotedAt: submittedBid.quotedAt,
+            submittedAt: submittedBid.submittedAt,
+            itemizedPricing: submittedBid.itemizedPricing,
+            deliveryDetails: submittedBid.deliveryDetails,
+            staffProvided: submittedBid.staffProvided,
+            validityPeriodHours: submittedBid.validityPeriodHours,
+            termsAndConditions: submittedBid.termsAndConditions,
+            revisionCount: submittedBid.revisionCount,
+            isLowest: submittedBid.isLowest,
+            rank: submittedBid.rank,
+            vendorName: submittedBid.vendorName,
+            vendorId: submittedBid.vendorId,
+            expiresAt: submittedBid.expiresAt,
+            advancePercentage: submittedBid.advancePercentage,
+            requiredAdvanceAmount: submittedBid.requiredAdvanceAmount,
           };
         } else {
           // Add as new entry if not in received list
@@ -249,8 +294,9 @@ export default function BidsNew() {
       taxAmount: (bidRequest.budget.estimatedBudget * 0.85) * 0.05,
       totalAmount: (bidRequest.budget.estimatedBudget * 0.85) * 1.05,
       currency: bidRequest.budget.currency,
+      advancePercentage: 20,
       validityPeriodHours: 48,
-      termsAndConditions: "50% advance payment required. Balance to be paid 3 days before event date.",
+      termsAndConditions: "20% advance payment required. Balance to be paid 3 days before event date.",
       notes: "",
       itemizedPricing: bidRequest.menuItems?.map(item => ({
         vendorItemId: item.vendorItemId,
@@ -282,8 +328,9 @@ export default function BidsNew() {
       taxAmount: bidRequest.quotedPrice?.taxAmount || 0,
       totalAmount: bidRequest.quotedPrice?.totalAmount || 0,
       currency: bidRequest.quotedPrice?.currency || bidRequest.budget.currency,
-      validityPeriodHours: 48,
-      termsAndConditions: bidRequest.termsAndConditions || "50% advance payment required. Balance to be paid 3 days before event date.",
+      advancePercentage: bidRequest.advancePercentage || 20,
+      validityPeriodHours: bidRequest.validityPeriodHours || 48,
+      termsAndConditions: bidRequest.termsAndConditions || "20% advance payment required. Balance to be paid 3 days before event date.",
       notes: bidRequest.notes || "",
       itemizedPricing: bidRequest.menuItems?.map(item => ({
         vendorItemId: item.vendorItemId,
@@ -293,14 +340,14 @@ export default function BidsNew() {
         totalPrice: 0,
       })) || [],
       deliveryDetails: {
-        estimatedSetupTime: "",
-        foodReadyTime: "",
-        cleanupTime: "",
+        estimatedSetupTime: bidRequest.deliveryDetails?.estimatedSetupTime || "",
+        foodReadyTime: bidRequest.deliveryDetails?.foodReadyTime || "",
+        cleanupTime: bidRequest.deliveryDetails?.cleanupTime || "",
       },
       staffProvided: {
-        chefs: 0,
-        servers: 0,
-        cleaners: 0,
+        chefs: bidRequest.staffProvided?.chefs || 0,
+        servers: bidRequest.staffProvided?.servers || 0,
+        cleaners: bidRequest.staffProvided?.cleaners || 0,
       },
     });
     setShowEditDialog(true);
@@ -330,6 +377,7 @@ export default function BidsNew() {
           taxAmount: quoteForm.taxAmount > 0 ? quoteForm.taxAmount : undefined,
           totalAmount: quoteForm.totalAmount,
         },
+        advancePercentage: quoteForm.advancePercentage > 0 ? quoteForm.advancePercentage : undefined,
         itemizedPricing: quoteForm.itemizedPricing && quoteForm.itemizedPricing.length > 0 
           ? quoteForm.itemizedPricing.filter(item => item.itemName && item.quantity)
           : undefined,
@@ -398,6 +446,7 @@ export default function BidsNew() {
           taxAmount: quoteForm.taxAmount > 0 ? quoteForm.taxAmount : undefined,
           totalAmount: quoteForm.totalAmount,
         },
+        advancePercentage: quoteForm.advancePercentage > 0 ? quoteForm.advancePercentage : undefined,
         validityPeriodHours: quoteForm.validityPeriodHours,
         termsAndConditions: quoteForm.termsAndConditions || undefined,
         notes: quoteForm.notes || undefined,
@@ -532,7 +581,27 @@ export default function BidsNew() {
     return hasQuote;
   });
 
-  const filteredBids = (activeTab === "active" ? activeBids : quotedBids).filter((request) => {
+  const acceptedBids = bidRequests.filter((r) => {
+    const status = r.status?.toUpperCase() || "";
+    return status === "ACCEPTED";
+  });
+
+  const revisedBids = bidRequests.filter((r) => {
+    return r.revisionCount && r.revisionCount > 0;
+  });
+
+  const withdrawnBids = bidRequests.filter((r) => {
+    const status = r.status?.toUpperCase() || "";
+    return status === "WITHDRAWN";
+  });
+
+  const filteredBids = (
+    activeTab === "active" ? activeBids :
+    activeTab === "quoted" ? quotedBids :
+    activeTab === "accepted" ? acceptedBids :
+    activeTab === "revised" ? revisedBids :
+    withdrawnBids
+  ).filter((request) => {
     const matchesSearch =
       request.eventDetails.eventName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       request.eventDetails.eventType.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -603,25 +672,79 @@ export default function BidsNew() {
                 <Badge className="ml-1 bg-blue-600 text-white">{quotedBids.length}</Badge>
               </div>
             </button>
+            <button
+              onClick={() => {
+                setActiveTab("accepted");
+                setPage(0);
+              }}
+              className={`px-4 sm:px-6 py-3 font-semibold text-sm sm:text-base rounded-lg transition-all ${
+                activeTab === "accepted"
+                  ? "bg-gradient-to-r from-green-500 to-emerald-500 text-white shadow-lg"
+                  : "text-muted-foreground hover:text-foreground hover:bg-gray-100 dark:hover:bg-slate-800"
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="h-5 w-5" />
+                <span>Accepted Bids</span>
+                <Badge className="ml-1 bg-green-600 text-white">{acceptedBids.length}</Badge>
+              </div>
+            </button>
+            <button
+              onClick={() => {
+                setActiveTab("revised");
+                setPage(0);
+              }}
+              className={`px-4 sm:px-6 py-3 font-semibold text-sm sm:text-base rounded-lg transition-all ${
+                activeTab === "revised"
+                  ? "bg-gradient-to-r from-yellow-500 to-orange-500 text-white shadow-lg"
+                  : "text-muted-foreground hover:text-foreground hover:bg-gray-100 dark:hover:bg-slate-800"
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <Edit2 className="h-5 w-5" />
+                <span>Revised</span>
+                <Badge className="ml-1 bg-yellow-600 text-white">{revisedBids.length}</Badge>
+              </div>
+            </button>
+            <button
+              onClick={() => {
+                setActiveTab("withdrawn");
+                setPage(0);
+              }}
+              className={`px-4 sm:px-6 py-3 font-semibold text-sm sm:text-base rounded-lg transition-all ${
+                activeTab === "withdrawn"
+                  ? "bg-gradient-to-r from-red-500 to-pink-500 text-white shadow-lg"
+                  : "text-muted-foreground hover:text-foreground hover:bg-gray-100 dark:hover:bg-slate-800"
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <Trash2 className="h-5 w-5" />
+                <span>Withdrawn</span>
+                <Badge className="ml-1 bg-red-600 text-white">{withdrawnBids.length}</Badge>
+              </div>
+            </button>
           </div>
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
           {[
             { label: "Total Requests", value: bidRequests.length, icon: Clock, color: "from-blue-500 to-blue-600" },
             { label: "Active", value: activeBids.length, icon: TrendingUp, color: "from-orange-500 to-red-600" },
             { label: "Your Quotes", value: quotedBids.length, icon: CheckCircle2, color: "from-green-500 to-emerald-600" },
+            { label: "Accepted", value: acceptedBids.length, icon: CheckCircle2, color: "from-purple-500 to-pink-600" },
+            { label: "Revised", value: revisedBids.length, icon: Edit2, color: "from-yellow-500 to-orange-600" },
+            { label: "Withdrawn", value: withdrawnBids.length, icon: Trash2, color: "from-red-500 to-pink-600" },
           ].map((stat) => (
-            <Card key={stat.label} className="border-0 shadow-lg hover:shadow-xl transition-shadow">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">{stat.label}</p>
-                    <p className="text-4xl font-bold mt-2">{stat.value}</p>
+            <Card key={stat.label} className="border-0 shadow-lg hover:shadow-xl transition-shadow bg-white dark:bg-slate-800">
+              <CardContent className="p-3 sm:p-4 md:p-5">
+                <div className="flex flex-col items-center justify-center text-center gap-2">
+                  <div className={`bg-gradient-to-br ${stat.color} p-3 rounded-lg`}>
+                    <stat.icon className="h-6 w-6 text-white" />
                   </div>
-                  <div className={`bg-gradient-to-br ${stat.color} p-4 rounded-lg`}>
-                    <stat.icon className="h-8 w-8 text-white" />
+                  <div>
+                    <p className="text-3xl md:text-4xl font-bold">{stat.value}</p>
+                    <p className="text-xs sm:text-sm font-medium text-muted-foreground line-clamp-2">{stat.label}</p>
                   </div>
                 </div>
               </CardContent>
@@ -653,14 +776,31 @@ export default function BidsNew() {
                 <CardHeader className="bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900 pb-4">
                   <div className="flex items-start justify-between gap-4">
                     <div className="space-y-1 flex-1 min-w-0">
-                      <CardTitle className="text-lg">
-                        {request.eventDetails.eventName || `${request.eventDetails.eventType} Event`}
-                      </CardTitle>
+                      <div className="flex items-center gap-3 flex-wrap">
+                        <CardTitle className="text-lg">
+                          {request.eventDetails.eventName || `${request.eventDetails.eventType} Event`}
+                        </CardTitle>
+                        {request.isLowest && (
+                          <Badge className="bg-gradient-to-r from-yellow-400 to-amber-500 text-white font-semibold text-xs">
+                            ⭐ Lowest Bid
+                          </Badge>
+                        )}
+                      </div>
                       <div className="flex items-center gap-3 flex-wrap">
                         <p className="text-xs text-muted-foreground font-mono">ID: {request.bidRequestId.slice(0, 16)}...</p>
+                        {request.vendorName && (
+                          <p className="text-xs text-muted-foreground font-semibold">
+                            📍 {request.vendorName}
+                          </p>
+                        )}
                         {request.bidId && (
                           <p className="text-xs text-muted-foreground font-semibold">
                             Your Bid: <span className="font-mono text-sm">{request.bidId.slice(0, 12)}...</span>
+                          </p>
+                        )}
+                        {request.revisionCount !== undefined && (
+                          <p className="text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2 py-1 rounded">
+                            Revisions: {request.revisionCount}
                           </p>
                         )}
                       </div>
@@ -795,7 +935,7 @@ export default function BidsNew() {
                             variant="outline"
                             className="flex-1 sm:flex-none h-11 border-2 border-purple-400 hover:bg-purple-50 dark:hover:bg-purple-950/30 text-purple-600 hover:text-purple-700 font-semibold"
                           >
-                            👁️ View Details
+                            👁️ User Req Details
                           </Button>
                         </>
                       ) : (
@@ -828,7 +968,17 @@ export default function BidsNew() {
                             variant="outline"
                             className="flex-1 sm:flex-none h-11 border-2 border-purple-400 hover:bg-purple-50 dark:hover:bg-purple-950/30 text-purple-600 hover:text-purple-700 font-semibold"
                           >
-                            👁️ View Details
+                            👁️ View User Req Details
+                          </Button>
+                          <Button
+                            onClick={() => {
+                              setSelectedBidRequest(request);
+                              setShowQuotedDetailsModal(true);
+                            }}
+                            variant="outline"
+                            className="flex-1 sm:flex-none h-11 border-2 border-green-400 hover:bg-green-50 dark:hover:bg-green-950/30 text-green-600 hover:text-green-700 font-semibold"
+                          >
+                            💚 Your Quoted Details
                           </Button>
                         </>
                       )}
@@ -872,6 +1022,35 @@ export default function BidsNew() {
                             {item.quantity && ` × ${item.quantity}`}
                           </Badge>
                         ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Itemized Pricing with Details */}
+                  {selectedBidRequest.itemizedPricing && selectedBidRequest.itemizedPricing.length > 0 && (
+                    <div className="space-y-3 border-t pt-4">
+                      <h3 className="font-bold text-lg">💵 Itemized Pricing</h3>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b border-gray-300 dark:border-gray-700">
+                              <th className="text-left p-2 font-semibold">Item</th>
+                              <th className="text-center p-2 font-semibold">Qty</th>
+                              <th className="text-right p-2 font-semibold">Price/Unit</th>
+                              <th className="text-right p-2 font-semibold">Total</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {selectedBidRequest.itemizedPricing.map((item, idx) => (
+                              <tr key={idx} className="border-b border-gray-200 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-slate-800/50">
+                                <td className="p-2">{item.itemName || "-"}</td>
+                                <td className="text-center p-2">{item.quantity || "-"}</td>
+                                <td className="text-right p-2">{item.pricePerPlate ? `${getCurrencySymbol("INR")}${item.pricePerPlate.toLocaleString()}` : "-"}</td>
+                                <td className="text-right p-2 font-semibold">{item.totalPrice ? `${getCurrencySymbol("INR")}${item.totalPrice.toLocaleString()}` : "-"}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
                       </div>
                     </div>
                   )}
@@ -991,6 +1170,60 @@ export default function BidsNew() {
                       </div>
                     </div>
                   )}
+
+                  {/* Delivery Details (from submitted bid) */}
+                  {selectedBidRequest.deliveryDetails && (
+                    <div className="space-y-3 border-t pt-4">
+                      <h3 className="font-bold text-lg">🚚 Delivery Details</h3>
+                      <div className="grid grid-cols-3 gap-3">
+                        {selectedBidRequest.deliveryDetails.estimatedSetupTime && (
+                          <div className="p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-300">
+                            <p className="text-xs text-muted-foreground">Setup Time</p>
+                            <p className="font-semibold mt-1">{selectedBidRequest.deliveryDetails.estimatedSetupTime}</p>
+                          </div>
+                        )}
+                        {selectedBidRequest.deliveryDetails.foodReadyTime && (
+                          <div className="p-3 bg-green-50 dark:bg-green-950/30 rounded-lg border border-green-300">
+                            <p className="text-xs text-muted-foreground">Food Ready Time</p>
+                            <p className="font-semibold mt-1">{selectedBidRequest.deliveryDetails.foodReadyTime}</p>
+                          </div>
+                        )}
+                        {selectedBidRequest.deliveryDetails.cleanupTime && (
+                          <div className="p-3 bg-purple-50 dark:bg-purple-950/30 rounded-lg border border-purple-300">
+                            <p className="text-xs text-muted-foreground">Cleanup Time</p>
+                            <p className="font-semibold mt-1">{selectedBidRequest.deliveryDetails.cleanupTime}</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Staff Provided (from submitted bid) */}
+                  {selectedBidRequest.staffProvided && (selectedBidRequest.staffProvided.chefs || selectedBidRequest.staffProvided.servers || selectedBidRequest.staffProvided.cleaners) && (
+                    <div className="space-y-3 border-t pt-4">
+                      <h3 className="font-bold text-lg">👥 Staff Provided</h3>
+                      <div className="grid grid-cols-3 gap-3">
+                        {selectedBidRequest.staffProvided.chefs !== undefined && selectedBidRequest.staffProvided.chefs > 0 && (
+                          <div className="p-3 bg-orange-50 dark:bg-orange-950/30 rounded-lg border border-orange-300">
+                            <p className="text-xs text-muted-foreground">Chefs</p>
+                            <p className="text-2xl font-bold text-orange-600 mt-1">{selectedBidRequest.staffProvided.chefs}</p>
+                          </div>
+                        )}
+                        {selectedBidRequest.staffProvided.servers !== undefined && selectedBidRequest.staffProvided.servers > 0 && (
+                          <div className="p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-300">
+                            <p className="text-xs text-muted-foreground">Servers</p>
+                            <p className="text-2xl font-bold text-blue-600 mt-1">{selectedBidRequest.staffProvided.servers}</p>
+                          </div>
+                        )}
+                        {selectedBidRequest.staffProvided.cleaners !== undefined && selectedBidRequest.staffProvided.cleaners > 0 && (
+                          <div className="p-3 bg-cyan-50 dark:bg-cyan-950/30 rounded-lg border border-cyan-300">
+                            <p className="text-xs text-muted-foreground">Cleaners</p>
+                            <p className="text-2xl font-bold text-cyan-600 mt-1">{selectedBidRequest.staffProvided.cleaners}</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -1004,7 +1237,272 @@ export default function BidsNew() {
           </DialogContent>
         </Dialog>
 
-        {/* Quote Dialog */}
+        {/* Your Quoted Details Modal */}
+        <Dialog open={showQuotedDetailsModal} onOpenChange={setShowQuotedDetailsModal}>
+          <DialogContent className="max-w-3xl h-[90vh] flex flex-col rounded-2xl border-0 shadow-2xl p-0 gap-0">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-green-500 to-emerald-500 text-white p-6 rounded-t-2xl flex-shrink-0">
+              <div className="space-y-3">
+                <div className="flex items-center gap-3 flex-wrap">
+                  <DialogTitle className="text-2xl font-bold text-white">
+                    💚 Your Quoted Details
+                  </DialogTitle>
+                  {selectedBidRequest?.isLowest && (
+                    <Badge className="bg-yellow-300 text-yellow-900 font-semibold">⭐ Lowest Bid</Badge>
+                  )}
+                </div>
+                <p className="text-sm text-green-100">
+                  {selectedBidRequest?.eventDetails.eventName || `${selectedBidRequest?.eventDetails.eventType} Event`}
+                </p>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs text-green-100 pt-2">
+                  {selectedBidRequest?.bidId && (
+                    <div>
+                      <p className="font-semibold">Bid ID</p>
+                      <p className="font-mono text-green-50 truncate">{selectedBidRequest.bidId.slice(0, 12)}...</p>
+                    </div>
+                  )}
+                  {selectedBidRequest?.vendorName && (
+                    <div>
+                      <p className="font-semibold">Vendor</p>
+                      <p className="text-green-50">{selectedBidRequest.vendorName}</p>
+                    </div>
+                  )}
+                  {selectedBidRequest?.status && (
+                    <div>
+                      <p className="font-semibold">Status</p>
+                      <p className="text-green-50 font-semibold">{selectedBidRequest.status}</p>
+                    </div>
+                  )}
+                  {selectedBidRequest?.quotedPrice?.totalAmount && (
+                    <div>
+                      <p className="font-semibold">Total Quote</p>
+                      <p className="text-green-50 font-bold">{getCurrencySymbol("INR")}{selectedBidRequest.quotedPrice.totalAmount.toLocaleString()}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Scrollable Content */}
+            <div className="flex-1 overflow-y-auto p-6">
+              {selectedBidRequest && (
+                <div className="space-y-6">
+                  {/* Your Quotation Price */}
+                  {selectedBidRequest.quotedPrice && (
+                    <div className="space-y-3">
+                      <h3 className="font-bold text-lg">💰 Your Quotation</h3>
+                      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                        <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800">
+                          <p className="text-xs text-muted-foreground">Subtotal</p>
+                          <p className="font-bold mt-1">{getCurrencySymbol(selectedBidRequest.quotedPrice.currency || "INR")}{selectedBidRequest.quotedPrice.subtotal.toLocaleString()}</p>
+                        </div>
+                        {selectedBidRequest.quotedPrice.taxAmount !== undefined && selectedBidRequest.quotedPrice.taxAmount > 0 && (
+                          <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800">
+                            <p className="text-xs text-muted-foreground">Tax</p>
+                            <p className="font-bold mt-1">{getCurrencySymbol(selectedBidRequest.quotedPrice.currency || "INR")}{selectedBidRequest.quotedPrice.taxAmount.toLocaleString()}</p>
+                          </div>
+                        )}
+                        {selectedBidRequest.quotedPrice.serviceCharge !== undefined && selectedBidRequest.quotedPrice.serviceCharge > 0 && (
+                          <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800">
+                            <p className="text-xs text-muted-foreground">Service</p>
+                            <p className="font-bold mt-1">{getCurrencySymbol(selectedBidRequest.quotedPrice.currency || "INR")}{selectedBidRequest.quotedPrice.serviceCharge.toLocaleString()}</p>
+                          </div>
+                        )}
+                        <div className="p-3 rounded-lg bg-gradient-to-br from-green-100 to-emerald-100 dark:from-green-900/50 dark:to-emerald-900/50 border-2 border-green-300">
+                          <p className="text-xs text-muted-foreground font-semibold">TOTAL</p>
+                          <p className="font-bold mt-1 text-lg text-green-600 dark:text-green-300">{getCurrencySymbol(selectedBidRequest.quotedPrice.currency || "INR")}{selectedBidRequest.quotedPrice.totalAmount.toLocaleString()}</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Advance Payment Required */}
+                  {selectedBidRequest.advancePercentage !== undefined && selectedBidRequest.advancePercentage > 0 && (
+                    <div className="space-y-3 bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-950/30 dark:to-amber-950/30 p-4 rounded-lg border-2 border-orange-300 dark:border-orange-700">
+                      <h3 className="font-bold text-lg">💳 Advance Payment Required</h3>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="p-3 bg-white dark:bg-slate-800 rounded-lg">
+                          <p className="text-xs text-muted-foreground">Advance Percentage</p>
+                          <p className="font-bold text-lg mt-1 text-orange-600">{selectedBidRequest.advancePercentage}%</p>
+                        </div>
+                        <div className="p-3 bg-gradient-to-br from-orange-100 to-amber-100 dark:from-orange-900/50 dark:to-amber-900/50 rounded-lg border border-orange-300">
+                          <p className="text-xs text-muted-foreground font-semibold">Amount Required</p>
+                          <p className="font-bold text-lg mt-1 text-orange-600">{getCurrencySymbol(selectedBidRequest.quotedPrice?.currency || "INR")}{selectedBidRequest.requiredAdvanceAmount?.toLocaleString('en-IN', { maximumFractionDigits: 2 }) || ((selectedBidRequest.quotedPrice?.totalAmount || 0) * (selectedBidRequest.advancePercentage || 0) / 100).toLocaleString('en-IN', { maximumFractionDigits: 2 })}</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Itemized Pricing */}
+                  {selectedBidRequest.itemizedPricing && selectedBidRequest.itemizedPricing.length > 0 && (
+                    <div className="space-y-3 border-t pt-6">
+                      <h3 className="font-bold text-lg">📋 Itemized Pricing</h3>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b border-gray-300 dark:border-gray-700">
+                              <th className="text-left p-2 font-semibold">Item</th>
+                              <th className="text-center p-2 font-semibold">Qty</th>
+                              <th className="text-right p-2 font-semibold">Price/Unit</th>
+                              <th className="text-right p-2 font-semibold">Total</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {selectedBidRequest.itemizedPricing.map((item, idx) => (
+                              <tr key={idx} className="border-b border-gray-200 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-slate-800/50">
+                                <td className="p-2">{item.itemName || "-"}</td>
+                                <td className="text-center p-2">{item.quantity || "-"}</td>
+                                <td className="text-right p-2">{item.pricePerPlate ? `${getCurrencySymbol("INR")}${item.pricePerPlate.toLocaleString()}` : "-"}</td>
+                                <td className="text-right p-2 font-semibold">{item.totalPrice ? `${getCurrencySymbol("INR")}${item.totalPrice.toLocaleString()}` : "-"}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Delivery Details */}
+                  {selectedBidRequest.deliveryDetails && (
+                    <div className="space-y-3 border-t pt-6">
+                      <h3 className="font-bold text-lg">🚚 Delivery Details</h3>
+                      <div className="grid grid-cols-3 gap-3">
+                        {selectedBidRequest.deliveryDetails.estimatedSetupTime && (
+                          <div className="p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-300">
+                            <p className="text-xs text-muted-foreground">Setup Time</p>
+                            <p className="font-semibold mt-1">{selectedBidRequest.deliveryDetails.estimatedSetupTime}</p>
+                          </div>
+                        )}
+                        {selectedBidRequest.deliveryDetails.foodReadyTime && (
+                          <div className="p-3 bg-green-50 dark:bg-green-950/30 rounded-lg border border-green-300">
+                            <p className="text-xs text-muted-foreground">Food Ready Time</p>
+                            <p className="font-semibold mt-1">{selectedBidRequest.deliveryDetails.foodReadyTime}</p>
+                          </div>
+                        )}
+                        {selectedBidRequest.deliveryDetails.cleanupTime && (
+                          <div className="p-3 bg-purple-50 dark:bg-purple-950/30 rounded-lg border border-purple-300">
+                            <p className="text-xs text-muted-foreground">Cleanup Time</p>
+                            <p className="font-semibold mt-1">{selectedBidRequest.deliveryDetails.cleanupTime}</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Staff Provided */}
+                  {selectedBidRequest.staffProvided && (selectedBidRequest.staffProvided.chefs || selectedBidRequest.staffProvided.servers || selectedBidRequest.staffProvided.cleaners) && (
+                    <div className="space-y-3 border-t pt-6">
+                      <h3 className="font-bold text-lg">👥 Staff Provided</h3>
+                      <div className="grid grid-cols-3 gap-3">
+                        {selectedBidRequest.staffProvided.chefs !== undefined && selectedBidRequest.staffProvided.chefs > 0 && (
+                          <div className="p-3 bg-orange-50 dark:bg-orange-950/30 rounded-lg border border-orange-300">
+                            <p className="text-xs text-muted-foreground">Chefs</p>
+                            <p className="text-2xl font-bold text-orange-600 mt-1">{selectedBidRequest.staffProvided.chefs}</p>
+                          </div>
+                        )}
+                        {selectedBidRequest.staffProvided.servers !== undefined && selectedBidRequest.staffProvided.servers > 0 && (
+                          <div className="p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-300">
+                            <p className="text-xs text-muted-foreground">Servers</p>
+                            <p className="text-2xl font-bold text-blue-600 mt-1">{selectedBidRequest.staffProvided.servers}</p>
+                          </div>
+                        )}
+                        {selectedBidRequest.staffProvided.cleaners !== undefined && selectedBidRequest.staffProvided.cleaners > 0 && (
+                          <div className="p-3 bg-cyan-50 dark:bg-cyan-950/30 rounded-lg border border-cyan-300">
+                            <p className="text-xs text-muted-foreground">Cleaners</p>
+                            <p className="text-2xl font-bold text-cyan-600 mt-1">{selectedBidRequest.staffProvided.cleaners}</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Terms & Conditions */}
+                  {selectedBidRequest.termsAndConditions && (
+                    <div className="space-y-3 border-t pt-6">
+                      <h3 className="font-bold text-lg">📋 Terms & Conditions</h3>
+                      <div className="p-3 bg-amber-50 dark:bg-amber-950/30 rounded-lg border border-amber-300">
+                        <p className="text-sm">{selectedBidRequest.termsAndConditions}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Validity & Status Info */}
+                  <div className="space-y-4 border-t pt-6">
+                    {/* IDs Section */}
+                    <div className="grid grid-cols-2 gap-3">
+                      {selectedBidRequest.bidId && (
+                        <div className="p-3 bg-purple-50 dark:bg-purple-950/30 rounded-lg border border-purple-300">
+                          <p className="text-xs text-muted-foreground font-semibold">Your Bid ID</p>
+                          <p className="font-mono text-sm mt-1 break-all">{selectedBidRequest.bidId}</p>
+                        </div>
+                      )}
+                      {selectedBidRequest.bidRequestId && (
+                        <div className="p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-300">
+                          <p className="text-xs text-muted-foreground font-semibold">Request ID</p>
+                          <p className="font-mono text-sm mt-1 break-all">{selectedBidRequest.bidRequestId}</p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Status & Timeline */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-lg">
+                        <p className="text-xs text-muted-foreground">Status</p>
+                        <p className="font-semibold mt-1">{selectedBidRequest.status || "SUBMITTED"}</p>
+                      </div>
+                      <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-lg">
+                        <p className="text-xs text-muted-foreground">Valid For</p>
+                        <p className="font-semibold mt-1">{selectedBidRequest.validityPeriodHours || 48}h</p>
+                      </div>
+                      <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-lg">
+                        <p className="text-xs text-muted-foreground">Revisions</p>
+                        <p className="font-semibold mt-1">{selectedBidRequest.revisionCount || 0}</p>
+                      </div>
+                      {selectedBidRequest.isLowest && (
+                        <div className="p-3 bg-yellow-50 dark:bg-yellow-950/30 rounded-lg border-2 border-yellow-300">
+                          <p className="text-xs text-muted-foreground">Rank</p>
+                          <p className="font-bold mt-1 text-yellow-600 text-lg">⭐ #{selectedBidRequest.rank}</p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Dates Section */}
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                      {selectedBidRequest.submittedAt && (
+                        <div className="p-3 bg-green-50 dark:bg-green-950/30 rounded-lg border border-green-300">
+                          <p className="text-xs text-muted-foreground font-semibold">Submitted At</p>
+                          <p className="font-semibold text-sm mt-1">{formatDate(selectedBidRequest.submittedAt)}</p>
+                          <p className="text-xs text-muted-foreground mt-1">{formatTime(selectedBidRequest.submittedAt)}</p>
+                        </div>
+                      )}
+                      {selectedBidRequest.expiresAt && (
+                        <div className="p-3 bg-orange-50 dark:bg-orange-950/30 rounded-lg border border-orange-300">
+                          <p className="text-xs text-muted-foreground font-semibold">Expires At</p>
+                          <p className="font-semibold text-sm mt-1">{formatDate(selectedBidRequest.expiresAt)}</p>
+                          <p className="text-xs text-muted-foreground mt-1">{formatTime(selectedBidRequest.expiresAt)}</p>
+                        </div>
+                      )}
+                      {selectedBidRequest.quotedAt && (
+                        <div className="p-3 bg-cyan-50 dark:bg-cyan-950/30 rounded-lg border border-cyan-300">
+                          <p className="text-xs text-muted-foreground font-semibold">Last Quoted At</p>
+                          <p className="font-semibold text-sm mt-1">{formatDate(selectedBidRequest.quotedAt)}</p>
+                          <p className="text-xs text-muted-foreground mt-1">{formatTime(selectedBidRequest.quotedAt)}</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="border-t bg-slate-50 dark:bg-slate-800 p-4 flex justify-end rounded-b-2xl flex-shrink-0">
+              <Button onClick={() => setShowQuotedDetailsModal(false)} className="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-semibold h-10">
+                ✓ Close
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
         {totalPages > 1 && (
           <div className="flex justify-center items-center gap-3 mt-8">
             <Button
@@ -1301,6 +1799,40 @@ export default function BidsNew() {
 
                 <Separator />
 
+                {/* Advance Payment */}
+                <div>
+                  <h3 className="font-bold text-base mb-3">💳 Advance Payment Required</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label className="font-semibold text-sm block mb-2">Advance % *</Label>
+                      <div className="flex gap-2">
+                        <Input
+                          type="number"
+                          min="0"
+                          max="100"
+                          value={quoteForm.advancePercentage}
+                          onChange={(e) => setQuoteForm({
+                            ...quoteForm,
+                            advancePercentage: parseFloat(e.target.value) || 0,
+                          })}
+                          className="h-10 text-sm flex-1"
+                        />
+                        <div className="px-4 py-2 bg-slate-100 dark:bg-slate-700 rounded font-bold text-sm flex items-center">%</div>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">How much % advance payment do you need?</p>
+                    </div>
+                    <div>
+                      <Label className="font-semibold text-sm block mb-2">Required Amount</Label>
+                      <div className="px-4 py-2 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950/30 dark:to-emerald-950/30 rounded border-2 border-green-300 dark:border-green-700 h-10 flex items-center">
+                        <span className="font-bold text-lg text-green-600">{getCurrencySymbol(quoteForm.currency)}{((quoteForm.totalAmount * quoteForm.advancePercentage) / 100).toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">Amount customer must pay upfront</p>
+                    </div>
+                  </div>
+                </div>
+
+                <Separator />
+
                 {/* Terms */}
                 <div>
                   <h3 className="font-bold text-base mb-3">⏰ Validity & Terms</h3>
@@ -1437,7 +1969,35 @@ export default function BidsNew() {
                 </div>
 
                 <div>
-                  <Label className="font-semibold text-sm block mb-2">Terms & Conditions</Label>
+                  <h3 className="font-bold text-base mb-3">💳 Advance Payment Required</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label className="font-semibold text-sm block mb-2">Advance % *</Label>
+                      <div className="flex gap-2">
+                        <Input
+                          type="number"
+                          min="0"
+                          max="100"
+                          value={quoteForm.advancePercentage}
+                          onChange={(e) => setQuoteForm({
+                            ...quoteForm,
+                            advancePercentage: parseFloat(e.target.value) || 0,
+                          })}
+                          className="h-10 text-sm flex-1"
+                        />
+                        <div className="px-4 py-2 bg-slate-100 dark:bg-slate-700 rounded font-bold text-sm flex items-center">%</div>
+                      </div>
+                    </div>
+                    <div>
+                      <Label className="font-semibold text-sm block mb-2">Required Amount</Label>
+                      <div className="px-4 py-2 bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-950/30 dark:to-cyan-950/30 rounded border-2 border-blue-300 dark:border-blue-700 h-10 flex items-center">
+                        <span className="font-bold text-lg text-blue-600">{getCurrencySymbol(quoteForm.currency)}{((quoteForm.totalAmount * quoteForm.advancePercentage) / 100).toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
                   <Textarea
                     value={quoteForm.termsAndConditions}
                     onChange={(e) => setQuoteForm({ ...quoteForm, termsAndConditions: e.target.value })}
