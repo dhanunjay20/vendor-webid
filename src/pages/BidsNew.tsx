@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
-import { Search, Calendar, Users, MapPin, DollarSign, Clock, Send, Edit2, Trash2, AlertCircle, Loader2, TrendingUp, CheckCircle2, XCircle } from "lucide-react";
+import { Search, Calendar, Users, MapPin, DollarSign, Send, Edit2, Trash2, AlertCircle, Loader2, TrendingUp, CheckCircle2, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Clock, AlertCircle as AlertIcon } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -20,6 +21,8 @@ interface BidRequest {
     eventType: string;
     eventName?: string;
     eventDate: string;
+    eventStartTime?: string;
+    eventEndTime?: string;
     numberOfGuests: number;
     venueAddress: {
       streetAddress?: string;
@@ -31,13 +34,28 @@ interface BidRequest {
   };
   menuItems?: Array<{
     vendorItemId: string;
+    masterItemId?: string | null;
     itemName: string;
     quantity?: number;
   }>;
+  additionalRequirements?: {
+    serviceStaffNeeded?: boolean;
+    numberOfStaff?: number;
+    decorationNeeded?: boolean;
+    liveCounters?: string[];
+    specialInstructions?: string;
+  };
   budget: {
     currency: string;
     estimatedBudget: number;
+    budgetRange?: string;
   };
+  competitivePeriod?: {
+    startTime?: string;
+    endTime?: string;
+    status?: string;
+  };
+  targetedVendors?: string[];
   status: string;
   totalBidsReceived: number;
   lowestBidAmount?: number;
@@ -66,8 +84,9 @@ interface QuoteFormData {
   currency: string;
   validityPeriodHours: number;
   termsAndConditions: string;
-  notes: string;
+  notes?: string;
   itemizedPricing?: Array<{
+    vendorItemId?: string;
     itemName?: string;
     quantity?: number;
     pricePerPlate?: number;
@@ -97,6 +116,7 @@ export default function BidsNew() {
   const [submitting, setSubmitting] = useState(false);
   const [page, setPage] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
 
   const [quoteForm, setQuoteForm] = useState<QuoteFormData>({
     subtotal: 0,
@@ -108,6 +128,17 @@ export default function BidsNew() {
     validityPeriodHours: 48,
     termsAndConditions: "50% advance payment required. Balance to be paid 3 days before event date.",
     notes: "",
+    itemizedPricing: [],
+    deliveryDetails: {
+      estimatedSetupTime: "",
+      foodReadyTime: "",
+      cleanupTime: "",
+    },
+    staffProvided: {
+      chefs: 0,
+      servers: 0,
+      cleaners: 0,
+    },
   });
 
   useEffect(() => {
@@ -221,6 +252,23 @@ export default function BidsNew() {
       validityPeriodHours: 48,
       termsAndConditions: "50% advance payment required. Balance to be paid 3 days before event date.",
       notes: "",
+      itemizedPricing: bidRequest.menuItems?.map(item => ({
+        vendorItemId: item.vendorItemId,
+        itemName: item.itemName,
+        quantity: item.quantity || 1,
+        pricePerPlate: 0,
+        totalPrice: 0,
+      })) || [],
+      deliveryDetails: {
+        estimatedSetupTime: "",
+        foodReadyTime: "",
+        cleanupTime: "",
+      },
+      staffProvided: {
+        chefs: 0,
+        servers: 0,
+        cleaners: 0,
+      },
     });
     setShowQuoteDialog(true);
   };
@@ -237,6 +285,23 @@ export default function BidsNew() {
       validityPeriodHours: 48,
       termsAndConditions: bidRequest.termsAndConditions || "50% advance payment required. Balance to be paid 3 days before event date.",
       notes: bidRequest.notes || "",
+      itemizedPricing: bidRequest.menuItems?.map(item => ({
+        vendorItemId: item.vendorItemId,
+        itemName: item.itemName,
+        quantity: item.quantity || 1,
+        pricePerPlate: 0,
+        totalPrice: 0,
+      })) || [],
+      deliveryDetails: {
+        estimatedSetupTime: "",
+        foodReadyTime: "",
+        cleanupTime: "",
+      },
+      staffProvided: {
+        chefs: 0,
+        servers: 0,
+        cleaners: 0,
+      },
     });
     setShowEditDialog(true);
   };
@@ -265,9 +330,21 @@ export default function BidsNew() {
           taxAmount: quoteForm.taxAmount > 0 ? quoteForm.taxAmount : undefined,
           totalAmount: quoteForm.totalAmount,
         },
+        itemizedPricing: quoteForm.itemizedPricing && quoteForm.itemizedPricing.length > 0 
+          ? quoteForm.itemizedPricing.filter(item => item.itemName && item.quantity)
+          : undefined,
+        deliveryDetails: quoteForm.deliveryDetails && (
+          quoteForm.deliveryDetails.estimatedSetupTime || 
+          quoteForm.deliveryDetails.foodReadyTime || 
+          quoteForm.deliveryDetails.cleanupTime
+        ) ? quoteForm.deliveryDetails : undefined,
+        staffProvided: quoteForm.staffProvided && (
+          quoteForm.staffProvided.chefs > 0 || 
+          quoteForm.staffProvided.servers > 0 || 
+          quoteForm.staffProvided.cleaners > 0
+        ) ? quoteForm.staffProvided : undefined,
         validityPeriodHours: quoteForm.validityPeriodHours,
         termsAndConditions: quoteForm.termsAndConditions || undefined,
-        notes: quoteForm.notes || undefined,
       };
 
       const response = await api.submitBid(selectedBidRequest.bidRequestId, payload);
@@ -576,14 +653,14 @@ export default function BidsNew() {
                 <CardHeader className="bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900 pb-4">
                   <div className="flex items-start justify-between gap-4">
                     <div className="space-y-1 flex-1 min-w-0">
-                      <CardTitle className="text-xl">
+                      <CardTitle className="text-lg">
                         {request.eventDetails.eventName || `${request.eventDetails.eventType} Event`}
                       </CardTitle>
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-3 flex-wrap">
                         <p className="text-xs text-muted-foreground font-mono">ID: {request.bidRequestId.slice(0, 16)}...</p>
                         {request.bidId && (
-                          <p className="text-xs text-muted-foreground font-semibold ml-2">
-                            Your Bid ID: <span className="font-mono text-sm ml-1">{request.bidId}</span>
+                          <p className="text-xs text-muted-foreground font-semibold">
+                            Your Bid: <span className="font-mono text-sm">{request.bidId.slice(0, 12)}...</span>
                           </p>
                         )}
                       </div>
@@ -597,28 +674,21 @@ export default function BidsNew() {
                 </CardHeader>
 
                 <CardContent className="p-6 space-y-4">
-                  {/* Event Details Grid */}
-                  <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                  {/* Compact Event Details Grid */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     {[
-                      { label: "Event Date", icon: Calendar, value: formatDate(request.eventDetails.eventDate) },
+                      { label: "Date", icon: Calendar, value: formatDate(request.eventDetails.eventDate) },
                       { label: "Guests", icon: Users, value: `${request.eventDetails.numberOfGuests}` },
                       { label: "Budget", icon: DollarSign, value: `${getCurrencySymbol(request.budget.currency)}${request.budget.estimatedBudget.toLocaleString()}` },
                       { label: "Location", icon: MapPin, value: request.eventDetails.venueAddress.city },
-                      request.lowestBidAmount ? { label: "Lowest Bid", icon: TrendingUp, value: `${getCurrencySymbol(request.budget.currency)}${typeof request.lowestBidAmount === 'string' ? parseInt(request.lowestBidAmount).toLocaleString() : request.lowestBidAmount.toLocaleString()}` } : null,
-                    ].filter(Boolean).map((detail) => (
-                      <div key={detail?.label} className="flex items-center gap-3 p-3 rounded-lg bg-gray-50 dark:bg-slate-800">
-                        <div className={`p-2 rounded-lg ${
-                          detail?.label === "Lowest Bid" 
-                            ? "bg-green-100 dark:bg-green-900/30" 
-                            : "bg-orange-100 dark:bg-orange-900/30"
-                        }`}>
-                          {detail?.icon && <detail.icon className={`h-4 w-4 ${
-                            detail.label === "Lowest Bid" ? "text-green-600" : "text-orange-600"
-                          }`} />}
+                    ].map((detail) => (
+                      <div key={detail.label} className="flex items-center gap-2 p-2 rounded-lg bg-gray-50 dark:bg-slate-800">
+                        <div className="p-1.5 rounded bg-orange-100 dark:bg-orange-900/30">
+                          <detail.icon className="h-3.5 w-3.5 text-orange-600" />
                         </div>
                         <div className="min-w-0">
-                          <p className="text-xs text-muted-foreground font-medium">{detail?.label}</p>
-                          <p className="text-sm font-bold truncate">{detail?.value}</p>
+                          <p className="text-xs text-muted-foreground font-medium">{detail.label}</p>
+                          <p className="text-xs font-bold truncate">{detail.value}</p>
                         </div>
                       </div>
                     ))}
@@ -707,15 +777,27 @@ export default function BidsNew() {
 
                   {/* Action Buttons */}
                   <div className="flex flex-col sm:flex-row gap-3 items-center justify-between">
-                    <div className="flex gap-2 w-full sm:w-auto">
+                    <div className="flex gap-2 w-full sm:w-auto flex-wrap">
                       {activeTab === "active" ? (
-                        <Button
-                          onClick={() => handleOpenQuoteDialog(request)}
-                          className="flex-1 sm:flex-none bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white font-semibold h-11"
-                        >
-                          <Send className="h-4 w-4 mr-2" />
-                          Submit Quote
-                        </Button>
+                        <>
+                          <Button
+                            onClick={() => handleOpenQuoteDialog(request)}
+                            className="flex-1 sm:flex-none bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white font-semibold h-11"
+                          >
+                            <Send className="h-4 w-4 mr-2" />
+                            Submit Quote
+                          </Button>
+                          <Button
+                            onClick={() => {
+                              setSelectedBidRequest(request);
+                              setShowDetailsModal(true);
+                            }}
+                            variant="outline"
+                            className="flex-1 sm:flex-none h-11 border-2 border-purple-400 hover:bg-purple-50 dark:hover:bg-purple-950/30 text-purple-600 hover:text-purple-700 font-semibold"
+                          >
+                            👁️ View Details
+                          </Button>
+                        </>
                       ) : (
                         <>
                           <Button
@@ -738,6 +820,16 @@ export default function BidsNew() {
                             <Trash2 className="h-4 w-4 mr-2" />
                             <span className="hidden sm:inline">Withdraw</span>
                           </Button>
+                          <Button
+                            onClick={() => {
+                              setSelectedBidRequest(request);
+                              setShowDetailsModal(true);
+                            }}
+                            variant="outline"
+                            className="flex-1 sm:flex-none h-11 border-2 border-purple-400 hover:bg-purple-50 dark:hover:bg-purple-950/30 text-purple-600 hover:text-purple-700 font-semibold"
+                          >
+                            👁️ View Details
+                          </Button>
                         </>
                       )}
                     </div>
@@ -749,21 +841,170 @@ export default function BidsNew() {
                       </Badge>
                     )}
                   </div>
-
-                  {/* Expiry Warning */}
-                  {new Date(request.expiresAt) < new Date(Date.now() + 24 * 60 * 60 * 1000) && (
-                    <div className="text-sm font-semibold text-red-600 dark:text-red-400 flex items-center gap-2">
-                      <AlertCircle className="h-4 w-4" />
-                      ⚠️ Bid request expires: {formatDate(request.expiresAt)}
-                    </div>
-                  )}
                 </CardContent>
               </Card>
             ))}
           </div>
         )}
 
-        {/* Pagination */}
+        {/* Bid Details Modal */}
+        <Dialog open={showDetailsModal} onOpenChange={setShowDetailsModal}>
+          <DialogContent className="max-w-3xl h-[90vh] flex flex-col rounded-2xl border-0 shadow-2xl p-0 gap-0">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-purple-500 to-pink-500 text-white p-6 flex justify-between items-center rounded-t-2xl flex-shrink-0">
+              <DialogTitle className="text-2xl font-bold text-white">
+                {selectedBidRequest?.eventDetails.eventName || `${selectedBidRequest?.eventDetails.eventType} Event`} - Details
+              </DialogTitle>
+            </div>
+
+            {/* Scrollable Content */}
+            <div className="flex-1 overflow-y-auto p-6">
+              {selectedBidRequest && (
+                <div className="space-y-6">
+                  {/* Menu Items */}
+                  {selectedBidRequest.menuItems && selectedBidRequest.menuItems.length > 0 && (
+                    <div className="space-y-3">
+                      <h3 className="font-bold text-lg flex items-center gap-2">📋 Menu Items ({selectedBidRequest.menuItems.length})</h3>
+                      <div className="flex flex-wrap gap-2">
+                        {selectedBidRequest.menuItems.map((item) => (
+                          <Badge key={item.vendorItemId} variant="outline" className="bg-white">
+                            {item.itemName}
+                            {item.quantity && ` × ${item.quantity}`}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Additional Requirements */}
+                  {selectedBidRequest.additionalRequirements && (
+                    <div className="space-y-3 border-t pt-4">
+                      <h3 className="font-bold text-lg flex items-center gap-2">⚙️ Additional Requirements</h3>
+                      <div className="grid grid-cols-2 gap-3">
+                        {selectedBidRequest.additionalRequirements.serviceStaffNeeded && (
+                          <div className="p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-300">
+                            <p className="text-sm font-semibold">Service Staff</p>
+                            <p className="text-xs text-muted-foreground">
+                              {selectedBidRequest.additionalRequirements.numberOfStaff || 0} staff needed
+                            </p>
+                          </div>
+                        )}
+                        {selectedBidRequest.additionalRequirements.decorationNeeded && (
+                          <div className="p-3 bg-purple-50 dark:bg-purple-950/30 rounded-lg border border-purple-300">
+                            <p className="text-sm font-semibold">Decoration</p>
+                            <p className="text-xs text-muted-foreground">Required</p>
+                          </div>
+                        )}
+                      </div>
+
+                      {selectedBidRequest.additionalRequirements.liveCounters && selectedBidRequest.additionalRequirements.liveCounters.length > 0 && (
+                        <div className="p-3 bg-amber-50 dark:bg-amber-950/30 rounded-lg border border-amber-300">
+                          <p className="text-sm font-semibold">🔥 Live Counters</p>
+                          <p className="text-xs text-muted-foreground">{selectedBidRequest.additionalRequirements.liveCounters.join(", ")}</p>
+                        </div>
+                      )}
+
+                      {selectedBidRequest.additionalRequirements.specialInstructions && (
+                        <div className="p-3 bg-green-50 dark:bg-green-950/30 rounded-lg border border-green-300">
+                          <p className="text-sm font-semibold">💬 Special Instructions</p>
+                          <p className="text-xs">{selectedBidRequest.additionalRequirements.specialInstructions}</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Competitive Period */}
+                  {selectedBidRequest.competitivePeriod && (
+                    <div className="space-y-3 border-t pt-4">
+                      <h3 className="font-bold text-lg">⏰ Competitive Period</h3>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-lg">
+                          <p className="text-xs text-muted-foreground">Status</p>
+                          <p className="font-semibold mt-1">{selectedBidRequest.competitivePeriod.status || "ACTIVE"}</p>
+                        </div>
+                        <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-lg">
+                          <p className="text-xs text-muted-foreground">End Time</p>
+                          <p className="font-semibold text-sm mt-1">{selectedBidRequest.competitivePeriod.endTime ? formatDate(selectedBidRequest.competitivePeriod.endTime) : "N/A"}</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Budget Range */}
+                  {selectedBidRequest.budget.budgetRange && (
+                    <div className="p-3 bg-green-50 dark:bg-green-950/30 rounded-lg border border-green-300">
+                      <p className="text-sm font-semibold">💰 Budget Range</p>
+                      <p className="text-sm mt-1">{selectedBidRequest.budget.budgetRange}</p>
+                    </div>
+                  )}
+
+                  {/* Event Timings */}
+                  {(selectedBidRequest.eventDetails.eventStartTime || selectedBidRequest.eventDetails.eventEndTime) && (
+                    <div className="space-y-2 border-t pt-4">
+                      <h3 className="font-bold">🕐 Event Timings</h3>
+                      <div className="grid grid-cols-2 gap-3">
+                        {selectedBidRequest.eventDetails.eventStartTime && (
+                          <div><p className="text-xs text-muted-foreground">Start</p><p className="font-semibold">{selectedBidRequest.eventDetails.eventStartTime}</p></div>
+                        )}
+                        {selectedBidRequest.eventDetails.eventEndTime && (
+                          <div><p className="text-xs text-muted-foreground">End</p><p className="font-semibold">{selectedBidRequest.eventDetails.eventEndTime}</p></div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Venue Address */}
+                  <div className="space-y-2 border-t pt-4">
+                    <h3 className="font-bold">📍 Venue Address</h3>
+                    <div className="text-sm p-3 bg-slate-50 dark:bg-slate-800 rounded-lg">
+                      <p>{selectedBidRequest.eventDetails.venueAddress.streetAddress}</p>
+                      <p>{selectedBidRequest.eventDetails.venueAddress.city}, {selectedBidRequest.eventDetails.venueAddress.state} {selectedBidRequest.eventDetails.venueAddress.postalCode}</p>
+                      <p>{selectedBidRequest.eventDetails.venueAddress.country}</p>
+                    </div>
+                  </div>
+
+                  {/* Your Quotation (if quoted) */}
+                  {activeTab === "quoted" && selectedBidRequest.quotedPrice && (
+                    <div className="space-y-3 border-t pt-4">
+                      <h3 className="font-bold text-lg">💰 Your Quotation</h3>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800">
+                          <p className="text-xs text-muted-foreground">Subtotal</p>
+                          <p className="font-bold mt-1">{getCurrencySymbol(selectedBidRequest.quotedPrice.currency || "INR")}{selectedBidRequest.quotedPrice.subtotal.toLocaleString()}</p>
+                        </div>
+                        {selectedBidRequest.quotedPrice.taxAmount !== undefined && selectedBidRequest.quotedPrice.taxAmount > 0 && (
+                          <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800">
+                            <p className="text-xs text-muted-foreground">Tax</p>
+                            <p className="font-bold mt-1">{getCurrencySymbol(selectedBidRequest.quotedPrice.currency || "INR")}{selectedBidRequest.quotedPrice.taxAmount.toLocaleString()}</p>
+                          </div>
+                        )}
+                        {selectedBidRequest.quotedPrice.serviceCharge !== undefined && selectedBidRequest.quotedPrice.serviceCharge > 0 && (
+                          <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800">
+                            <p className="text-xs text-muted-foreground">Service</p>
+                            <p className="font-bold mt-1">{getCurrencySymbol(selectedBidRequest.quotedPrice.currency || "INR")}{selectedBidRequest.quotedPrice.serviceCharge.toLocaleString()}</p>
+                          </div>
+                        )}
+                        <div className="p-3 rounded-lg bg-gradient-to-br from-blue-100 to-cyan-100 dark:from-blue-900/50 dark:to-cyan-900/50 border-2 border-blue-300">
+                          <p className="text-xs text-muted-foreground font-semibold">TOTAL</p>
+                          <p className="font-bold mt-1 text-lg text-blue-600 dark:text-blue-300">{getCurrencySymbol(selectedBidRequest.quotedPrice.currency || "INR")}{selectedBidRequest.quotedPrice.totalAmount.toLocaleString()}</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="border-t bg-slate-50 dark:bg-slate-800 p-4 flex justify-end rounded-b-2xl flex-shrink-0">
+              <Button onClick={() => setShowDetailsModal(false)} className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-semibold h-10">
+                ✓ Close
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Quote Dialog */}
         {totalPages > 1 && (
           <div className="flex justify-center items-center gap-3 mt-8">
             <Button
@@ -896,6 +1137,170 @@ export default function BidsNew() {
 
                 <Separator />
 
+                {/* Itemized Pricing */}
+                <div>
+                  <h3 className="font-bold text-base mb-3">📋 Itemized Pricing (Optional)</h3>
+                  <div className="space-y-3">
+                    {quoteForm.itemizedPricing?.map((item, idx) => (
+                      <div key={idx} className="grid grid-cols-2 md:grid-cols-5 gap-2 p-3 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-300 dark:border-slate-700">
+                        <Input
+                          placeholder="Item name"
+                          value={item.itemName || ""}
+                          onChange={(e) => {
+                            const updated = [...(quoteForm.itemizedPricing || [])];
+                            updated[idx].itemName = e.target.value;
+                            setQuoteForm({ ...quoteForm, itemizedPricing: updated });
+                          }}
+                          className="h-9 text-sm"
+                        />
+                        <Input
+                          type="number"
+                          placeholder="Qty"
+                          value={item.quantity || ""}
+                          onChange={(e) => {
+                            const updated = [...(quoteForm.itemizedPricing || [])];
+                            updated[idx].quantity = parseInt(e.target.value) || 0;
+                            setQuoteForm({ ...quoteForm, itemizedPricing: updated });
+                          }}
+                          className="h-9 text-sm"
+                        />
+                        <Input
+                          type="number"
+                          placeholder="Price/unit"
+                          value={item.pricePerPlate || ""}
+                          onChange={(e) => {
+                            const updated = [...(quoteForm.itemizedPricing || [])];
+                            updated[idx].pricePerPlate = parseFloat(e.target.value) || 0;
+                            updated[idx].totalPrice = (updated[idx].quantity || 0) * (parseFloat(e.target.value) || 0);
+                            setQuoteForm({ ...quoteForm, itemizedPricing: updated });
+                          }}
+                          className="h-9 text-sm"
+                        />
+                        <div className="text-sm font-semibold p-2 bg-white dark:bg-slate-700 rounded text-center">
+                          {getCurrencySymbol(quoteForm.currency)}{((item.quantity || 0) * (item.pricePerPlate || 0)).toLocaleString()}
+                        </div>
+                        <Button
+                          onClick={() => {
+                            const updated = quoteForm.itemizedPricing?.filter((_, i) => i !== idx) || [];
+                            setQuoteForm({ ...quoteForm, itemizedPricing: updated });
+                          }}
+                          variant="outline"
+                          className="h-9 text-xs"
+                        >
+                          Remove
+                        </Button>
+                      </div>
+                    ))}
+                    <Button
+                      onClick={() => {
+                        setQuoteForm({
+                          ...quoteForm,
+                          itemizedPricing: [...(quoteForm.itemizedPricing || []), { itemName: "", quantity: 0, pricePerPlate: 0, totalPrice: 0 }],
+                        });
+                      }}
+                      variant="outline"
+                      className="w-full text-sm"
+                    >
+                      + Add Item
+                    </Button>
+                  </div>
+                </div>
+
+                <Separator />
+
+                {/* Delivery Details */}
+                <div>
+                  <h3 className="font-bold text-base mb-3">🚚 Delivery Details (Optional)</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <Label className="font-semibold text-sm block mb-2">Setup Time</Label>
+                      <Input
+                        placeholder="e.g., 1 hour"
+                        value={quoteForm.deliveryDetails?.estimatedSetupTime || ""}
+                        onChange={(e) => setQuoteForm({
+                          ...quoteForm,
+                          deliveryDetails: { ...quoteForm.deliveryDetails, estimatedSetupTime: e.target.value },
+                        })}
+                        className="h-10 text-sm"
+                      />
+                    </div>
+                    <div>
+                      <Label className="font-semibold text-sm block mb-2">Food Ready Time</Label>
+                      <Input
+                        placeholder="e.g., 12:30 PM"
+                        value={quoteForm.deliveryDetails?.foodReadyTime || ""}
+                        onChange={(e) => setQuoteForm({
+                          ...quoteForm,
+                          deliveryDetails: { ...quoteForm.deliveryDetails, foodReadyTime: e.target.value },
+                        })}
+                        className="h-10 text-sm"
+                      />
+                    </div>
+                    <div>
+                      <Label className="font-semibold text-sm block mb-2">Cleanup Time</Label>
+                      <Input
+                        placeholder="e.g., 4:00 PM"
+                        value={quoteForm.deliveryDetails?.cleanupTime || ""}
+                        onChange={(e) => setQuoteForm({
+                          ...quoteForm,
+                          deliveryDetails: { ...quoteForm.deliveryDetails, cleanupTime: e.target.value },
+                        })}
+                        className="h-10 text-sm"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <Separator />
+
+                {/* Staff Provided */}
+                <div>
+                  <h3 className="font-bold text-base mb-3">👥 Staff Provided (Optional)</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <Label className="font-semibold text-sm block mb-2">Chefs</Label>
+                      <Input
+                        type="number"
+                        min="0"
+                        value={quoteForm.staffProvided?.chefs || 0}
+                        onChange={(e) => setQuoteForm({
+                          ...quoteForm,
+                          staffProvided: { ...quoteForm.staffProvided, chefs: parseInt(e.target.value) || 0 },
+                        })}
+                        className="h-10 text-sm"
+                      />
+                    </div>
+                    <div>
+                      <Label className="font-semibold text-sm block mb-2">Servers</Label>
+                      <Input
+                        type="number"
+                        min="0"
+                        value={quoteForm.staffProvided?.servers || 0}
+                        onChange={(e) => setQuoteForm({
+                          ...quoteForm,
+                          staffProvided: { ...quoteForm.staffProvided, servers: parseInt(e.target.value) || 0 },
+                        })}
+                        className="h-10 text-sm"
+                      />
+                    </div>
+                    <div>
+                      <Label className="font-semibold text-sm block mb-2">Cleaners</Label>
+                      <Input
+                        type="number"
+                        min="0"
+                        value={quoteForm.staffProvided?.cleaners || 0}
+                        onChange={(e) => setQuoteForm({
+                          ...quoteForm,
+                          staffProvided: { ...quoteForm.staffProvided, cleaners: parseInt(e.target.value) || 0 },
+                        })}
+                        className="h-10 text-sm"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <Separator />
+
                 {/* Terms */}
                 <div>
                   <h3 className="font-bold text-base mb-3">⏰ Validity & Terms</h3>
@@ -918,17 +1323,6 @@ export default function BidsNew() {
                         value={quoteForm.termsAndConditions}
                         onChange={(e) => setQuoteForm({ ...quoteForm, termsAndConditions: e.target.value })}
                         rows={3}
-                        className="text-sm resize-none"
-                      />
-                    </div>
-
-                    <div>
-                      <Label className="font-semibold text-sm block mb-2">Notes (optional)</Label>
-                      <Textarea
-                        value={quoteForm.notes}
-                        onChange={(e) => setQuoteForm({ ...quoteForm, notes: e.target.value })}
-                        rows={2}
-                        placeholder="Menu recommendations, special arrangements, etc..."
                         className="text-sm resize-none"
                       />
                     </div>
