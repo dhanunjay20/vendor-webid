@@ -131,33 +131,67 @@ export default function BidsNew() {
   const loadBidRequests = async () => {
     try {
       setLoading(true);
-      const response: any = await api.getReceivedBidRequests(page, 20);
       
-      let data = null;
+      // Fetch received bid requests (invitations) and vendor's submitted bids in parallel
+      const [receivedResponse, submittedResponse]: any = await Promise.all([
+        api.getReceivedBidRequests(page, 20),
+        api.getVendorSubmittedBids(page, 20),
+      ]);
+      
+      // Parse received bid requests
+      let receivedData: any[] = [];
       let totalPages = 1;
       
-      if (response && typeof response === 'object') {
-        if (Array.isArray(response.data)) {
-          data = response.data;
-          totalPages = response.pageInfo?.totalPages || 1;
-        } else if (Array.isArray(response)) {
-          data = response;
-        } else if (response.success === false) {
-          toast({
-            title: "Error",
-            description: response.message || "Failed to load bid requests",
-            variant: "destructive",
-          });
-          setLoading(false);
-          return;
-        } else if (Array.isArray(response.items) || Array.isArray(response.results)) {
-          data = response.items || response.results;
-          totalPages = response.pageInfo?.totalPages || 1;
+      if (receivedResponse && typeof receivedResponse === 'object') {
+        if (Array.isArray(receivedResponse.data)) {
+          receivedData = receivedResponse.data;
+          totalPages = receivedResponse.pageInfo?.totalPages || 1;
+        } else if (Array.isArray(receivedResponse)) {
+          receivedData = receivedResponse;
+        } else if (Array.isArray(receivedResponse.items) || Array.isArray(receivedResponse.results)) {
+          receivedData = receivedResponse.items || receivedResponse.results;
+          totalPages = receivedResponse.pageInfo?.totalPages || 1;
         }
       }
       
-      if (data && Array.isArray(data)) {
-        setBidRequests(data);
+      // Parse submitted bids
+      let submittedData: any[] = [];
+      if (submittedResponse && typeof submittedResponse === 'object') {
+        if (Array.isArray(submittedResponse.data)) {
+          submittedData = submittedResponse.data;
+        } else if (Array.isArray(submittedResponse)) {
+          submittedData = submittedResponse;
+        } else if (Array.isArray(submittedResponse.items) || Array.isArray(submittedResponse.results)) {
+          submittedData = submittedResponse.items || submittedResponse.results;
+        }
+      }
+      
+      // Merge data: submitted bids already have quotedPrice, received requests may not
+      const mergedData = [...receivedData];
+      
+      // Add submitted bids, updating existing requests with quote info
+      submittedData.forEach((submittedBid: any) => {
+        const existingIndex = mergedData.findIndex(
+          (r) => r.bidRequestId === submittedBid.bidRequestId
+        );
+        
+        if (existingIndex >= 0) {
+          // Update existing request with quoted price and bid ID
+          mergedData[existingIndex] = {
+            ...mergedData[existingIndex],
+            quotedPrice: submittedBid.quotedPrice,
+            bidId: submittedBid.bidId,
+            status: submittedBid.status,
+            quotedAt: submittedBid.quotedAt,
+          };
+        } else {
+          // Add as new entry if not in received list
+          mergedData.push(submittedBid);
+        }
+      });
+      
+      if (mergedData && Array.isArray(mergedData)) {
+        setBidRequests(mergedData);
         setTotalPages(totalPages);
       } else {
         setBidRequests([]);
@@ -686,11 +720,11 @@ export default function BidsNew() {
                         <>
                           <Button
                             onClick={() => handleOpenEditDialog(request)}
-                            disabled={!isInCoolingPeriod(request.validUntil)}
+                            disabled={!request.bidId || !canWithdrawBid(request.status)}
                             className="flex-1 sm:flex-none bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white font-semibold h-11 disabled:opacity-50"
                           >
                             <Edit2 className="h-4 w-4 mr-2" />
-                            Update
+                            Revise
                           </Button>
                           <Button
                             onClick={() => {
@@ -699,7 +733,7 @@ export default function BidsNew() {
                             }}
                             disabled={!canWithdrawBid(request.bidId ? request.status : "")}
                             variant="outline"
-                            className="h-11 bg-red-50 dark:bg-red-900/20 text-red-600 hover:bg-red-100 dark:hover:bg-red-900/40 border-red-300 disabled:opacity-50"
+                            className="h-11 bg-red-50 dark:bg-red-900/20 text-red-600 hover:bg-red-100 dark:hover:bg-red-900/40 hover:text-black dark:hover:text-black border-red-300 disabled:opacity-50"
                           >
                             <Trash2 className="h-4 w-4 mr-2" />
                             <span className="hidden sm:inline">Withdraw</span>
@@ -937,8 +971,8 @@ export default function BidsNew() {
           <DialogContent className="max-w-4xl p-0 max-h-[90vh] flex flex-col bg-white dark:bg-slate-900 rounded-2xl overflow-hidden border-0 shadow-2xl [&>button]:hidden">
             <div className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white p-6 flex-shrink-0">
               <div>
-                <h2 className="text-2xl font-bold">Update Your Quotation</h2>
-                <p className="text-blue-100 text-sm mt-1">Revise pricing during cooling period</p>
+                <h2 className="text-2xl font-bold">Revise Your Quotation</h2>
+                <p className="text-blue-100 text-sm mt-1">Update your bid during the cooling period</p>
               </div>
             </div>
 
@@ -1030,7 +1064,7 @@ export default function BidsNew() {
                 className="h-11 bg-gradient-to-r from-blue-500 to-cyan-500 text-white font-semibold min-w-[140px]"
               >
                 {submitting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Edit2 className="h-4 w-4 mr-2" />}
-                {submitting ? "Updating..." : "Update Quote"}
+                {submitting ? "Revising..." : "Revise Quote"}
               </Button>
             </div>
           </DialogContent>
