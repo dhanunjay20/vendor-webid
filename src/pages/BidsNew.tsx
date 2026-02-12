@@ -602,11 +602,14 @@ export default function BidsNew() {
     activeTab === "revised" ? revisedBids :
     withdrawnBids
   ).filter((request) => {
+    // Safe search with optional chaining - handle missing eventDetails
     const matchesSearch =
-      request.eventDetails.eventName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      request.eventDetails.eventType.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      request.eventDetails.venueAddress.city.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesSearch;
+      request?.eventDetails?.eventName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      request?.eventDetails?.eventType?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      request?.eventDetails?.venueAddress?.city?.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    // Show all items if no search query, or filter by search
+    return !searchQuery || matchesSearch;
   });
 
   return (
@@ -778,7 +781,7 @@ export default function BidsNew() {
                     <div className="space-y-1 flex-1 min-w-0">
                       <div className="flex items-center gap-3 flex-wrap">
                         <CardTitle className="text-lg">
-                          {request.eventDetails.eventName || `${request.eventDetails.eventType} Event`}
+                          {request.eventDetails?.eventName || `${request.eventDetails?.eventType || "Event"} Event`}
                         </CardTitle>
                         {request.isLowest && (
                           <Badge className="bg-gradient-to-r from-yellow-400 to-amber-500 text-white font-semibold text-xs">
@@ -817,10 +820,10 @@ export default function BidsNew() {
                   {/* Compact Event Details Grid */}
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     {[
-                      { label: "Date", icon: Calendar, value: formatDate(request.eventDetails.eventDate) },
-                      { label: "Guests", icon: Users, value: `${request.eventDetails.numberOfGuests}` },
-                      { label: "Budget", icon: DollarSign, value: `${getCurrencySymbol(request.budget.currency)}${request.budget.estimatedBudget.toLocaleString()}` },
-                      { label: "Location", icon: MapPin, value: request.eventDetails.venueAddress.city },
+                      { label: "Date", icon: Calendar, value: formatDate(request.eventDetails?.eventDate || "") },
+                      { label: "Guests", icon: Users, value: `${request.eventDetails?.numberOfGuests || 0}` },
+                      { label: "Budget", icon: DollarSign, value: `${getCurrencySymbol(request.budget?.currency || "INR")}${(request.budget?.estimatedBudget || 0).toLocaleString()}` },
+                      { label: "Location", icon: MapPin, value: request.eventDetails?.venueAddress?.city || "N/A" },
                     ].map((detail) => (
                       <div key={detail.label} className="flex items-center gap-2 p-2 rounded-lg bg-gray-50 dark:bg-slate-800">
                         <div className="p-1.5 rounded bg-orange-100 dark:bg-orange-900/30">
@@ -1003,7 +1006,7 @@ export default function BidsNew() {
             {/* Header */}
             <div className="bg-gradient-to-r from-purple-500 to-pink-500 text-white p-6 flex justify-between items-center rounded-t-2xl flex-shrink-0">
               <DialogTitle className="text-2xl font-bold text-white">
-                {selectedBidRequest?.eventDetails.eventName || `${selectedBidRequest?.eventDetails.eventType} Event`} - Details
+                {selectedBidRequest?.eventDetails?.eventName || `${selectedBidRequest?.eventDetails?.eventType || "Request"} Event`} - Details
               </DialogTitle>
             </div>
 
@@ -1118,14 +1121,14 @@ export default function BidsNew() {
                   )}
 
                   {/* Event Timings */}
-                  {(selectedBidRequest.eventDetails.eventStartTime || selectedBidRequest.eventDetails.eventEndTime) && (
+                  {(selectedBidRequest?.eventDetails?.eventStartTime || selectedBidRequest?.eventDetails?.eventEndTime) && (
                     <div className="space-y-2 border-t pt-4">
                       <h3 className="font-bold">🕐 Event Timings</h3>
                       <div className="grid grid-cols-2 gap-3">
-                        {selectedBidRequest.eventDetails.eventStartTime && (
+                        {selectedBidRequest?.eventDetails?.eventStartTime && (
                           <div><p className="text-xs text-muted-foreground">Start</p><p className="font-semibold">{selectedBidRequest.eventDetails.eventStartTime}</p></div>
                         )}
-                        {selectedBidRequest.eventDetails.eventEndTime && (
+                        {selectedBidRequest?.eventDetails?.eventEndTime && (
                           <div><p className="text-xs text-muted-foreground">End</p><p className="font-semibold">{selectedBidRequest.eventDetails.eventEndTime}</p></div>
                         )}
                       </div>
@@ -1136,9 +1139,9 @@ export default function BidsNew() {
                   <div className="space-y-2 border-t pt-4">
                     <h3 className="font-bold">📍 Venue Address</h3>
                     <div className="text-sm p-3 bg-slate-50 dark:bg-slate-800 rounded-lg">
-                      <p>{selectedBidRequest.eventDetails.venueAddress.streetAddress}</p>
-                      <p>{selectedBidRequest.eventDetails.venueAddress.city}, {selectedBidRequest.eventDetails.venueAddress.state} {selectedBidRequest.eventDetails.venueAddress.postalCode}</p>
-                      <p>{selectedBidRequest.eventDetails.venueAddress.country}</p>
+                      <p>{selectedBidRequest?.eventDetails?.venueAddress?.streetAddress || "N/A"}</p>
+                      <p>{selectedBidRequest?.eventDetails?.venueAddress?.city}, {selectedBidRequest?.eventDetails?.venueAddress?.state} {selectedBidRequest?.eventDetails?.venueAddress?.postalCode}</p>
+                      <p>{selectedBidRequest?.eventDetails?.venueAddress?.country || ""}</p>
                     </div>
                   </div>
 
@@ -1252,7 +1255,7 @@ export default function BidsNew() {
                   )}
                 </div>
                 <p className="text-sm text-green-100">
-                  {selectedBidRequest?.eventDetails.eventName || `${selectedBidRequest?.eventDetails.eventType} Event`}
+                  {selectedBidRequest?.eventDetails?.eventName || `${selectedBidRequest?.eventDetails?.eventType || "Request"} Event`}
                 </p>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs text-green-100 pt-2">
                   {selectedBidRequest?.bidId && (
@@ -1536,7 +1539,7 @@ export default function BidsNew() {
                 <h2 className="text-2xl font-bold">Submit Your Quotation</h2>
                 <p className="text-orange-100 text-sm mt-1 flex items-center gap-2">
                   <Send className="h-4 w-4" />
-                  Respond to bid request for {selectedBidRequest?.eventDetails.eventName || "Event"}
+                  Respond to bid request for {selectedBidRequest?.eventDetails?.eventName || "Event"}
                 </p>
               </div>
             </div>
@@ -1552,15 +1555,15 @@ export default function BidsNew() {
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     <div>
                       <p className="text-xs text-muted-foreground font-semibold">Event</p>
-                      <p className="font-semibold mt-1">{selectedBidRequest.eventDetails.eventName || selectedBidRequest.eventDetails.eventType}</p>
+                      <p className="font-semibold mt-1">{selectedBidRequest?.eventDetails?.eventName || selectedBidRequest?.eventDetails?.eventType || "Event"}</p>
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground font-semibold">Guests</p>
-                      <p className="font-semibold mt-1">{selectedBidRequest.eventDetails.numberOfGuests}</p>
+                      <p className="font-semibold mt-1">{selectedBidRequest?.eventDetails?.numberOfGuests || 0}</p>
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground font-semibold">Budget</p>
-                      <p className="font-semibold mt-1 text-orange-600">{getCurrencySymbol(selectedBidRequest.budget.currency)}{selectedBidRequest.budget.estimatedBudget.toLocaleString()}</p>
+                      <p className="font-semibold mt-1 text-orange-600">{getCurrencySymbol(selectedBidRequest?.budget?.currency || "INR")}{(selectedBidRequest?.budget?.estimatedBudget || 0).toLocaleString()}</p>
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground font-semibold">Date</p>
@@ -2035,7 +2038,7 @@ export default function BidsNew() {
             </DialogHeader>
             <div className="space-y-4">
               <p className="text-muted-foreground">
-                Are you sure you want to withdraw your bid for <strong>{selectedBidRequest?.eventDetails.eventName}</strong>?
+                Are you sure you want to withdraw your bid for <strong>{selectedBidRequest?.eventDetails?.eventName || "this request"}</strong>?
               </p>
               <p className="text-sm text-amber-600 flex items-start gap-2">
                 <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
