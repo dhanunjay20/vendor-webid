@@ -830,6 +830,33 @@ export async function getOrdersByVendor(vendorOrgId: string) {
   }
 }
 
+// New API: Get vendor orders with pagination
+export async function getVendorOrders(page: number = 0, size: number = 20, status?: string) {
+  try {
+    let url = buildUrl(`/api/v1/orders/vendor?page=${page}&size=${size}`);
+    if (status && status !== 'all') {
+      url += `&status=${encodeURIComponent(status)}`;
+    }
+    const res = await apiClient.get(url);
+    return res.data;
+  } catch (err: any) {
+    const { message, status: errStatus } = extractError(err);
+    throw { message, status: errStatus } as ApiError;
+  }
+}
+
+// New API: Get order transactions
+export async function getOrderTransactions(orderId: string) {
+  try {
+    const url = buildUrl(`/api/v1/payments/order/${orderId}`);
+    const res = await apiClient.get(url);
+    return res.data;
+  } catch (err: any) {
+    const { message, status: errStatus } = extractError(err);
+    throw { message, status: errStatus } as ApiError;
+  }
+}
+
 export async function getOrderById(vendorOrgId: string, orderId: string) {
   try {
     // Use the detailed endpoint that includes full menu item information
@@ -972,6 +999,33 @@ export async function updateOrderStatus(vendorOrgId: string, orderId: string, st
   }
 }
 
+// New API: Update order status (new endpoint)
+export async function updateOrderStatusNew(orderId: string, status: string) {
+  try {
+    const url = buildUrl(`/api/v1/orders/${orderId}/status`);
+    const res = await apiClient.patch(url, { status });
+    return res.data;
+  } catch (err: any) {
+    const { message, status: errStatus } = extractError(err);
+    throw { message, status: errStatus } as ApiError;
+  }
+}
+
+// New API: Cancel order
+export async function cancelOrder(orderId: string, reason?: string) {
+  try {
+    let url = buildUrl(`/api/v1/orders/${orderId}/cancel`);
+    if (reason) {
+      url += `?reason=${encodeURIComponent(reason)}`;
+    }
+    const res = await apiClient.post(url, {});
+    return res.data;
+  } catch (err: any) {
+    const { message, status: errStatus } = extractError(err);
+    throw { message, status: errStatus } as ApiError;
+  }
+}
+
 // Notification endpoints
 export async function getVendorNotifications(vendorOrgId: string) {
   try {
@@ -1088,6 +1142,10 @@ export default {
   getBidRequestDetails,
   getOrdersByVendor,
   updateOrderStatus,
+  updateOrderStatusNew,
+  getVendorOrders,
+  getOrderTransactions,
+  cancelOrder,
   getVendorNotifications,
   markNotificationAsRead,
   sendOtp,

@@ -1113,7 +1113,7 @@ export default function BidsNew() {
                   )}
 
                   {/* Budget Range */}
-                  {selectedBidRequest.budget.budgetRange && (
+                  {selectedBidRequest?.budget?.budgetRange && (
                     <div className="p-3 bg-green-50 dark:bg-green-950/30 rounded-lg border border-green-300">
                       <p className="text-sm font-semibold">💰 Budget Range</p>
                       <p className="text-sm mt-1">{selectedBidRequest.budget.budgetRange}</p>
@@ -1257,7 +1257,7 @@ export default function BidsNew() {
                 <p className="text-sm text-green-100">
                   {selectedBidRequest?.eventDetails?.eventName || `${selectedBidRequest?.eventDetails?.eventType || "Request"} Event`}
                 </p>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs text-green-100 pt-2">
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-2 text-xs text-green-100 pt-2">
                   {selectedBidRequest?.bidId && (
                     <div>
                       <p className="font-semibold">Bid ID</p>
@@ -1276,10 +1276,16 @@ export default function BidsNew() {
                       <p className="text-green-50 font-semibold">{selectedBidRequest.status}</p>
                     </div>
                   )}
+                  {selectedBidRequest?.rank !== undefined && (
+                    <div>
+                      <p className="font-semibold">Rank</p>
+                      <p className="text-green-50 font-bold">#{selectedBidRequest.rank}</p>
+                    </div>
+                  )}
                   {selectedBidRequest?.quotedPrice?.totalAmount && (
                     <div>
                       <p className="font-semibold">Total Quote</p>
-                      <p className="text-green-50 font-bold">{getCurrencySymbol("INR")}{selectedBidRequest.quotedPrice.totalAmount.toLocaleString()}</p>
+                      <p className="text-green-50 font-bold">{getCurrencySymbol(selectedBidRequest.quotedPrice.currency || "INR")}{selectedBidRequest.quotedPrice.totalAmount.toLocaleString()}</p>
                     </div>
                   )}
                 </div>
@@ -1429,70 +1435,70 @@ export default function BidsNew() {
                     </div>
                   )}
 
-                  {/* Validity & Status Info */}
+                  {/* Bid Timeline & Status Info */}
                   <div className="space-y-4 border-t pt-6">
-                    {/* IDs Section */}
-                    <div className="grid grid-cols-2 gap-3">
-                      {selectedBidRequest.bidId && (
-                        <div className="p-3 bg-purple-50 dark:bg-purple-950/30 rounded-lg border border-purple-300">
-                          <p className="text-xs text-muted-foreground font-semibold">Your Bid ID</p>
-                          <p className="font-mono text-sm mt-1 break-all">{selectedBidRequest.bidId}</p>
-                        </div>
-                      )}
-                      {selectedBidRequest.bidRequestId && (
-                        <div className="p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-300">
-                          <p className="text-xs text-muted-foreground font-semibold">Request ID</p>
-                          <p className="font-mono text-sm mt-1 break-all">{selectedBidRequest.bidRequestId}</p>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Status & Timeline */}
+                    {/* Status Cards */}
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                      <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-lg">
+                      <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-lg border border-gray-300 dark:border-gray-700">
                         <p className="text-xs text-muted-foreground">Status</p>
                         <p className="font-semibold mt-1">{selectedBidRequest.status || "SUBMITTED"}</p>
                       </div>
-                      <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-lg">
+                      <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-lg border border-gray-300 dark:border-gray-700">
                         <p className="text-xs text-muted-foreground">Valid For</p>
                         <p className="font-semibold mt-1">{selectedBidRequest.validityPeriodHours || 48}h</p>
                       </div>
-                      <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-lg">
+                      <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-lg border border-gray-300 dark:border-gray-700">
                         <p className="text-xs text-muted-foreground">Revisions</p>
                         <p className="font-semibold mt-1">{selectedBidRequest.revisionCount || 0}</p>
                       </div>
                       {selectedBidRequest.isLowest && (
-                        <div className="p-3 bg-yellow-50 dark:bg-yellow-950/30 rounded-lg border-2 border-yellow-300">
-                          <p className="text-xs text-muted-foreground">Rank</p>
-                          <p className="font-bold mt-1 text-yellow-600 text-lg">⭐ #{selectedBidRequest.rank}</p>
+                        <div className="p-3 bg-yellow-50 dark:bg-yellow-950/30 rounded-lg border-2 border-yellow-400">
+                          <p className="text-xs text-muted-foreground font-semibold">Rank</p>
+                          <p className="font-bold mt-1 text-yellow-600 dark:text-yellow-300 text-lg">⭐ #{selectedBidRequest.rank || "N/A"}</p>
                         </div>
                       )}
                     </div>
 
-                    {/* Dates Section */}
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                      {selectedBidRequest.submittedAt && (
-                        <div className="p-3 bg-green-50 dark:bg-green-950/30 rounded-lg border border-green-300">
-                          <p className="text-xs text-muted-foreground font-semibold">Submitted At</p>
-                          <p className="font-semibold text-sm mt-1">{formatDate(selectedBidRequest.submittedAt)}</p>
-                          <p className="text-xs text-muted-foreground mt-1">{formatTime(selectedBidRequest.submittedAt)}</p>
+                    {/* Important Dates */}
+                    {(selectedBidRequest.submittedAt || selectedBidRequest.expiresAt || selectedBidRequest.quotedAt) && (
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                        {selectedBidRequest.submittedAt && (
+                          <div className="p-3 bg-green-50 dark:bg-green-950/30 rounded-lg border border-green-300">
+                            <p className="text-xs text-muted-foreground font-semibold">Submitted</p>
+                            <p className="font-semibold text-sm mt-1">{formatDate(selectedBidRequest.submittedAt)}</p>
+                            <p className="text-xs">{formatTime(selectedBidRequest.submittedAt)}</p>
+                          </div>
+                        )}
+                        {selectedBidRequest.expiresAt && (
+                          <div className="p-3 bg-red-50 dark:bg-red-950/30 rounded-lg border border-red-300">
+                            <p className="text-xs text-muted-foreground font-semibold">Expires</p>
+                            <p className="font-semibold text-sm mt-1">{formatDate(selectedBidRequest.expiresAt)}</p>
+                            <p className="text-xs">{formatTime(selectedBidRequest.expiresAt)}</p>
+                          </div>
+                        )}
+                        {selectedBidRequest.quotedAt && (
+                          <div className="p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-300">
+                            <p className="text-xs text-muted-foreground font-semibold">Last Quoted</p>
+                            <p className="font-semibold text-sm mt-1">{formatDate(selectedBidRequest.quotedAt)}</p>
+                            <p className="text-xs">{formatTime(selectedBidRequest.quotedAt)}</p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* IDs Section */}
+                    {(selectedBidRequest.bidId || selectedBidRequest.bidRequestId || selectedBidRequest.vendorId) && (
+                      <div className="grid gap-3">
+                        <div className="p-3 bg-purple-50 dark:bg-purple-950/30 rounded-lg border border-purple-300">
+                          <p className="text-xs text-muted-foreground font-semibold">Bid ID</p>
+                          <p className="font-mono text-xs mt-1 break-all">{selectedBidRequest.bidId || "N/A"}</p>
                         </div>
-                      )}
-                      {selectedBidRequest.expiresAt && (
-                        <div className="p-3 bg-orange-50 dark:bg-orange-950/30 rounded-lg border border-orange-300">
-                          <p className="text-xs text-muted-foreground font-semibold">Expires At</p>
-                          <p className="font-semibold text-sm mt-1">{formatDate(selectedBidRequest.expiresAt)}</p>
-                          <p className="text-xs text-muted-foreground mt-1">{formatTime(selectedBidRequest.expiresAt)}</p>
+                        <div className="p-3 bg-indigo-50 dark:bg-indigo-950/30 rounded-lg border border-indigo-300">
+                          <p className="text-xs text-muted-foreground font-semibold">Bid Request ID</p>
+                          <p className="font-mono text-xs mt-1 break-all">{selectedBidRequest.bidRequestId || "N/A"}</p>
                         </div>
-                      )}
-                      {selectedBidRequest.quotedAt && (
-                        <div className="p-3 bg-cyan-50 dark:bg-cyan-950/30 rounded-lg border border-cyan-300">
-                          <p className="text-xs text-muted-foreground font-semibold">Last Quoted At</p>
-                          <p className="font-semibold text-sm mt-1">{formatDate(selectedBidRequest.quotedAt)}</p>
-                          <p className="text-xs text-muted-foreground mt-1">{formatTime(selectedBidRequest.quotedAt)}</p>
-                        </div>
-                      )}
-                    </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -1620,19 +1626,19 @@ export default function BidsNew() {
                     <span className="text-5xl font-bold text-orange-600">{getCurrencySymbol(quoteForm.currency)}{quoteForm.totalAmount.toLocaleString()}</span>
                   </div>
                   <div className="space-y-2 border-t border-orange-300 dark:border-orange-700 pt-4">
-                    {quoteForm.totalAmount < selectedBidRequest.budget.estimatedBudget ? (
+                    {selectedBidRequest?.budget?.estimatedBudget && quoteForm.totalAmount < selectedBidRequest.budget.estimatedBudget ? (
                       <p className="text-sm font-bold text-green-600 flex items-center gap-2">
                         <CheckCircle2 className="h-4 w-4" />
                         💚 {getCurrencySymbol(quoteForm.currency)}{(selectedBidRequest.budget.estimatedBudget - quoteForm.totalAmount).toLocaleString()} BELOW BUDGET
                       </p>
-                    ) : quoteForm.totalAmount > selectedBidRequest.budget.estimatedBudget ? (
+                    ) : selectedBidRequest?.budget?.estimatedBudget && quoteForm.totalAmount > selectedBidRequest.budget.estimatedBudget ? (
                       <p className="text-sm font-bold text-amber-600 flex items-center gap-2">
                         <AlertCircle className="h-4 w-4" />
                         Above budget by {getCurrencySymbol(quoteForm.currency)}{(quoteForm.totalAmount - selectedBidRequest.budget.estimatedBudget).toLocaleString()}
                       </p>
-                    ) : (
+                    ) : selectedBidRequest?.budget?.estimatedBudget ? (
                       <p className="text-sm font-bold text-blue-600">Matches customer budget exactly</p>
-                    )}
+                    ) : null}
                   </div>
                 </div>
 
