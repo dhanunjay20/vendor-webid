@@ -5,11 +5,12 @@ import { Label } from "@/components/ui/label";
 // inline alert removed; using toasts only
 import { useNavigate } from "react-router-dom";
 import { ChefHat, LogIn, Eye, EyeOff, ArrowRight } from "lucide-react";
+import { useModernToast } from "@/components/ModernToastProvider";
 import * as api from "@/lib/api";
-import { toast } from "@/hooks/use-toast";
 
 export default function Login() {
   const navigate = useNavigate();
+  const { showToast } = useModernToast();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -23,16 +24,13 @@ export default function Login() {
     setError("");
 
     if (!formData.username || !formData.password) {
-      toast({ title: "Login failed", description: "Please enter both username and password", variant: "destructive" });
+      showToast({ title: "Login failed", description: "Please enter both username and password", variant: "error" });
       return;
     }
 
     setLoading(true);
     try {
       const res = await api.login({ login: formData.username, password: formData.password });
-      
-      // Debug: Log the entire response to see what backend returns
-      console.debug("Auth.handleSubmit - login response:", res);
       
       // store token
       if (res?.token) {
@@ -61,12 +59,7 @@ export default function Login() {
         if (vendorOrgId) localStorage.setItem("vendorOrganizationId", vendorOrgId);
         if (profileUrl) localStorage.setItem("profileUrl", profileUrl);
         
-        // Debug: Show what was stored
-        console.debug("Auth.handleSubmit - stored values:", {
-          id: localStorage.getItem('id'),
-          vendorOrganizationId: localStorage.getItem('vendorOrganizationId'),
-          userType: localStorage.getItem('userType')
-        });
+
       }
       // Validate vendorId was stored
       const storedVendorId = localStorage.getItem('vendorId');
@@ -74,10 +67,10 @@ export default function Login() {
       const userName = res.name || res.vendor?.name || res.username || formData.username;
       
       if (!storedVendorId) {
-        toast({ 
+        showToast({ 
           title: "Login Warning", 
           description: "Vendor ID missing. Some features may not work. Contact support.", 
-          variant: "destructive" 
+          variant: "warning" 
         });
       }
       
@@ -89,7 +82,7 @@ export default function Login() {
       } catch (e) {}
       
       // Show success notification with user info
-      toast({ 
+      showToast({ 
         title: `Welcome back, ${userName}! 👋`, 
         description: `Logged in as ${storedUserType || 'Vendor'}. You're all set!`,
         variant: "success",
@@ -111,11 +104,11 @@ export default function Login() {
       const lowered = msg.toLowerCase();
       if (lowered.includes("401") || lowered.includes("unauthor") || lowered.includes("invalid") || lowered.includes("credentials")) {
         setError("Username or password is invalid");
-        toast({ title: "Login failed", description: "Username or password is invalid", variant: "destructive" });
+        showToast({ title: "Login failed", description: "Username or password is invalid", variant: "error" });
       } else {
         const text = err?.message || "Login failed. Please check credentials.";
         setError(text);
-        toast({ title: "Login failed", description: text, variant: "destructive" });
+        showToast({ title: "Login failed", description: text, variant: "error" });
       }
     } finally {
       setLoading(false);

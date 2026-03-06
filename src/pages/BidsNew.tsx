@@ -9,7 +9,7 @@ import { Clock, AlertCircle as AlertIcon } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { toast } from "@/hooks/use-toast";
+import { useModernToast } from "@/components/ModernToastProvider";
 import * as api from "@/lib/api";
 import { BidRequestStatus, BidStatus, getStatusBadgeClass, isRequestOpen, canWithdrawBid } from "@/lib/bid-enums";
 
@@ -145,6 +145,7 @@ export default function BidsNew() {
   const [totalPages, setTotalPages] = useState(1);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [showQuotedDetailsModal, setShowQuotedDetailsModal] = useState(false);
+  const { showToast } = useModernToast();
 
   const [quoteForm, setQuoteForm] = useState<QuoteFormData>({
     subtotal: 0,
@@ -173,10 +174,10 @@ export default function BidsNew() {
   useEffect(() => {
     const token = localStorage.getItem("authToken");
     if (!token) {
-      toast({
+      showToast({
         title: "Not Authenticated",
         description: "Please log in to view bid requests",
-        variant: "destructive",
+        variant: "error",
       });
       return;
     }
@@ -274,10 +275,10 @@ export default function BidsNew() {
         setTotalPages(1);
       }
     } catch (error: any) {
-      toast({
+      showToast({
         title: "Error",
         description: error.message || "Failed to load bid requests",
-        variant: "destructive",
+        variant: "error",
       });
       setBidRequests([]);
     } finally {
@@ -357,10 +358,10 @@ export default function BidsNew() {
     if (!selectedBidRequest) return;
 
     if (quoteForm.totalAmount <= 0) {
-      toast({
+      showToast({
         title: "Invalid Amount",
         description: "Please enter a valid quotation amount",
-        variant: "destructive",
+        variant: "error",
       });
       return;
     }
@@ -401,24 +402,24 @@ export default function BidsNew() {
       const response = await api.submitBid(selectedBidRequest.bidRequestId, payload);
 
       if (response.success || response.data) {
-        toast({
+        showToast({
           title: "Success",
           description: "Quotation submitted successfully",
         });
         setShowQuoteDialog(false);
         loadBidRequests();
       } else {
-        toast({
+        showToast({
           title: "Error",
           description: response.message || "Failed to submit quotation",
-          variant: "destructive",
+          variant: "error",
         });
       }
     } catch (error: any) {
-      toast({
+      showToast({
         title: "Error",
         description: error.message || "Failed to submit quotation",
-        variant: "destructive",
+        variant: "error",
       });
     } finally {
       setSubmitting(false);
@@ -429,10 +430,10 @@ export default function BidsNew() {
     if (!selectedBidRequest || !selectedBidRequest.bidId) return;
 
     if (quoteForm.totalAmount <= 0) {
-      toast({
+      showToast({
         title: "Invalid Amount",
         description: "Please enter a valid quotation amount",
-        variant: "destructive",
+        variant: "error",
       });
       return;
     }
@@ -461,24 +462,24 @@ export default function BidsNew() {
       const response = await api.reviseBid(selectedBidRequest.bidId, payload);
 
       if (response.success || response.data) {
-        toast({
+        showToast({
           title: "Success",
           description: "Quotation updated successfully",
         });
         setShowEditDialog(false);
         loadBidRequests();
       } else {
-        toast({
+        showToast({
           title: "Error",
           description: response.message || "Failed to update quotation",
-          variant: "destructive",
+          variant: "error",
         });
       }
     } catch (error: any) {
-      toast({
+      showToast({
         title: "Error",
         description: error.message || "Failed to update quotation",
-        variant: "destructive",
+        variant: "error",
       });
     } finally {
       setSubmitting(false);
@@ -493,24 +494,24 @@ export default function BidsNew() {
       const response = await api.withdrawBid(selectedBidRequest.bidId);
 
       if (response.success || response.data) {
-        toast({
+        showToast({
           title: "Success",
           description: "Bid withdrawn successfully",
         });
         setShowWithdrawDialog(false);
         loadBidRequests();
       } else {
-        toast({
+        showToast({
           title: "Error",
           description: response.message || "Failed to withdraw bid",
-          variant: "destructive",
+          variant: "error",
         });
       }
     } catch (error: any) {
-      toast({
+      showToast({
         title: "Error",
         description: error.message || "Failed to withdraw bid",
-        variant: "destructive",
+        variant: "error",
       });
     } finally {
       setSubmitting(false);

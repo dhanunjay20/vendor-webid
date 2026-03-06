@@ -78,9 +78,7 @@ export default function ForgotPasswordModal({
 
     setLoading(true);
     try {
-      console.log("Calling forgotPassword with email:", email.trim());
       const response = await api.forgotPassword(email.trim());
-      console.log("forgotPassword response:", response);
       
       // Extract data from response
       const data = response?.data || response;
@@ -97,21 +95,12 @@ export default function ForgotPasswordModal({
       }
       
       if (vId) {
-        console.log("Verification ID:", vId);
         setVerificationId(vId);
       }
       
       if (expires) {
-        console.log("Expires in seconds:", expires);
         setExpiresIn(expires);
       }
-
-      console.log("=== FORGOT PASSWORD RESPONSE ===");
-      console.log("Full response:", response);
-      console.log("Main message:", displayMessage);
-      console.log("Data message:", dataMessage);
-      console.log("Verification ID:", vId);
-      console.log("Expires:", expires);
       
       // set OTP message for the reset step UI
       setOtpMessage(displayMessage);
@@ -155,14 +144,12 @@ export default function ForgotPasswordModal({
 
     setLoading(true);
     try {
-      console.log("Calling resetPassword with:", { email: email.trim(), otp: token.trim() });
       const response = await api.resetPassword({ 
         email: email.trim(), 
         otp: token.trim(), 
         newPassword, 
         confirmPassword 
       });
-      console.log("resetPassword response:", response);
       
       // Extract success message
       const data = response?.data || response;
@@ -171,10 +158,6 @@ export default function ForgotPasswordModal({
       if (!displayMessage) {
         displayMessage = "Password reset successfully";
       }
-      
-      console.log("=== PASSWORD RESET RESPONSE ===");
-      console.log("Full response:", response);
-      console.log("Success message:", displayMessage);
       
       setSuccessMessage(displayMessage);
       

@@ -1,6 +1,7 @@
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { ModernToastProvider } from "@/components/ModernToastProvider";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "@/components/ThemeProvider";
@@ -28,8 +29,9 @@ const App = () => (
     <ThemeProvider>
       <TooltipProvider>
         <NotificationProvider>
-          <Toaster />
-          <Sonner />
+          <ModernToastProvider>
+            <Toaster />
+            <Sonner />
           <BrowserRouter future={{ v7_relativeSplatPath: true, v7_startTransition: true }}>
             <AutoLogout />
             <Routes>
@@ -54,6 +56,7 @@ const App = () => (
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
+          </ModernToastProvider>
         </NotificationProvider>
       </TooltipProvider>
     </ThemeProvider>

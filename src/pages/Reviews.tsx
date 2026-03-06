@@ -6,7 +6,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { toast } from "@/hooks/use-toast";
+import { useModernToast } from "@/components/ModernToastProvider";
 import * as api from "@/lib/api";
 
 interface ReviewItem {
@@ -44,6 +44,7 @@ const Reviews = () => {
   const [reviews, setReviews] = useState<ReviewItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [query, setQuery] = useState("");
+  const { showToast } = useModernToast();
   
   const [starFilter, setStarFilter] = useState<number | null>(null); // null = all
   const [page, setPage] = useState(1);
@@ -54,7 +55,7 @@ const Reviews = () => {
   useEffect(() => {
     const load = async () => {
       if (!vendorId) {
-        toast({ title: "Error", description: "Vendor ID not found. Please log in again.", variant: "destructive" });
+        showToast({ title: "Error", description: "Vendor ID not found. Please log in again.", variant: "error" });
         return;
       }
       try {
@@ -76,7 +77,7 @@ const Reviews = () => {
         }));
         setReviews(normalized);
       } catch (err: any) {
-        toast({ title: "Failed to load reviews", description: err?.message || "Please try again later", variant: "destructive" });
+        showToast({ title: "Failed to load reviews", description: err?.message || "Please try again later", variant: "error" });
       } finally {
         setLoading(false);
       }
@@ -101,12 +102,12 @@ const Reviews = () => {
     try {
       await api.deleteVendorReview(reviewId);
       setReviews(prev => prev.filter(r => (r.reviewId || r.id) !== reviewId));
-      toast({ title: "Success", description: "Review deleted successfully." });
+      showToast({ title: "Success", description: "Review deleted successfully." });
     } catch (err: any) {
-      toast({ 
+      showToast({ 
         title: "Failed to delete review", 
         description: err?.message || "Please try again later", 
-        variant: "destructive" 
+        variant: "error" 
       });
     }
   };
@@ -127,9 +128,9 @@ const Reviews = () => {
       ));
       setReplyingTo(null);
       setReplyText("");
-      toast({ title: "Reply posted", description: "Your response has been published." });
+      showToast({ title: "Reply posted", description: "Your response has been published." });
     } catch (err: any) {
-      toast({ title: "Failed to post reply", description: err?.message || "Please try again", variant: "destructive" });
+      showToast({ title: "Failed to post reply", description: err?.message || "Please try again", variant: "error" });
     } finally {
       setSubmittingReply(false);
     }

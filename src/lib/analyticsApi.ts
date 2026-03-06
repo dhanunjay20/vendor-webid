@@ -259,7 +259,7 @@ export const analyticsApi = {
       const dashboardData = transformDashboardResponse(response.data.data);
       return dashboardData;
     } catch (error: any) {
-      console.error('Failed to fetch dashboard:', error);
+
       throw error;
     }
   },

@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { toast } from "@/hooks/use-toast";
+import { useModernToast } from "@/components/ModernToastProvider";
 import * as api from "@/lib/api";
 
 interface VendorOrderItem {
@@ -153,6 +153,7 @@ const statusConfig: Record<string, { label: string; icon: any; color: string; bg
 };
 
 export default function Orders() {
+  const { showToast } = useModernToast();
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [orders, setOrders] = useState<OrderResponse[]>([]);
@@ -181,10 +182,10 @@ export default function Orders() {
       setOrders(response.data || []);
       setTotalPages(response.pageInfo?.totalPages || 1);
     } catch (error: any) {
-      toast({
+      showToast({
         title: "Error",
         description: error.message || "Failed to load orders",
-        variant: "destructive",
+        variant: "error",
       });
       setOrders([]);
     } finally {
@@ -203,19 +204,20 @@ export default function Orders() {
     try {
       setCancelling(true);
       await api.cancelOrder(selectedOrder.orderId, cancelReason || undefined);
-      toast({
+      showToast({
         title: "Success",
         description: "Order cancelled successfully",
+        variant: "success",
       });
       setShowCancelDialog(false);
       setCancelReason("");
       loadOrders();
       setShowDetailsModal(false);
     } catch (error: any) {
-      toast({
+      showToast({
         title: "Error",
         description: error.message || "Failed to cancel order",
-        variant: "destructive",
+        variant: "error",
       });
     } finally {
       setCancelling(false);
@@ -228,9 +230,10 @@ export default function Orders() {
     try {
       setUpdatingStatus(true);
       await api.updateOrderStatusNew(selectedOrder.orderId, newStatus);
-      toast({
+      showToast({
         title: "Success",
         description: `Order status updated to ${newStatus.replace(/_/g, " ")}`,
+        variant: "success",
       });
       loadOrders();
       // Update local state
@@ -239,10 +242,10 @@ export default function Orders() {
         vendorOrders: prev.vendorOrders?.map(vo => ({ ...vo, vendorStatus: newStatus }))
       } : null);
     } catch (error: any) {
-      toast({
+      showToast({
         title: "Error",
         description: error.message || "Failed to update status",
-        variant: "destructive",
+        variant: "error",
       });
     } finally {
       setUpdatingStatus(false);

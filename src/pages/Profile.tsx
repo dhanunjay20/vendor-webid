@@ -10,7 +10,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { LocationTracker } from "@/components/LocationTracker";
-import { toast } from "@/hooks/use-toast";
+import { useModernToast } from "@/components/ModernToastProvider";
 import * as api from "@/lib/api";
 
 interface VendorProfile {
@@ -134,6 +134,7 @@ interface VendorProfile {
 }
 
 export default function Profile() {
+  const { showToast } = useModernToast();
   const [isEditing, setIsEditing] = useState(false);
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
@@ -279,13 +280,10 @@ export default function Profile() {
 
       // Use the new /api/v1/vendors/me endpoint
       const profileRaw = await api.getVendorMe();
-      console.log("Profile.fetchData - getVendorMe raw response:", profileRaw);
       const normalized = normalizeVendor(profileRaw);
-      console.log("Profile.fetchData - normalized vendor:", normalized);
       setVendorProfile(normalized);
       setFormData(normalized);
     } catch (err: any) {
-      console.error("Profile.fetchData error:", err?.response?.status, err?.response?.data || err?.message || err);
       setError(err?.message || "Failed to load vendor profile");
     } finally {
       setLoading(false);
@@ -318,22 +316,22 @@ export default function Profile() {
           }
 
           if (res.ok) {
-            toast({
+            showToast({
               title: "Logged out",
               description: payload?.message || "Logged out successfully",
             });
           } else {
-            toast({
+            showToast({
               title: "Logout failed",
               description: payload?.message || res.statusText || "Failed to logout",
-              variant: "destructive",
+              variant: "error",
             });
           }
         } catch (err: any) {
-          toast({
+          showToast({
             title: "Logout error",
             description: err?.message || "Failed to logout",
-            variant: "destructive",
+            variant: "error",
           });
         }
       }
@@ -382,10 +380,10 @@ export default function Profile() {
       const vendorId = formData?.id || localStorage.getItem("vendorId") || localStorage.getItem("id");
       
       if (!vendorId || !formData) {
-        toast({
+        showToast({
           title: "Error",
           description: "Vendor ID not found",
-          variant: "destructive",
+          variant: "error",
         });
         return;
       }
@@ -414,17 +412,17 @@ export default function Profile() {
       // Update vendor profile using v1 endpoint
       await api.updateVendorProfile(vendorId, payload);
 
-      toast({
+      showToast({
         title: "Success",
         description: "Your business profile has been successfully updated.",
       });
       setIsEditing(false);
       await fetchData();
     } catch (err: any) {
-      toast({
+      showToast({
         title: "Error",
         description: err?.message || "Failed to save profile",
-        variant: "destructive",
+        variant: "error",
       });
     } finally {
       setSaving(false);
@@ -438,25 +436,25 @@ export default function Profile() {
       setVerificationType("business");
       const email = formData?.businessEmail;
       if (!email) {
-        toast({
+        showToast({
           title: "Error",
           description: "Business email not found",
-          variant: "destructive",
+          variant: "error",
         });
         return;
       }
 
       await api.sendOtp({ identifier: email, type: "EMAIL" });
       setShowEmailOtpDialog(true);
-      toast({
+      showToast({
         title: "Success",
         description: "OTP sent to your email address",
       });
     } catch (err: any) {
-      toast({
+      showToast({
         title: "Error",
         description: err?.message || "Failed to send OTP",
-        variant: "destructive",
+        variant: "error",
       });
     } finally {
       setSendingOtp(false);
@@ -470,25 +468,25 @@ export default function Profile() {
       setVerificationType("registered");
       const email = formData?.registeredEmail;
       if (!email) {
-        toast({
+        showToast({
           title: "Error",
           description: "Registered email not found",
-          variant: "destructive",
+          variant: "error",
         });
         return;
       }
 
       await api.sendOtp({ identifier: email, type: "EMAIL" });
       setShowEmailOtpDialog(true);
-      toast({
+      showToast({
         title: "Success",
         description: "OTP sent to your registered email address",
       });
     } catch (err: any) {
-      toast({
+      showToast({
         title: "Error",
         description: err?.message || "Failed to send OTP",
-        variant: "destructive",
+        variant: "error",
       });
     } finally {
       setSendingOtp(false);
@@ -501,16 +499,16 @@ export default function Profile() {
       setVerifyingOtp(true);
       const email = verificationType === "business" ? formData?.businessEmail : formData?.registeredEmail;
       if (!email || !emailOtp) {
-        toast({
+        showToast({
           title: "Error",
           description: "Please enter the OTP",
-          variant: "destructive",
+          variant: "error",
         });
         return;
       }
 
       await api.verifyOtp({ identifier: email, otp: emailOtp, type: "EMAIL" });
-      toast({
+      showToast({
         title: "Success",
         description: `${verificationType === "business" ? "Business" : "Registered"} email verified successfully`,
       });
@@ -518,10 +516,10 @@ export default function Profile() {
       setEmailOtp("");
       await fetchData();
     } catch (err: any) {
-      toast({
+      showToast({
         title: "Error",
         description: err?.message || "Invalid OTP",
-        variant: "destructive",
+        variant: "error",
       });
     } finally {
       setVerifyingOtp(false);
@@ -533,10 +531,10 @@ export default function Profile() {
     setVerificationType("business");
     const phone = formData?.businessPhone;
     if (!phone) {
-      toast({
+      showToast({
         title: "Error",
         description: "Business phone not found",
-        variant: "destructive",
+        variant: "error",
       });
       return;
     }
@@ -548,10 +546,10 @@ export default function Profile() {
     setVerificationType("registered");
     const phone = formData?.registeredPhone;
     if (!phone) {
-      toast({
+      showToast({
         title: "Error",
         description: "Registered phone not found",
-        variant: "destructive",
+        variant: "error",
       });
       return;
     }
@@ -564,10 +562,10 @@ export default function Profile() {
       setSendingOtp(true);
       const phone = verificationType === "business" ? formData?.businessPhone : formData?.registeredPhone;
       if (!phone) {
-        toast({
+        showToast({
           title: "Error",
           description: `${verificationType === "business" ? "Business" : "Registered"} phone not found`,
-          variant: "destructive",
+          variant: "error",
         });
         return;
       }
@@ -579,15 +577,15 @@ export default function Profile() {
       });
       setShowPhoneChannelDialog(false);
       setShowPhoneOtpDialog(true);
-      toast({
+      showToast({
         title: "Success",
         description: `OTP sent via ${selectedPhoneChannel}`,
       });
     } catch (err: any) {
-      toast({
+      showToast({
         title: "Error",
         description: err?.message || "Failed to send OTP",
-        variant: "destructive",
+        variant: "error",
       });
     } finally {
       setSendingOtp(false);
@@ -600,16 +598,16 @@ export default function Profile() {
       setVerifyingOtp(true);
       const phone = verificationType === "business" ? formData?.businessPhone : formData?.registeredPhone;
       if (!phone || !phoneOtp) {
-        toast({
+        showToast({
           title: "Error",
           description: "Please enter the OTP",
-          variant: "destructive",
+          variant: "error",
         });
         return;
       }
 
       await api.verifyOtp({ identifier: phone, otp: phoneOtp, type: "PHONE" });
-      toast({
+      showToast({
         title: "Success",
         description: `${verificationType === "business" ? "Business" : "Registered"} phone verified successfully`,
       });
@@ -617,10 +615,10 @@ export default function Profile() {
       setPhoneOtp("");
       await fetchData();
     } catch (err: any) {
-      toast({
+      showToast({
         title: "Error",
         description: err?.message || "Invalid OTP",
-        variant: "destructive",
+        variant: "error",
       });
     } finally {
       setVerifyingOtp(false);

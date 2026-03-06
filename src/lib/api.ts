@@ -41,7 +41,6 @@ async function refreshAccessToken(): Promise<string | null> {
   try {
     const refreshToken = localStorage.getItem("refreshToken");
     if (!refreshToken) {
-      console.error("No refresh token available");
       return null;
     }
 
@@ -62,7 +61,6 @@ async function refreshAccessToken(): Promise<string | null> {
     
     return null;
   } catch (error) {
-    console.error("Failed to refresh token:", error);
     return null;
   }
 }
@@ -330,12 +328,9 @@ export async function createVendorProfile(payload: any) {
     if (token) {
       headers.Authorization = `${tokenType} ${token}`;
     }
-    console.log("api.createVendorProfile request:", { url, headers, payload });
     const res = await axios.post(url, payload, { headers });
-    console.log("api.createVendorProfile response:", res && res.data ? res.data : res);
     return res.data;
   } catch (err: any) {
-    console.error("api.createVendorProfile error:", err?.response?.status, err?.response?.data || err.message || err);
     const { message, status } = extractError(err);
     throw { message, status } as ApiError;
   }
@@ -397,12 +392,9 @@ export async function getVendorMe() {
     if (token) {
       headers.Authorization = `${tokenType} ${token}`;
     }
-    console.log("api.getVendorMe request:", { url, headers });
     const res = await axios.get(url, { headers });
-    console.log("api.getVendorMe response:", res && res.data ? res.data : res);
     return res.data;
   } catch (err: any) {
-    console.error("api.getVendorMe error:", err?.response?.status, err?.response?.data || err.message || err);
     const { message, status } = extractError(err);
     throw { message, status } as ApiError;
   }
@@ -437,12 +429,9 @@ export async function updateVendorProfile(_vendorId: string, payload: any) {
     if (token) {
       headers.Authorization = `${tokenType} ${token}`;
     }
-    console.log("api.updateVendorProfile request:", { url, headers, payload });
     const res = await axios.put(url, payload, { headers });
-    console.log("api.updateVendorProfile response:", res && res.data ? res.data : res);
     return res.data;
   } catch (err: any) {
-    console.error("api.updateVendorProfile error:", err?.response?.status, err?.response?.data || err.message || err);
     const { message, status } = extractError(err);
     throw { message, status } as ApiError;
   }
@@ -574,7 +563,8 @@ export async function getMasterMenuItems(page = 0, size = 20, search?: string) {
 export async function getMenuItems(_vendorOrganizationId?: string, page: number = 0, size: number = 100) {
   try {
     // Primary: authenticated /my endpoint — no vendorId param needed, derived from JWT
-    const url = buildUrl(`/api/v1/menu/vendor-items/my?page=${page}&size=${size}`);
+    // includeInactive=true ensures INACTIVE items are returned alongside ACTIVE ones
+    const url = buildUrl(`/api/v1/menu/vendor-items/my?page=${page}&size=${size}&includeInactive=true`);
     const res = await apiClient.get(url);
     if (res.data?.data && Array.isArray(res.data.data)) {
       return res.data.data;
@@ -594,7 +584,7 @@ export async function getMenuItems(_vendorOrganizationId?: string, page: number 
         }
       }
       if (!vendorId) throw err; // re-throw original error
-      const fallbackUrl = buildUrl(`/api/v1/menu/vendor-items?vendorId=${encodeURIComponent(vendorId)}&page=${page}&size=${size}`);
+      const fallbackUrl = buildUrl(`/api/v1/menu/vendor-items?vendorId=${encodeURIComponent(vendorId)}&page=${page}&size=${size}&includeInactive=true`);
       const fallbackRes = await apiClient.get(fallbackUrl);
       if (fallbackRes.data?.data && Array.isArray(fallbackRes.data.data)) {
         return fallbackRes.data.data;

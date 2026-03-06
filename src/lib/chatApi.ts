@@ -125,14 +125,8 @@ export const chatApi = {
         request,
         withAuth()
       );
-      console.log("[Chat API] Conversation created/retrieved:", data.data?.conversationId);
       return data;
     } catch (error: any) {
-      console.error("[Chat API] Create conversation failed:", {
-        status: error.response?.status,
-        message: error.response?.data?.message || error.message,
-        request,
-      });
       return {
         success: false,
         message: error.response?.data?.message || error.message,
@@ -172,10 +166,8 @@ export const chatApi = {
         });
       }
       
-      console.log("[Chat API] Loaded conversations:", data.data?.length || 0);
       return data;
     } catch (error: any) {
-      console.error("[Chat API] Get conversations failed:", error.message);
       return {
         success: false,
         message: error.message,
@@ -202,10 +194,8 @@ export const chatApi = {
           params: { page, size },
         }
       );
-      console.log("[Chat API] Loaded messages:", data.data?.length || 0);
       return data;
     } catch (error: any) {
-      console.error("[Chat API] Get messages failed:", error.message);
       return {
         success: false,
         message: error.message,
@@ -226,10 +216,8 @@ export const chatApi = {
         {},
         withAuth()
       );
-      console.log("[Chat API] Conversation marked as read:", conversationId);
       return data;
     } catch (error: any) {
-      console.error("[Chat API] Mark as read failed:", error.message);
       return {
         success: false,
         message: error.message,
@@ -261,10 +249,8 @@ export const chatApi = {
           },
         }
       );
-      console.log("[Chat API] File uploaded:", data.data?.fileName);
       return data;
     } catch (error: any) {
-      console.error("[Chat API] File upload failed:", error.message);
       return {
         success: false,
         message: error.message,
@@ -290,10 +276,8 @@ export const chatApi = {
         },
         withAuth()
       );
-      console.log("[Chat API] Message sent (REST fallback):", data.data?.messageId);
       return data;
     } catch (error: any) {
-      console.error("[Chat API] Send message failed:", error.message);
       return {
         success: false,
         message: error.message,
@@ -313,10 +297,8 @@ export const chatApi = {
         { fcmToken },
         withAuth()
       );
-      console.log("[Chat API] FCM token registered");
       return data;
     } catch (error: any) {
-      console.error("[Chat API] FCM token registration failed:", error.message);
       return {
         success: false,
         message: error.message,

@@ -29,8 +29,6 @@ if (firebaseConfig.projectId && firebaseConfig.apiKey && firebaseConfig.appId) {
 
   // Handle background messages
   messaging.onBackgroundMessage((payload) => {
-    console.log('[firebase-messaging-sw.js] Background message received:', payload);
-
     const title = payload.notification?.title || 'Bidzaro Notification';
     const body = payload.notification?.body || '';
     const data = payload.data || {};

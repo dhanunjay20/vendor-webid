@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter } from "@/components/ui/alert-dialog";
-import { toast } from "@/hooks/use-toast";
+import { useModernToast } from "@/components/ModernToastProvider";
 import * as api from "@/lib/api";
 
 interface DocumentField {
@@ -25,6 +25,7 @@ const VendorProfileSetup: React.FC = () => {
   const [showUnauthorizedModal, setShowUnauthorizedModal] = useState(false);
   const [unauthorizedMessage, setUnauthorizedMessage] = useState("");
   const [currentStep, setCurrentStep] = useState(1);
+  const { showToast } = useModernToast();
 
   // Get registration response from location state or localStorage
   const registrationData = location.state?.registrationData || JSON.parse(localStorage.getItem("registrationData") || "{}");
@@ -58,7 +59,7 @@ const VendorProfileSetup: React.FC = () => {
 
   useEffect(() => {
     if (!accessToken || !country) {
-      toast({ title: "Please complete registration first", variant: "destructive" });
+      showToast({ title: "Please complete registration first", variant: "error" });
       navigate("/auth");
     }
   }, [accessToken, country, navigate]);
@@ -150,7 +151,7 @@ const VendorProfileSetup: React.FC = () => {
         setUnauthorizedMessage(serverMsg);
         setShowUnauthorizedModal(true);
       } else {
-        toast({ title: "Failed to create vendor profile", description: serverMsg, variant: "destructive" });
+        showToast({ title: "Failed to create vendor profile", description: serverMsg, variant: "error" });
       }
     } finally {
       setLoading(false);

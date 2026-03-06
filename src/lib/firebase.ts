@@ -55,7 +55,6 @@ function isFirebaseConfigured(): boolean {
  */
 export function initFirebase(): Messaging | null {
   if (!isFirebaseConfigured()) {
-    console.warn("[Firebase] Not configured. Set VITE_FIREBASE_* env vars to enable push notifications.");
     return null;
   }
 
@@ -65,7 +64,7 @@ export function initFirebase(): Messaging | null {
     messaging = getMessaging(app);
     return messaging;
   } catch (err) {
-    console.error("[Firebase] Initialization failed:", err);
+
     return null;
   }
 }
@@ -78,14 +77,12 @@ export function initFirebase(): Messaging | null {
  */
 export async function requestFcmToken(): Promise<string | null> {
   if (!("Notification" in window)) {
-    console.warn("[Firebase] Browser does not support notifications.");
     return null;
   }
 
   // Request permission
   const permission = await Notification.requestPermission();
   if (permission !== "granted") {
-    console.warn("[Firebase] Notification permission denied:", permission);
     return null;
   }
 
@@ -95,19 +92,18 @@ export async function requestFcmToken(): Promise<string | null> {
   try {
     const token = await getToken(m, { vapidKey: VAPID_KEY || undefined });
     if (!token) {
-      console.warn("[Firebase] Failed to get FCM token — check VAPID key & service worker.");
       return null;
     }
 
     currentFcmToken = token;
-    console.log("[Firebase] FCM token obtained.");
+
 
     // Register with backend
     await registerTokenWithBackend(token);
 
     return token;
   } catch (err) {
-    console.error("[Firebase] getToken failed:", err);
+
     return null;
   }
 }
@@ -120,10 +116,9 @@ async function registerTokenWithBackend(token: string): Promise<void> {
   try {
     await api.registerFcmToken(token);
     localStorage.setItem("fcmToken", token);
-    console.log("[Firebase] FCM token registered with backend.");
+
   } catch (err) {
     // Non-fatal — push will still work via WebSocket
-    console.warn("[Firebase] Failed to register FCM token with backend:", err);
   }
 }
 
@@ -141,7 +136,7 @@ export function onForegroundMessage(
   if (!m) return () => {};
 
   const unsubscribe = onMessage(m, (payload) => {
-    console.log("[Firebase] Foreground message received:", payload);
+
 
     const title = payload.notification?.title || "Bidzaro";
     const body = payload.notification?.body || "";
@@ -168,7 +163,6 @@ export function onForegroundMessage(
         };
       } catch (e) {
         // Some browsers restrict Notification in certain contexts
-        console.warn("[Firebase] Could not show browser notification:", e);
       }
     }
 
@@ -188,7 +182,7 @@ export async function setupTokenRefresh(): Promise<void> {
   // Re-request token — if it changed, re-register
   const newToken = await requestFcmToken();
   if (newToken && newToken !== currentFcmToken) {
-    console.log("[Firebase] FCM token refreshed, re-registering with backend.");
+
     currentFcmToken = newToken;
     await registerTokenWithBackend(newToken);
   }
@@ -221,7 +215,7 @@ export async function initializePushNotifications(
 
   // Get/refresh token asynchronously (non-blocking)
   requestFcmToken().catch((err) => {
-    console.warn("[Firebase] Token acquisition failed:", err);
+    // Token acquisition error
   });
 
   // Set up foreground message handler

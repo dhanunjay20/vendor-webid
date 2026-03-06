@@ -17,7 +17,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { toast } from "@/hooks/use-toast";
+import { useModernToast } from "@/components/ModernToastProvider";
 
 // â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
@@ -99,6 +99,9 @@ function displayName(item: VendorItem) {
 }
 
 function normalizeVendorItem(it: any): VendorItem {
+  const statusUpper = (it.status || "ACTIVE").toUpperCase();
+  const isAvailableDefault = statusUpper !== "INACTIVE";
+  const avail = it.availability;
   return {
     vendorItemId: it.vendorItemId || it.id || "",
     masterItemId: it.masterItemId || "",
@@ -111,10 +114,12 @@ function normalizeVendorItem(it: any): VendorItem {
     customName: it.customName || "",
     customDescription: it.customDescription || "",
     pricing: it.pricing || {},
-    availability: it.availability || { isAvailable: it.available ?? true },
+    availability: avail
+      ? { ...avail, isAvailable: avail.isAvailable ?? isAvailableDefault }
+      : { isAvailable: it.isAvailable ?? it.available ?? isAvailableDefault },
     preparationTimeMinutes: it.preparationTimeMinutes,
     customizationOptions: it.customizationOptions || [],
-    status: it.status || "ACTIVE",
+    status: statusUpper,
   };
 }
 
@@ -138,263 +143,313 @@ function PricingForm({
       : null;
 
   return (
-    <div className="p-6 space-y-5">
-      {/* Optional overrides */}
-      <div className="space-y-4 rounded-xl bg-gray-50 p-4">
-        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-          Customization <span className="text-gray-400 font-normal normal-case">(optional)</span>
-        </p>
-        <div className="space-y-1.5">
-          <Label className="text-sm">Custom name</Label>
-          <Input
-            value={form.customName}
-            onChange={(e) => set("customName", e.target.value)}
-            placeholder="Override item name for your menu"
-          />
+    <div className="p-4 space-y-3">
+
+      {/* Display Info */}
+      <div className="rounded-xl border border-gray-100 bg-white shadow-sm overflow-hidden">
+        <div className="flex items-center gap-3 px-4 py-2.5 bg-gradient-to-r from-orange-50 to-amber-50 border-b border-orange-100">
+          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-orange-100 shrink-0">
+            <Pencil className="h-3.5 w-3.5 text-orange-600" />
+          </div>
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-gray-800">Display Info</p>
+            <p className="text-xs text-gray-500">Override the name and description on your menu</p>
+          </div>
+          <span className="text-xs text-gray-400 bg-white/80 rounded-full px-2 py-0.5 border border-gray-200">optional</span>
         </div>
-        <div className="space-y-1.5">
-          <Label className="text-sm">Custom description</Label>
-          <Textarea
-            value={form.customDescription}
-            onChange={(e) => set("customDescription", e.target.value)}
-            placeholder="Describe your preparation style…"
-            rows={2}
-          />
+        <div className="p-4 space-y-3">
+          <div className="space-y-1.5">
+            <Label className="text-xs font-medium text-gray-600">Custom name</Label>
+            <Input
+              value={form.customName}
+              onChange={(e) => set("customName", e.target.value)}
+              placeholder="Override item name for your menu"
+              className="h-9 text-sm"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs font-medium text-gray-600">Custom description</Label>
+            <Textarea
+              value={form.customDescription}
+              onChange={(e) => set("customDescription", e.target.value)}
+              placeholder="Describe your preparation style…"
+              rows={2}
+              className="text-sm resize-none"
+            />
+          </div>
         </div>
       </div>
 
       {/* Pricing */}
-      <div className="space-y-4 rounded-xl bg-gray-50 p-4">
-        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-          Pricing <span className="text-red-500">*</span>
-        </p>
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-1.5">
-            <Label className="text-sm">
-              Price per plate (₹) <span className="text-red-500">*</span>
-            </Label>
-            <Input
-              type="number"
-              min="0.01"
-              step="0.01"
-              value={form.pricePerPlate}
-              onChange={(e) => set("pricePerPlate", e.target.value)}
-              placeholder="e.g. 350"
-            />
+      <div className="rounded-xl border border-gray-100 bg-white shadow-sm overflow-hidden">
+        <div className="flex items-center gap-3 px-4 py-2.5 bg-gradient-to-r from-emerald-50 to-teal-50 border-b border-emerald-100">
+          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-100 shrink-0">
+            <DollarSign className="h-3.5 w-3.5 text-emerald-600" />
           </div>
-          <div className="space-y-1.5">
-            <Label className="text-sm">Discount (%)</Label>
-            <Input
-              type="number"
-              min="0"
-              max="100"
-              step="0.1"
-              value={form.discountPercentage}
-              onChange={(e) => set("discountPercentage", e.target.value)}
-              placeholder="e.g. 10"
-            />
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-gray-800">Pricing</p>
+            <p className="text-xs text-gray-500">Set your price and optional discount</p>
           </div>
+          <span className="text-xs text-red-500 font-medium bg-red-50 rounded-full px-2 py-0.5 border border-red-100">required</span>
         </div>
-
-        {discountedPrice && (
-          <div className="rounded-lg bg-green-50 border border-green-200 px-3 py-2 text-sm text-green-700">
-            Customer pays: <strong>₹{discountedPrice}</strong> per plate
+        <div className="p-4 space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium text-gray-600">
+                Price per plate <span className="text-red-500">*</span>
+              </Label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm font-medium">₹</span>
+                <Input
+                  type="number" min="0.01" step="0.01"
+                  value={form.pricePerPlate}
+                  onChange={(e) => set("pricePerPlate", e.target.value)}
+                  placeholder="350"
+                  className="h-9 pl-7 text-sm"
+                />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium text-gray-600">Discount (%)</Label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">%</span>
+                <Input
+                  type="number" min="0" max="100" step="0.1"
+                  value={form.discountPercentage}
+                  onChange={(e) => set("discountPercentage", e.target.value)}
+                  placeholder="0"
+                  className="h-9 pl-7 text-sm"
+                />
+              </div>
+            </div>
           </div>
-        )}
 
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-1.5">
-            <Label className="text-sm">Min. order quantity</Label>
-            <Input
-              type="number"
-              min="1"
-              value={form.minimumOrderQuantity}
-              onChange={(e) => set("minimumOrderQuantity", e.target.value)}
-              placeholder="1"
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-sm">Prep time (mins)</Label>
-            <Input
-              type="number"
-              min="1"
-              value={form.preparationTimeMinutes}
-              onChange={(e) => set("preparationTimeMinutes", e.target.value)}
-              placeholder="e.g. 60"
-            />
+          {discountedPrice && (
+            <div className="flex items-center gap-2 rounded-lg bg-emerald-50 border border-emerald-200 px-3 py-2">
+              <div className="h-2 w-2 rounded-full bg-emerald-500 shrink-0" />
+              <p className="text-sm text-emerald-700">
+                Customer pays <strong>₹{discountedPrice}</strong> per plate after discount
+              </p>
+            </div>
+          )}
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium text-gray-600">Min. order qty</Label>
+              <Input
+                type="number" min="1"
+                value={form.minimumOrderQuantity}
+                onChange={(e) => set("minimumOrderQuantity", e.target.value)}
+                placeholder="1"
+                className="h-9 text-sm"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium text-gray-600">Prep time (mins)</Label>
+              <div className="relative">
+                <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+                <Input
+                  type="number" min="1"
+                  value={form.preparationTimeMinutes}
+                  onChange={(e) => set("preparationTimeMinutes", e.target.value)}
+                  placeholder="60"
+                  className="h-9 pl-8 text-sm"
+                />
+              </div>
+            </div>
           </div>
         </div>
       </div>
 
       {/* Capacity & Notice */}
-      <div className="space-y-4 rounded-xl bg-gray-50 p-4">
-        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-          Capacity & notice <span className="text-gray-400 font-normal normal-case">(optional)</span>
-        </p>
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-1.5">
-            <Label className="text-sm">Advance notice (hours)</Label>
-            <Input
-              type="number"
-              min="0"
-              value={form.advanceNoticeHours}
-              onChange={(e) => set("advanceNoticeHours", e.target.value)}
-              placeholder="e.g. 24"
-            />
+      <div className="rounded-xl border border-gray-100 bg-white shadow-sm overflow-hidden">
+        <div className="flex items-center gap-3 px-4 py-2.5 bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-100">
+          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-blue-100 shrink-0">
+            <Users className="h-3.5 w-3.5 text-blue-600" />
           </div>
-          <div className="space-y-1.5">
-            <Label className="text-sm">Max daily capacity (plates)</Label>
-            <Input
-              type="number"
-              min="1"
-              value={form.maxDailyCapacity}
-              onChange={(e) => set("maxDailyCapacity", e.target.value)}
-              placeholder="e.g. 200"
-            />
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-gray-800">Capacity & Notice</p>
+            <p className="text-xs text-gray-500">Planning limits and lead time needed</p>
+          </div>
+          <span className="text-xs text-gray-400 bg-white/80 rounded-full px-2 py-0.5 border border-gray-200">optional</span>
+        </div>
+        <div className="p-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium text-gray-600">Advance notice (hrs)</Label>
+              <Input
+                type="number" min="0"
+                value={form.advanceNoticeHours}
+                onChange={(e) => set("advanceNoticeHours", e.target.value)}
+                placeholder="24"
+                className="h-9 text-sm"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium text-gray-600">Max daily capacity</Label>
+              <div className="relative">
+                <Users className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+                <Input
+                  type="number" min="1"
+                  value={form.maxDailyCapacity}
+                  onChange={(e) => set("maxDailyCapacity", e.target.value)}
+                  placeholder="200"
+                  className="h-9 pl-8 text-sm"
+                />
+              </div>
+            </div>
           </div>
         </div>
       </div>
 
       {/* Availability */}
-      <div className="space-y-3 rounded-xl bg-gray-50 p-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm font-medium text-gray-900">Available now</p>
-            <p className="text-xs text-gray-500">Customers can order this item immediately</p>
+      <div className="rounded-xl border border-gray-100 bg-white shadow-sm overflow-hidden">
+        <div className="flex items-center gap-3 px-4 py-2.5 bg-gradient-to-r from-purple-50 to-violet-50 border-b border-purple-100">
+          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-purple-100 shrink-0">
+            <ToggleRight className="h-3.5 w-3.5 text-purple-600" />
           </div>
-          <Switch
-            checked={form.isAvailable}
-            onCheckedChange={(v) => set("isAvailable", v)}
-          />
+          <p className="text-sm font-semibold text-gray-800">Availability</p>
         </div>
-        {!form.isAvailable && (
-          <div className="space-y-1.5">
-            <Label className="text-sm">Reason for unavailability</Label>
-            <Input
-              value={form.unavailableReason}
-              onChange={(e) => set("unavailableReason", e.target.value)}
-              placeholder="e.g. Out of stock till Monday"
-            />
+        <div className="p-4 space-y-3">
+          <div className={`flex items-center justify-between rounded-lg px-4 py-3 border transition-colors ${
+            form.isAvailable ? "bg-emerald-50 border-emerald-200" : "bg-red-50 border-red-200"
+          }`}>
+            <div>
+              <p className="text-sm font-medium text-gray-900">
+                {form.isAvailable ? "✓ Available for orders" : "✕ Not available"}
+              </p>
+              <p className="text-xs text-gray-500 mt-0.5">
+                {form.isAvailable
+                  ? "Customers can find and order this item"
+                  : "Item is hidden from customers until re-enabled"}
+              </p>
+            </div>
+            <Switch checked={form.isAvailable} onCheckedChange={(v) => set("isAvailable", v)} />
           </div>
-        )}
+          {!form.isAvailable && (
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium text-gray-600">Reason (shown to customers)</Label>
+              <Input
+                value={form.unavailableReason}
+                onChange={(e) => set("unavailableReason", e.target.value)}
+                placeholder="e.g. Out of stock till Monday"
+                className="h-9 text-sm"
+              />
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Customization options */}
-      <div className="space-y-3 rounded-xl bg-gray-50 p-4">
-        <div className="flex items-center justify-between">
-          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-            Customization options <span className="text-gray-400 font-normal normal-case">(optional)</span>
-          </p>
+      <div className="rounded-xl border border-gray-100 bg-white shadow-sm overflow-hidden">
+        <div className="flex items-center gap-3 px-4 py-2.5 bg-gradient-to-r from-rose-50 to-orange-50 border-b border-rose-100">
+          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-rose-100 shrink-0">
+            <Settings2 className="h-3.5 w-3.5 text-rose-600" />
+          </div>
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-gray-800">Add-on Options</p>
+            <p className="text-xs text-gray-500">Spice level, meat type, extras…</p>
+          </div>
           <Button
-            type="button"
-            variant="outline"
-            size="sm"
+            type="button" variant="outline" size="sm"
             onClick={() =>
               set("customizationOptions", [
                 ...form.customizationOptions,
                 { optionName: "", choices: "", additionalCost: "", isRequired: false },
               ])
             }
-            className="h-7 text-xs border-orange-200 text-orange-600 hover:bg-orange-50"
+            className="h-7 text-xs bg-white border-orange-200 text-orange-600 hover:bg-orange-50"
           >
-            <Plus className="h-3 w-3 mr-1" /> Add option
+            <Plus className="h-3 w-3 mr-1" /> Add
           </Button>
         </div>
-        {form.customizationOptions.length === 0 && (
-          <p className="text-xs text-gray-400">
-            No options yet. Add choices like “Spice Level” or “Meat Type”.
-          </p>
-        )}
-        {form.customizationOptions.map((opt, idx) => (
-          <div key={idx} className="rounded-lg border border-gray-200 bg-white p-3 space-y-2">
-            <div className="flex items-start gap-2">
-              <div className="flex-1 space-y-1.5">
-                <Label className="text-xs">
-                  Option name <span className="text-red-500">*</span>
-                </Label>
+        <div className="p-4 space-y-3">
+          {form.customizationOptions.length === 0 && (
+            <button
+              type="button"
+              onClick={() =>
+                set("customizationOptions", [
+                  { optionName: "", choices: "", additionalCost: "", isRequired: false },
+                ])
+              }
+              className="w-full flex items-center justify-center gap-2 rounded-lg border-2 border-dashed border-gray-200 py-4 text-sm text-gray-400 hover:border-orange-300 hover:text-orange-500 transition-all"
+            >
+              <Plus className="h-4 w-4" />
+              Add customization option (e.g. Spice Level, Meat Type)
+            </button>
+          )}
+          {form.customizationOptions.map((opt, idx) => (
+            <div key={idx} className="rounded-lg border border-gray-100 bg-gray-50 p-3 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Option {idx + 1}</span>
+                <button
+                  type="button"
+                  onClick={() =>
+                    set("customizationOptions", form.customizationOptions.filter((_, i) => i !== idx))
+                  }
+                  className="text-gray-400 hover:text-red-500 transition-colors"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-gray-500">Option name <span className="text-red-500">*</span></Label>
                 <Input
                   value={opt.optionName}
                   onChange={(e) =>
-                    set(
-                      "customizationOptions",
-                      form.customizationOptions.map((o, i) =>
-                        i === idx ? { ...o, optionName: e.target.value } : o
-                      )
-                    )
+                    set("customizationOptions",
+                      form.customizationOptions.map((o, i) => i === idx ? { ...o, optionName: e.target.value } : o))
                   }
                   placeholder="e.g. Meat Type"
-                  className="h-8 text-sm"
+                  className="h-8 text-sm bg-white"
                 />
               </div>
-              <button
-                type="button"
-                onClick={() =>
-                  set(
-                    "customizationOptions",
-                    form.customizationOptions.filter((_, i) => i !== idx)
-                  )
-                }
-                className="mt-5 text-gray-400 hover:text-red-500 transition-colors shrink-0"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">
-                Choices <span className="text-red-500">*</span>{" "}
-                <span className="text-gray-400 font-normal">(comma-separated)</span>
-              </Label>
-              <Input
-                value={opt.choices}
-                onChange={(e) =>
-                  set(
-                    "customizationOptions",
-                    form.customizationOptions.map((o, i) =>
-                      i === idx ? { ...o, choices: e.target.value } : o
-                    )
-                  )
-                }
-                placeholder="e.g. Chicken, Mutton, Veg"
-                className="h-8 text-sm"
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-2 items-end">
               <div className="space-y-1.5">
-                <Label className="text-xs">Extra cost (₹)</Label>
+                <Label className="text-xs text-gray-500">
+                  Choices <span className="text-red-500">*</span>
+                  <span className="text-gray-400 font-normal"> — comma-separated</span>
+                </Label>
                 <Input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={opt.additionalCost}
+                  value={opt.choices}
                   onChange={(e) =>
-                    set(
-                      "customizationOptions",
-                      form.customizationOptions.map((o, i) =>
-                        i === idx ? { ...o, additionalCost: e.target.value } : o
-                      )
-                    )
+                    set("customizationOptions",
+                      form.customizationOptions.map((o, i) => i === idx ? { ...o, choices: e.target.value } : o))
                   }
-                  placeholder="0"
-                  className="h-8 text-sm"
+                  placeholder="e.g. Chicken, Mutton, Veg"
+                  className="h-8 text-sm bg-white"
                 />
               </div>
-              <div className="flex items-center gap-2 pb-1">
-                <Switch
-                  checked={opt.isRequired}
-                  onCheckedChange={(v) =>
-                    set(
-                      "customizationOptions",
-                      form.customizationOptions.map((o, i) =>
-                        i === idx ? { ...o, isRequired: v } : o
-                      )
-                    )
-                  }
-                />
-                <Label className="text-xs text-gray-600">Required</Label>
+              <div className="flex items-end gap-3">
+                <div className="flex-1 space-y-1.5">
+                  <Label className="text-xs text-gray-500">Extra cost (₹)</Label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs">₹</span>
+                    <Input
+                      type="number" min="0" step="0.01"
+                      value={opt.additionalCost}
+                      onChange={(e) =>
+                        set("customizationOptions",
+                          form.customizationOptions.map((o, i) => i === idx ? { ...o, additionalCost: e.target.value } : o))
+                      }
+                      placeholder="0"
+                      className="h-8 pl-6 text-sm bg-white"
+                    />
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 pb-1">
+                  <Switch
+                    checked={opt.isRequired}
+                    onCheckedChange={(v) =>
+                      set("customizationOptions",
+                        form.customizationOptions.map((o, i) => i === idx ? { ...o, isRequired: v } : o))
+                    }
+                  />
+                  <Label className="text-xs text-gray-600">Required</Label>
+                </div>
               </div>
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -436,6 +491,13 @@ export default function Menu() {
   const [form, setForm] = useState<PricingFormState>(BLANK_FORM);
   const [saving, setSaving] = useState(false);
 
+  // Delete confirmation dialog
+  const [deleteConfirm, setDeleteConfirm] = useState<VendorItem | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  // Toast manager
+  const { showToast } = useModernToast();
+
   // â”€â”€ Load vendor menu â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   const loadMenu = useCallback(async () => {
@@ -444,26 +506,7 @@ export default function Menu() {
     try {
       const data = await api.getMenuItems(undefined);
       const raw: any[] = Array.isArray(data) ? data : [];
-      setItems(
-        raw.map((it) => ({
-          vendorItemId: it.vendorItemId || it.id || "",
-          masterItemId: it.masterItemId || "",
-          masterItemName: it.masterItemName || "",
-          masterItemCategory: it.masterItemCategory || it.category || "",
-          masterItemImage:
-            it.masterItemImage ||
-            (Array.isArray(it.images) ? it.images[0] : undefined) ||
-            it.image ||
-            "",
-          customName: it.customName || "",
-          customDescription: it.customDescription || "",
-          pricing: it.pricing || {},
-          availability: it.availability || { isAvailable: it.available ?? true },
-          preparationTimeMinutes: it.preparationTimeMinutes,
-          customizationOptions: it.customizationOptions || [],
-          status: it.status || "ACTIVE",
-        }))
-      );
+      setItems(raw.map(normalizeVendorItem));
     } catch (err: any) {
       setLoadError(err?.message || "Failed to load menu");
     } finally {
@@ -577,10 +620,10 @@ export default function Menu() {
     if (!selectedMaster) return;
     const price = parseFloat(form.pricePerPlate);
     if (!form.pricePerPlate || isNaN(price) || price <= 0) {
-      toast({
+      showToast({
         title: "Price required",
         description: "Please enter a valid price per plate greater than 0",
-        variant: "destructive",
+        variant: "error",
       });
       return;
     }
@@ -619,18 +662,23 @@ export default function Menu() {
         if (mapped.length > 0) payload.customizationOptions = mapped;
       }
 
-      await api.createMenuItem("", payload);
-      await loadMenu();
-      toast({
+      const created = await api.createMenuItem("", payload);
+      if (created) {
+        setItems((prev) => [normalizeVendorItem(created), ...prev]);
+      } else {
+        await loadMenu();
+      }
+      showToast({
         title: "Item added",
         description: `${form.customName || selectedMaster.itemName} added to your menu.`,
+        variant: "success",
       });
       closeDialog();
     } catch (err: any) {
-      toast({
+      showToast({
         title: "Error",
         description: err?.message || "Failed to add item",
-        variant: "destructive",
+        variant: "error",
       });
     } finally {
       setSaving(false);
@@ -641,16 +689,18 @@ export default function Menu() {
     if (!editingItem) return;
     const price = parseFloat(form.pricePerPlate);
     if (form.pricePerPlate && (isNaN(price) || price <= 0)) {
-      toast({
+      showToast({
         title: "Invalid price",
         description: "Price per plate must be greater than 0",
-        variant: "destructive",
+        variant: "error",
       });
       return;
     }
     setSaving(true);
     try {
       const payload: any = {};
+      // Backend requires masterItemId even for updates
+      if (editingItem.masterItemId) payload.masterItemId = editingItem.masterItemId;
       if (form.customName !== undefined) payload.customName = form.customName;
       if (form.customDescription !== undefined) payload.customDescription = form.customDescription;
       if (form.pricePerPlate) payload.pricePerPlate = price;
@@ -679,16 +729,23 @@ export default function Menu() {
         if (mapped.length > 0) payload.customizationOptions = mapped;
       }
 
-      await api.updateMenuItem("", editingItem.vendorItemId, payload);
-
-      await loadMenu();
-      toast({ title: "Item updated" });
+      const updated = await api.updateMenuItem("", editingItem.vendorItemId, payload);
+      if (updated) {
+        setItems((prev) =>
+          prev.map((i) =>
+            i.vendorItemId === editingItem.vendorItemId ? normalizeVendorItem(updated) : i
+          )
+        );
+      } else {
+        await loadMenu();
+      }
+      showToast({ title: "Item updated", variant: "success" });
       closeDialog();
     } catch (err: any) {
-      toast({
+      showToast({
         title: "Error",
         description: err?.message || "Failed to update item",
-        variant: "destructive",
+        variant: "error",
       });
     } finally {
       setSaving(false);
@@ -701,40 +758,55 @@ export default function Menu() {
     setItems((prev) =>
       prev.map((i) =>
         i.vendorItemId === item.vendorItemId
-          ? { ...i, availability: { ...i.availability, isAvailable: newVal } }
+          ? { ...i, status: newVal ? "ACTIVE" : "INACTIVE", availability: { ...i.availability, isAvailable: newVal } }
           : i
       )
     );
     try {
       await api.toggleMenuItemAvailability(item.vendorItemId, newVal);
+      showToast({
+        title: "Success",
+        description: `${displayName(item)} is now ${newVal ? "available" : "unavailable"}`,
+        variant: "success",
+      });
     } catch (err: any) {
       // Rollback
       setItems((prev) =>
         prev.map((i) =>
           i.vendorItemId === item.vendorItemId
-            ? { ...i, availability: { ...i.availability, isAvailable: !newVal } }
+            ? { ...i, status: !newVal ? "ACTIVE" : "INACTIVE", availability: { ...i.availability, isAvailable: !newVal } }
             : i
         )
       );
-      toast({
+      showToast({
         title: "Error",
         description: err?.message || "Failed to update availability",
-        variant: "destructive",
+        variant: "error",
       });
     }
   };
 
-  const handleDelete = async (item: VendorItem) => {
+  const handleConfirmDelete = async () => {
+    if (!deleteConfirm) return;
+    setDeleting(true);
     try {
-      await api.deleteMenuItem("", item.vendorItemId);
-      setItems((prev) => prev.filter((i) => i.vendorItemId !== item.vendorItemId));
-      toast({ title: "Item removed from menu" });
+      const response = await api.deleteMenuItem("", deleteConfirm.vendorItemId);
+      // Remove from UI state only after successful API response
+      setItems((prev) => prev.filter((i) => i.vendorItemId !== deleteConfirm.vendorItemId));
+      showToast({
+        title: "Item deleted",
+        description: `${displayName(deleteConfirm)} has been permanently removed from your menu.`,
+        variant: "success",
+      });
+      setDeleteConfirm(null);
     } catch (err: any) {
-      toast({
+      showToast({
         title: "Error",
         description: err?.message || "Failed to delete item",
-        variant: "destructive",
+        variant: "error",
       });
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -833,7 +905,11 @@ export default function Menu() {
             {items.map((item) => (
               <div
                 key={item.vendorItemId}
-                className="group relative bg-white rounded-xl border border-orange-100 shadow-sm overflow-hidden hover:shadow-md transition-shadow"
+                className={`group relative bg-white rounded-xl border shadow-sm overflow-hidden hover:shadow-md transition-all ${
+                  item.status === "INACTIVE" || item.availability?.isAvailable === false
+                    ? "border-gray-200 opacity-70"
+                    : "border-orange-100"
+                }`}
               >
                 {/* Image */}
                 <div className="aspect-video bg-orange-50 overflow-hidden">
@@ -850,15 +926,21 @@ export default function Menu() {
                   )}
                 </div>
 
-                {/* Availability badge */}
+                {/* Status badge */}
                 <div
-                  className={`absolute top-3 left-3 rounded-full px-2 py-0.5 text-xs font-medium backdrop-blur-sm ${
-                    item.availability?.isAvailable !== false
-                      ? "bg-green-100/90 text-green-700"
-                      : "bg-gray-100/90 text-gray-600"
+                  className={`absolute top-3 left-3 rounded-full px-2.5 py-0.5 text-xs font-semibold backdrop-blur-sm border ${
+                    item.status === "OUT_OF_STOCK"
+                      ? "bg-amber-100/90 text-amber-700 border-amber-200"
+                      : item.status === "INACTIVE" || item.availability?.isAvailable === false
+                      ? "bg-red-100/90 text-red-600 border-red-200"
+                      : "bg-green-100/90 text-green-700 border-green-200"
                   }`}
                 >
-                  {item.availability?.isAvailable !== false ? "Available" : "Unavailable"}
+                  {item.status === "OUT_OF_STOCK"
+                    ? "Out of stock"
+                    : item.status === "INACTIVE" || item.availability?.isAvailable === false
+                    ? "Inactive"
+                    : "Active"}
                 </div>
 
                 {/* Content */}
@@ -878,7 +960,7 @@ export default function Menu() {
                       )}
                     </div>
                     <Switch
-                      checked={item.availability?.isAvailable !== false}
+                      checked={item.status !== "INACTIVE" && item.availability?.isAvailable !== false}
                       onCheckedChange={() => handleToggle(item)}
                       className="shrink-0 mt-0.5"
                     />
@@ -920,7 +1002,7 @@ export default function Menu() {
                       size="sm"
                       variant="outline"
                       onClick={() => openEdit(item)}
-                      className="flex-1 border-orange-200 text-orange-600 hover:bg-orange-50 min-h-[36px] text-xs sm:text-sm"
+                      className="flex-1 border-orange-200 text-orange-600 hover:text-orange-700 hover:bg-orange-50 min-h-[36px] text-xs sm:text-sm"
                     >
                       <Pencil className="h-3.5 w-3.5 mr-1.5" />
                       Edit
@@ -928,11 +1010,11 @@ export default function Menu() {
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => handleDelete(item)}
-                      className="flex-1 border-red-200 text-red-600 hover:bg-red-50 min-h-[36px] text-xs sm:text-sm"
+                      onClick={() => setDeleteConfirm(item)}
+                      className="flex-1 border-red-200 text-red-600 hover:text-red-700 hover:bg-red-50 min-h-[36px] text-xs sm:text-sm"
                     >
                       <Trash2 className="h-3.5 w-3.5 mr-1.5" />
-                      Remove
+                      Delete
                     </Button>
                   </div>
                 </div>
@@ -946,30 +1028,46 @@ export default function Menu() {
       <Dialog open={isOpen} onOpenChange={(open) => { if (!open) closeDialog(); }}>
         <DialogContent className="max-w-2xl max-h-[85vh] overflow-hidden flex flex-col p-0 rounded-2xl border-0 shadow-2xl">
           {/* Header */}
-          <DialogHeader className="px-6 py-4 border-b bg-white shrink-0">
+          <DialogHeader className={`px-5 py-4 border-b shrink-0 ${
+            mode === "browse"
+              ? "bg-gradient-to-r from-slate-700 to-gray-800"
+              : mode === "pricing"
+              ? "bg-gradient-to-r from-orange-500 to-amber-500"
+              : "bg-gradient-to-r from-orange-600 to-rose-500"
+          }`}>
             <div className="flex items-center gap-3">
               {mode === "pricing" && (
                 <Button
                   variant="ghost"
                   size="icon"
                   onClick={() => { setMode("browse"); setSelectedMaster(null); }}
-                  className="h-8 w-8 text-gray-500 hover:text-gray-800 shrink-0"
+                  className="h-8 w-8 text-white/80 hover:text-white hover:bg-white/10 shrink-0"
                 >
                   <ChevronLeft className="h-4 w-4" />
                 </Button>
               )}
-              <div>
-                <DialogTitle className="text-base">
+              <div className="flex-1 min-w-0">
+                <DialogTitle className="text-base font-semibold text-white">
                   {mode === "browse" && "Browse menu catalogue"}
                   {mode === "pricing" && `Configure: ${selectedMaster?.itemName}`}
                   {mode === "edit" && `Edit: ${editingItem ? displayName(editingItem) : ""}`}
                 </DialogTitle>
-                <DialogDescription className="text-xs text-gray-500 mt-0.5">
-                  {mode === "browse" && "Select an item from the platform catalogue to add it to your menu"}
-                  {mode === "pricing" && "Set your pricing and availability for this item"}
+                <DialogDescription className="text-xs text-white/70 mt-0.5">
+                  {mode === "browse" && "Pick an item to add to your menu with custom pricing"}
+                  {mode === "pricing" && "Set your price, discount, and availability"}
                   {mode === "edit" && "Update pricing and availability for this item"}
                 </DialogDescription>
               </div>
+              {mode === "browse" && (
+                <div className="flex items-center gap-1 text-white/60 text-xs">
+                  <span className="bg-white/20 rounded-full px-2 py-0.5">Step 1</span>
+                </div>
+              )}
+              {mode === "pricing" && (
+                <div className="flex items-center gap-1 text-white/60 text-xs">
+                  <span className="bg-white/20 rounded-full px-2 py-0.5">Step 2</span>
+                </div>
+              )}
             </div>
           </DialogHeader>
 
@@ -1127,6 +1225,42 @@ export default function Menu() {
               </Button>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={!!deleteConfirm} onOpenChange={(open) => { if (!open) setDeleteConfirm(null); }}>
+        <DialogContent className="max-w-sm rounded-2xl border-0 shadow-2xl">
+          <DialogHeader>
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-100 mb-4">
+              <Trash2 className="h-6 w-6 text-red-600" />
+            </div>
+            <DialogTitle className="text-xl">Delete menu item permanently?</DialogTitle>
+            <DialogDescription className="text-base mt-2">
+              {deleteConfirm && (
+                <>
+                  <strong>{displayName(deleteConfirm)}</strong> will be permanently removed from your vendor menu. This action cannot be undone.
+                </>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex gap-3 pt-6">
+            <Button
+              variant="outline"
+              onClick={() => setDeleteConfirm(null)}
+              className="flex-1"
+              disabled={deleting}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleConfirmDelete}
+              className="flex-1 bg-red-600 hover:bg-red-700 text-white"
+              disabled={deleting}
+            >
+              {deleting ? "Deleting…" : "Delete permanently"}
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

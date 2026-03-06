@@ -37,7 +37,7 @@ export interface ChatHookOptions {
  * @example
  * const { isConnected, sendMessage } = useWebSocketChat(
  *   { conversationId: '123', autoConnect: true },
- *   { onMessage: (msg) => console.log(msg) }
+ *   { onMessage: (msg) => {} }
  * );
  */
 export function useWebSocketChat(
@@ -62,7 +62,7 @@ export function useWebSocketChat(
   const log = useCallback(
     (...args: any[]) => {
       if (debug) {
-        console.log('[useWebSocketChat]', ...args);
+        // Debug logging
       }
     },
     [debug]
@@ -135,7 +135,7 @@ export function useWebSocketChat(
       try {
         unsubscribe();
       } catch (error) {
-        console.error('Error unsubscribing:', error);
+        // Error during unsubscribe
       }
     });
     unsubscribeRef.current = [];
@@ -199,7 +199,7 @@ export function useWebSocketChat(
           clearTimeout(typingTimeoutRef.current);
         }
       } catch (error) {
-        console.error('Failed to send typing indicator:', error);
+        // Error sending typing indicator
       }
     },
     [conversationId, log]
@@ -216,7 +216,7 @@ export function useWebSocketChat(
         log('Sending read receipt for messages:', messageIds);
         chatWebSocketService.sendReadReceipt(conversationId, messageIds);
       } catch (error) {
-        console.error('Failed to send read receipt:', error);
+        // Error sending read receipt
       }
     },
     [conversationId, log]

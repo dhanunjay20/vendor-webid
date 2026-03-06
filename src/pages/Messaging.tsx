@@ -187,7 +187,7 @@ const Messaging = () => {
   // ======================================================================
 
   const handleIncomingMessage = useCallback((wsMessage: WSIncomingMessage) => {
-    console.log("[Messaging] Received message:", wsMessage.messageId);
+
 
     const messageDto: MessageDto = {
       messageId: wsMessage.messageId,
@@ -225,7 +225,7 @@ const Messaging = () => {
   }, [currentUserId, selectedConversation, getOtherParticipant]);
 
   const handleReadReceipt = useCallback((event: { conversationId: string; messageIds: string[] }) => {
-    console.log("[Messaging] Read receipt received");
+
     setMessages((prev) =>
       prev.map((msg) =>
         msg.senderId === currentUserId ? { ...msg, isRead: true } : msg
@@ -241,7 +241,7 @@ const Messaging = () => {
     // Update online status if the event is for the recipient (user)
     if (event.userId === otherParticipant.userId) {
       setRecipientStatus(event.status === "ONLINE" ? "ONLINE" : "OFFLINE");
-      console.log(`[Messaging] ${otherParticipant.name} is now ${event.status}`);
+
     }
   }, [selectedConversation, getOtherParticipant]);
 
@@ -272,12 +272,12 @@ const Messaging = () => {
 
       if (response.success && response.data) {
         setConversations(response.data);
-        console.log("[Messaging] Loaded conversations:", response.data.length);
+
       } else {
         toast.error(response.message || "Failed to load conversations");
       }
     } catch (error: any) {
-      console.error("[Messaging] Error loading conversations:", error);
+
       toast.error("Error loading conversations");
     } finally {
       setLoading(false);
@@ -291,12 +291,12 @@ const Messaging = () => {
 
       if (response.success && response.data) {
         setMessages(response.data);
-        console.log("[Messaging] Loaded messages:", response.data.length);
+
       } else {
         toast.error("Failed to load message history");
       }
     } catch (error: any) {
-      console.error("[Messaging] Error loading messages:", error);
+
       toast.error("Error loading messages");
     } finally {
       setIsLoadingMessages(false);
@@ -309,7 +309,7 @@ const Messaging = () => {
     try {
       await chatApi.markAsRead(selectedConversation.conversationId);
     } catch (error) {
-      console.error("[Messaging] Error marking as read:", error);
+
     }
   }, [selectedConversation]);
 
@@ -318,7 +318,7 @@ const Messaging = () => {
   // ======================================================================
 
   const handleSelectConversation = useCallback((conversation: ConversationDto) => {
-    console.log("[Messaging] Selected conversation:", conversation.conversationId);
+
     setSelectedConversation(conversation);
     setShowChatList(false);
     setTypingUserName(null);
@@ -418,7 +418,7 @@ const Messaging = () => {
         }
       }
     } catch (error: any) {
-      console.error("[Messaging] Error sending message:", error);
+
       toast.error("Error sending message");
     } finally {
       setUploadingFile(false);

@@ -19,7 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { toast } from "@/hooks/use-toast";
+import { useModernToast } from "@/components/ModernToastProvider";
 import * as api from "@/lib/api";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -90,6 +90,7 @@ export default function Support() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const { showToast } = useModernToast();
 
   const [form, setForm] = useState<CreateForm>({
     category: "",
@@ -106,7 +107,7 @@ export default function Support() {
       const list: Ticket[] = res?.content ?? res?.data ?? res ?? [];
       setTickets(Array.isArray(list) ? list : []);
     } catch (err: any) {
-      toast({ title: "Failed to load tickets", description: err?.message, variant: "destructive" });
+      showToast({ title: "Failed to load tickets", description: err?.message, variant: "error" });
     } finally {
       setLoading(false);
     }
@@ -122,15 +123,15 @@ export default function Support() {
 
   async function handleCreate() {
     if (!form.category) {
-      toast({ title: "Category required", description: "Please select a category.", variant: "destructive" });
+      showToast({ title: "Category required", description: "Please select a category.", variant: "error" });
       return;
     }
     if (!form.subject.trim()) {
-      toast({ title: "Subject required", description: "Please enter a subject.", variant: "destructive" });
+      showToast({ title: "Subject required", description: "Please enter a subject.", variant: "error" });
       return;
     }
     if (!form.description.trim()) {
-      toast({ title: "Description required", description: "Please describe your issue.", variant: "destructive" });
+      showToast({ title: "Description required", description: "Please describe your issue.", variant: "error" });
       return;
     }
 
@@ -145,12 +146,12 @@ export default function Support() {
       if (form.orderId.trim()) payload.orderId = form.orderId.trim();
 
       await api.createSupportTicket(payload);
-      toast({ title: "Ticket created", description: "Our team will get back to you soon." });
+      showToast({ title: "Ticket created", description: "Our team will get back to you soon." });
       setDialogOpen(false);
       resetForm();
       loadTickets();
     } catch (err: any) {
-      toast({ title: "Failed to create ticket", description: err?.message, variant: "destructive" });
+      showToast({ title: "Failed to create ticket", description: err?.message, variant: "error" });
     } finally {
       setSaving(false);
     }

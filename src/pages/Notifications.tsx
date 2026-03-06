@@ -4,7 +4,7 @@ import { Bell, Check, Trash2, Filter, Package, FileText, Star, MessageSquare, Al
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { toast } from "@/hooks/use-toast";
+import { useModernToast } from "@/components/ModernToastProvider";
 import * as api from "@/lib/api";
 import { 
   subscribeToNotifications, 
@@ -54,6 +54,7 @@ export default function Notifications() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<"all" | "unread" | "read">("all");
+  const { showToast } = useModernToast();
 
   // Subscribe to local notifications (from WebSocket)
   useEffect(() => {
@@ -100,10 +101,10 @@ export default function Notifications() {
       setNotifications(notifications);
     } catch (err: any) {
       setError(err?.message || "Failed to load notifications");
-      toast({
+      showToast({
         title: "Error",
         description: err?.message || "Failed to load notifications",
-        variant: "destructive",
+        variant: "error",
       });
     } finally {
       setIsLoading(false);
@@ -126,15 +127,15 @@ export default function Notifications() {
       setNotifications((prev) =>
         prev.map((n) => (n.notificationId === id ? { ...n, isRead: true } : n))
       );
-      toast({
+      showToast({
         title: "Marked as read",
         description: "Notification has been marked as read",
       });
     } catch (err: any) {
-      toast({
+      showToast({
         title: "Error",
         description: err?.message || "Failed to mark as read",
-        variant: "destructive",
+        variant: "error",
       });
     }
   };
@@ -157,15 +158,15 @@ export default function Notifications() {
     try {
       await api.markAllNotificationsRead();
       setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
-      toast({
+      showToast({
         title: "All marked as read",
         description: "All notifications have been marked as read",
       });
     } catch (err: any) {
-      toast({
+      showToast({
         title: "Error",
         description: err?.message || "Failed to mark all as read",
-        variant: "destructive",
+        variant: "error",
       });
     }
   };

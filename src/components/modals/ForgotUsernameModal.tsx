@@ -80,14 +80,10 @@ export default function ForgotUsernameModal({
       let response;
       if (recoveryType === "email") {
         // Call forgot-email API with phone
-        console.log("Calling forgotEmail with phone:", contact.trim());
         response = await api.forgotEmail(contact.trim());
-        console.log("forgotEmail response:", response);
       } else {
         // Call forgot-phone API with email
-        console.log("Calling forgotPhone with email:", contact.trim());
         response = await api.forgotPhone(contact.trim());
-        console.log("forgotPhone response:", response);
       }
       
       // Extract message from response
@@ -109,13 +105,6 @@ export default function ForgotUsernameModal({
           : "Your phone number has been sent to your email";
       }
 
-      console.log("=== FORGOT EMAIL/PHONE RESPONSE ===");
-      console.log("Full response:", response);
-      console.log("Main message:", displayMessage);
-      console.log("Data message:", dataMessage);
-      console.log("Masked contact:", masked);
-      console.log("Recovery type:", recoveryType);
-      
       setResponseMessage(displayMessage);
       setMaskedContact(masked || maskContact(contact, recoveryType));
       

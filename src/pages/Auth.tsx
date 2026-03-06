@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Mail, Lock, Eye, EyeOff, ArrowRight, Loader2 } from "lucide-react";
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter } from "@/components/ui/alert-dialog";
-import { toast } from "@/hooks/use-toast";
+import { useModernToast } from "@/components/ModernToastProvider";
 import * as api from "@/lib/api";
 import { requestFcmToken } from "@/lib/firebase";
 import heroImg from "@/assets/dashboard-hero.jpg";
@@ -47,6 +47,7 @@ const fieldVariants: Variants = {
 
 const Auth: React.FC = () => {
   const navigate = useNavigate();
+  const { showToast } = useModernToast();
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [direction, setDirection] = useState(1);
   const [showForgotPasswordModal, setShowForgotPasswordModal] = useState(false);
@@ -131,16 +132,17 @@ const Auth: React.FC = () => {
           const approvalStatus = profileData?.approvalStatus || profileData?.approval_status || vendorProfile.approvalStatus || vendorProfile.approval_status;
           
           if (approvalStatus === "PENDING") {
-            toast({
+            showToast({
               title: "Profile Pending Approval",
               description: "Your profile is awaiting admin approval. You'll be notified once approved.",
-              variant: "default",
+              variant: "warning",
             });
             return;
           } else if (approvalStatus === "APPROVED") {
-            toast({
+            showToast({
               title: "Profile Already Complete",
               description: "Your profile is complete and approved.",
+              variant: "success",
             });
             navigate("/dashboard");
             return;
@@ -152,17 +154,17 @@ const Auth: React.FC = () => {
       } catch (err: any) {
         // Error fetching profile (likely 404 - no profile exists)
         // This is expected for onboarding state, allow navigation
-        console.log("No vendor profile found, proceeding to setup:", err?.message);
+
         navigate("/vendor-setup");
       } finally {
         setCheckingProfile(false);
       }
     } else {
       // No token, show message to login first
-      toast({
+      showToast({
         title: "Login Required",
         description: "Please login to complete your vendor profile.",
-        variant: "default",
+        variant: "warning",
       });
       setMode("signin");
     }
@@ -179,7 +181,7 @@ const Auth: React.FC = () => {
     }
     
     if (!email || !password) {
-      toast({ title: "Missing fields", description: "Please enter email and password", variant: "destructive" });
+      showToast({ title: "Missing fields", description: "Please enter email and password", variant: "error" });
       return;
     }
     setLoading(true);
@@ -203,7 +205,7 @@ const Auth: React.FC = () => {
         if (refreshToken) localStorage.setItem("refreshToken", refreshToken);
         localStorage.setItem("tokenType", tokenType || "Bearer");
         if (expiresIn) localStorage.setItem("expiresIn", String(expiresIn));
-        console.log("Auth.handleSignIn - stored tokens:", { tokenType: tokenType || "Bearer", accessToken, refreshToken, expiresIn });
+
       }
 
       // User info may be inside `inner.user` or at top-level `inner`
@@ -240,7 +242,7 @@ const Auth: React.FC = () => {
       // Fetch and store complete vendor profile after successful login
       try {
         const vendorProfile = await api.getVendorMe();
-        console.debug("Auth.handleSignIn - getVendorMe response:", vendorProfile);
+
         if (vendorProfile) {
           // Store complete vendor response for future use
           localStorage.setItem("vendorProfile", JSON.stringify(vendorProfile));
@@ -258,10 +260,10 @@ const Auth: React.FC = () => {
           
           if (approvalStatus === "PENDING") {
             // Profile exists but pending approval
-            toast({ 
+            showToast({ 
               title: "Profile Pending Approval", 
               description: "Your profile is awaiting admin approval. You'll be notified once approved.",
-              variant: "default"
+              variant: "warning"
             });
             // Clear token and prevent dashboard access
             localStorage.clear();
@@ -269,7 +271,7 @@ const Auth: React.FC = () => {
             return;
           } else if (approvalStatus === "APPROVED") {
             // Profile approved, proceed to dashboard
-            toast({ title: `Welcome back${fullName ? `, ${fullName}` : ""}` });
+            showToast({ title: `Welcome back${fullName ? `, ${fullName}` : ""}`, variant: "success" });
             requestFcmToken().catch(() => {});
             navigate("/dashboard");
             return;
@@ -278,17 +280,18 @@ const Auth: React.FC = () => {
       } catch (vendorErr: any) {
         // No vendor profile found (404 or similar)
         // This means vendor is in "Onboarding State" - allow them to create profile
-        console.log("No vendor profile found - redirecting to profile setup:", vendorErr?.message);
-        toast({ 
+
+        showToast({ 
           title: "Complete Your Profile", 
           description: "Please complete your vendor profile to get started.",
+          variant: "default",
         });
         navigate("/vendor-setup");
         setLoading(false);
         return;
       }
 
-      toast({ title: `Welcome back${fullName ? `, ${fullName}` : ""}` });
+      showToast({ title: `Welcome back${fullName ? `, ${fullName}` : ""}`, variant: "success" });
       requestFcmToken().catch(() => {});
       navigate("/dashboard");
     } catch (err: any) {
@@ -303,10 +306,10 @@ const Auth: React.FC = () => {
       } else {
         // Show remaining attempts
         const remainingAttempts = 3 - newFailedAttempts;
-        toast({ 
+        showToast({ 
           title: "Login failed", 
           description: `Invalid credentials. You have ${remainingAttempts} attempt(s) left.`,
-          variant: "destructive" 
+          variant: "error" 
         });
       }
     } finally {
@@ -356,13 +359,13 @@ const Auth: React.FC = () => {
       if (formData.lastName) localStorage.setItem("lastName", formData.lastName);
       if (formData.country) localStorage.setItem("country", formData.country);
       
-      toast({ title: "Registration successful!", description: "Please complete your vendor profile." });
+      showToast({ title: "Registration successful!", description: "Please complete your vendor profile.", variant: "success" });
       
       // Navigate to vendor profile setup with registration data
       navigate("/vendor-setup", { state: { registrationData } });
     } catch (err: any) {
       setServerError(err?.message || "Registration failed. Please try again.");
-      toast({ title: "Registration failed", description: err?.message || "Network error while registering", variant: "destructive" });
+      showToast({ title: "Registration failed", description: err?.message || "Network error while registering", variant: "error" });
     } finally {
       setLoading(false);
     }

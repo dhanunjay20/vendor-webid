@@ -99,7 +99,7 @@ export class ChatWebSocketService {
           // Debug mode for development
           debug: (msg: string) => {
             if (this.debug) {
-              console.log('[WebSocket]', msg);
+              // Debug logging
             }
           },
 
@@ -241,8 +241,7 @@ export class ChatWebSocketService {
             });
           });
         } catch (error) {
-          console.error('Failed to parse WebSocket message:', error);
-          console.error('Raw message body:', message.body);
+          // Failed to parse WebSocket message
         }
       });
 
@@ -328,7 +327,7 @@ export class ChatWebSocketService {
 
       this.log(`✍️  Typing indicator sent: ${isTyping ? 'typing' : 'stopped'}`);
     } catch (error) {
-      console.error('Failed to send typing indicator:', error);
+
     }
   }
 
@@ -356,7 +355,7 @@ export class ChatWebSocketService {
 
       this.log(`✓ Read receipt sent for ${messageIds.length} messages`);
     } catch (error) {
-      console.error('Failed to send read receipt:', error);
+
     }
   }
 
@@ -405,7 +404,7 @@ export class ChatWebSocketService {
         try {
           this.stompClient?.unsubscribe(subscriptionId);
         } catch (error) {
-          console.error('Error unsubscribing:', error);
+          // Error unsubscribing
         }
       });
 
@@ -418,7 +417,7 @@ export class ChatWebSocketService {
         this.log('✅ WebSocket disconnected cleanly');
         resolve();
       } catch (error) {
-        console.error('Error disconnecting:', error);
+        // Error disconnecting
         resolve();
       }
     });
@@ -462,7 +461,7 @@ export class ChatWebSocketService {
    */
   private log(message: string): void {
     if (this.debug) {
-      console.log(`[ChatWebSocket] ${message}`);
+      // Debug log
     }
   }
 }
