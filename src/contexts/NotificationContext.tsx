@@ -7,6 +7,7 @@ import {
   ChatUpdateNotification,
 } from "@/lib/notificationWebSocket";
 import { notificationSound } from "@/lib/notificationSound";
+import { initializePushNotifications } from "@/lib/firebase";
 
 interface NotificationContextType {
   isConnected: boolean;
@@ -190,6 +191,33 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
         });
       }
     );
+
+    // Initialize Firebase push notifications (foreground + background)
+    initializePushNotifications((payload) => {
+      const notifType: string = payload.data?.notificationType || payload.notification?.title || "";
+      const title = payload.notification?.title || "New Notification";
+      const body = payload.notification?.body || "";
+
+      notificationSound.play();
+      toast({ title, description: body, duration: 5000 });
+
+      if (notifType.startsWith("BID")) {
+        setBidNotifications((prev) => [
+          { eventType: notifType, message: body, bidId: payload.data?.bidId || "", timestamp: new Date().toISOString() } as BidUpdateNotification,
+          ...prev,
+        ].slice(0, 50));
+      } else if (notifType.startsWith("ORDER")) {
+        setOrderNotifications((prev) => [
+          { eventType: notifType, message: body, orderId: payload.data?.orderId || "", timestamp: new Date().toISOString() } as OrderUpdateNotification,
+          ...prev,
+        ].slice(0, 50));
+      } else if (notifType.startsWith("MESSAGE")) {
+        setChatNotifications((prev) => [
+          { eventType: notifType, content: body, chatId: payload.data?.conversationId || "", timestamp: new Date().toISOString() } as ChatUpdateNotification,
+          ...prev,
+        ].slice(0, 50));
+      }
+    });
 
     // Cleanup on unmount
     return () => {

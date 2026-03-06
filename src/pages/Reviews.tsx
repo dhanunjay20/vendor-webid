@@ -10,13 +10,34 @@ import { toast } from "@/hooks/use-toast";
 import * as api from "@/lib/api";
 
 interface ReviewItem {
-  id: string;
-  vendorOrganizationId: string;
+  // New API fields per documented ReviewResponse DTO
+  reviewId: string;
+  orderId?: string;
+  vendorId?: string;
   userId?: string;
-  customerName: string;
-  reviewDate: string;
-  description: string;
-  stars: number;
+  userName?: string;
+  rating: number;
+  foodQualityRating?: number;
+  serviceQualityRating?: number;
+  hygieneRating?: number;
+  valueForMoneyRating?: number;
+  punctualityRating?: number;
+  reviewText?: string;
+  images?: string[];
+  vendorResponse?: {
+    responseText: string;
+    respondedAt: string;
+  } | null;
+  helpfulCount?: number;
+  status?: string;
+  createdAt?: string;
+  // Legacy fields for backward compatibility
+  id?: string;
+  vendorOrganizationId?: string;
+  customerName?: string;
+  reviewDate?: string;
+  description?: string;
+  stars?: number;
 }
 
 const Reviews = () => {
@@ -28,18 +49,32 @@ const Reviews = () => {
   const [page, setPage] = useState(1);
   const pageSize = 10;
 
-  const vendorOrgId = localStorage.getItem("vendorOrganizationId") || "";
+  const vendorId = localStorage.getItem("vendorId") || localStorage.getItem("vendorOrganizationId") || "";
 
   useEffect(() => {
     const load = async () => {
-      if (!vendorOrgId) {
-        toast({ title: "Error", description: "Vendor organization ID not found. Please log in again.", variant: "destructive" });
+      if (!vendorId) {
+        toast({ title: "Error", description: "Vendor ID not found. Please log in again.", variant: "destructive" });
         return;
       }
       try {
         setLoading(true);
-        const data = await api.getVendorReviews(vendorOrgId);
-        setReviews(Array.isArray(data) ? data : []);
+        const data = await api.getVendorReviews(vendorId);
+        // Normalize to support both old and new DTO shapes
+        const normalized = (Array.isArray(data) ? data : []).map((r: any) => ({
+          ...r,
+          reviewId: r.reviewId || r.id || String(Math.random()),
+          id: r.reviewId || r.id,
+          userName: r.userName || r.customerName || "Customer",
+          customerName: r.customerName || r.userName || "Customer",
+          rating: r.rating ?? r.stars ?? 0,
+          stars: r.stars ?? r.rating ?? 0,
+          reviewText: r.reviewText || r.description || "",
+          description: r.description || r.reviewText || "",
+          createdAt: r.createdAt || r.reviewDate || "",
+          reviewDate: r.reviewDate || r.createdAt || "",
+        }));
+        setReviews(normalized);
       } catch (err: any) {
         toast({ title: "Failed to load reviews", description: err?.message || "Please try again later", variant: "destructive" });
       } finally {
@@ -48,28 +83,24 @@ const Reviews = () => {
     };
 
     load();
-  }, [vendorOrgId]);
+  }, [vendorId]);
 
   const stats = useMemo(() => {
     if (!reviews || !reviews.length) return { avg: "0.0", total: 0, fiveStarPct: "0%" };
     const total = reviews.length;
-    const sum = reviews.reduce((s, r) => s + (r.stars || 0), 0);
+    const sum = reviews.reduce((s, r) => s + (r.rating || r.stars || 0), 0);
     const avg = (sum / total) || 0;
-    const fiveStar = reviews.filter(r => r.stars >= 5).length;
+    const fiveStar = reviews.filter(r => (r.rating || r.stars || 0) >= 5).length;
     const fiveStarPct = Math.round((fiveStar / total) * 100);
     return { avg: avg.toFixed(1), total, fiveStarPct: `${fiveStarPct}%` };
   }, [reviews]);
-
-  const handleReply = (reviewId: string) => {
-    toast({ title: "Reply Posted", description: "Your response has been published." });
-  };
 
   const handleDelete = async (reviewId: string) => {
     if (!window.confirm("Are you sure you want to delete this review?")) return;
     
     try {
-      await api.deleteVendorReview(vendorOrgId, reviewId);
-      setReviews(prev => prev.filter(r => r.id !== reviewId));
+      await api.deleteVendorReview(reviewId);
+      setReviews(prev => prev.filter(r => (r.reviewId || r.id) !== reviewId));
       toast({ title: "Success", description: "Review deleted successfully." });
     } catch (err: any) {
       toast({ 
@@ -77,6 +108,30 @@ const Reviews = () => {
         description: err?.message || "Please try again later", 
         variant: "destructive" 
       });
+    }
+  };
+
+  const [replyingTo, setReplyingTo] = useState<string | null>(null);
+  const [replyText, setReplyText] = useState("");
+  const [submittingReply, setSubmittingReply] = useState(false);
+
+  const handleReplySubmit = async (reviewId: string) => {
+    if (!replyText.trim()) return;
+    try {
+      setSubmittingReply(true);
+      await api.respondToReview(reviewId, replyText.trim());
+      setReviews(prev => prev.map(r => 
+        (r.reviewId || r.id) === reviewId 
+          ? { ...r, vendorResponse: { responseText: replyText.trim(), respondedAt: new Date().toISOString() } } 
+          : r
+      ));
+      setReplyingTo(null);
+      setReplyText("");
+      toast({ title: "Reply posted", description: "Your response has been published." });
+    } catch (err: any) {
+      toast({ title: "Failed to post reply", description: err?.message || "Please try again", variant: "destructive" });
+    } finally {
+      setSubmittingReply(false);
     }
   };
 
@@ -94,8 +149,11 @@ const Reviews = () => {
   const filtered = useMemo(() => {
     const qq = (query || "").trim().toLowerCase();
     return reviews.filter((r) => {
-      const matchesQuery = !qq || (r.customerName || "").toLowerCase().includes(qq) || (r.description || "").toLowerCase().includes(qq);
-      const matchesStar = starFilter === null || (r.stars || 0) === starFilter;
+      const name = (r.userName || r.customerName || "").toLowerCase();
+      const text = (r.reviewText || r.description || "").toLowerCase();
+      const matchesQuery = !qq || name.includes(qq) || text.includes(qq);
+      const rating = r.rating || r.stars || 0;
+      const matchesStar = starFilter === null || rating === starFilter;
       return matchesQuery && matchesStar;
     });
   }, [reviews, query, starFilter]);
@@ -111,48 +169,43 @@ const Reviews = () => {
   useEffect(() => setPage(1), [query, starFilter]);
 
   return (
-    <div className="container mx-auto px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8">
+    <div className="min-h-screen bg-gray-50">
+    <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-6 md:py-8">
       <div className="mb-6 sm:mb-8">
-        <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Reviews & Ratings</h1>
-        <p className="text-sm sm:text-base text-muted-foreground mt-1">Manage your customer feedback and ratings</p>
+        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Reviews & Ratings</h1>
+        <p className="text-sm text-gray-500 mt-1">Manage your customer feedback and ratings</p>
       </div>
 
       {/* Stats */}
-      <div className="mb-6 sm:mb-8 grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-        <Card className="shadow-sm">
-          <CardContent className="flex items-center gap-3 sm:gap-4 p-4 sm:p-6">
-            <div className="rounded-full bg-primary/10 p-2 sm:p-3 flex items-center justify-center flex-shrink-0">
-              <Star className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-xs sm:text-sm text-muted-foreground">Average Rating</p>
-              <p className="text-xl sm:text-2xl font-bold truncate">{stats.avg}</p>
-              <div className="text-xs text-muted-foreground">Based on {stats.total} reviews</div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="shadow-sm">
-          <CardContent className="flex items-center gap-3 sm:gap-4 p-4 sm:p-6">
-            <div className="rounded-full bg-primary/10 p-2 sm:p-3 flex items-center justify-center flex-shrink-0">
-              <MessageCircle className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-xs sm:text-sm text-muted-foreground">Total Reviews</p>
-              <p className="text-xl sm:text-2xl font-bold truncate">{stats.total}</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="shadow-sm">
-          <CardContent className="flex items-center gap-3 sm:gap-4 p-4 sm:p-6">
-            <div className="rounded-full bg-primary/10 p-2 sm:p-3 flex items-center justify-center flex-shrink-0">
-              <ThumbsUp className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-xs sm:text-sm text-muted-foreground">5-Star Reviews</p>
-              <p className="text-xl sm:text-2xl font-bold truncate">{stats.fiveStarPct}</p>
-            </div>
-          </CardContent>
-        </Card>
+      <div className="mb-6 sm:mb-8 grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-3">
+        <div className="border border-orange-100 bg-white shadow-sm rounded-lg p-4 sm:p-5 flex items-center gap-3 sm:gap-4">
+          <div className="rounded-lg bg-orange-100 p-2.5 flex items-center justify-center flex-shrink-0">
+            <Star className="h-5 w-5 text-orange-600" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-xs sm:text-sm text-gray-500">Average Rating</p>
+            <p className="text-xl sm:text-2xl font-bold text-gray-900 truncate">{stats.avg}</p>
+            <div className="text-xs text-gray-400">Based on {stats.total} reviews</div>
+          </div>
+        </div>
+        <div className="border border-orange-100 bg-white shadow-sm rounded-lg p-4 sm:p-5 flex items-center gap-3 sm:gap-4">
+          <div className="rounded-lg bg-orange-100 p-2.5 flex items-center justify-center flex-shrink-0">
+            <MessageCircle className="h-5 w-5 text-orange-600" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-xs sm:text-sm text-gray-500">Total Reviews</p>
+            <p className="text-xl sm:text-2xl font-bold text-gray-900 truncate">{stats.total}</p>
+          </div>
+        </div>
+        <div className="border border-orange-100 bg-white shadow-sm rounded-lg p-4 sm:p-5 flex items-center gap-3 sm:gap-4">
+          <div className="rounded-lg bg-orange-100 p-2.5 flex items-center justify-center flex-shrink-0">
+            <ThumbsUp className="h-5 w-5 text-orange-600" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-xs sm:text-sm text-gray-500">5-Star Reviews</p>
+            <p className="text-xl sm:text-2xl font-bold text-gray-900 truncate">{stats.fiveStarPct}</p>
+          </div>
+        </div>
       </div>
 
       {/* Reviews List */}
@@ -170,17 +223,17 @@ const Reviews = () => {
           </div>
 
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
-            <span className="text-xs sm:text-sm text-muted-foreground font-medium">Filter by rating:</span>
+            <span className="text-xs sm:text-sm text-gray-500 font-medium">Filter by rating:</span>
             <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
               <button
-                className={`px-2 sm:px-3 py-1 rounded-md text-xs sm:text-sm transition ${starFilter === null ? 'bg-slate-200 dark:bg-slate-700' : 'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200'}`}
+                className={`px-2 sm:px-3 py-1 rounded-md text-xs sm:text-sm transition ${starFilter === null ? 'bg-orange-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-orange-50 hover:text-orange-600'}`}
                 onClick={() => setStarFilter(null)}
               >All</button>
               {[5,4,3,2,1].map((s) => (
                 <button
                   key={s}
                   onClick={() => setStarFilter(s)}
-                  className={`px-2 sm:px-3 py-1 rounded-md text-xs sm:text-sm flex items-center gap-1 transition ${starFilter === s ? 'bg-slate-200 dark:bg-slate-700' : 'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200'}`}
+                  className={`px-2 sm:px-3 py-1 rounded-md text-xs sm:text-sm flex items-center gap-1 transition ${starFilter === s ? 'bg-orange-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-orange-50 hover:text-orange-600'}`}
                 >
                   <Star className="h-3 w-3 text-yellow-400" /> {s}
                 </button>
@@ -199,34 +252,40 @@ const Reviews = () => {
         ) : (
           <div>
             <div className="grid gap-4 sm:gap-6 grid-cols-1 lg:grid-cols-2">
-              {paginated.map((review) => (
-                <article key={review.id} className={`rounded-lg shadow-sm hover:shadow-md transition p-4 sm:p-6 ${starBgClass(review.stars)}`}>
+              {paginated.map((review) => {
+                const rId = review.reviewId || review.id || "";
+                const rName = review.userName || review.customerName || "Customer";
+                const rRating = review.rating || review.stars || 0;
+                const rText = review.reviewText || review.description || "";
+                const rDate = review.createdAt || review.reviewDate || "";
+                return (
+                <article key={rId} className="border border-orange-100 bg-white rounded-lg shadow-sm hover:shadow-md transition p-4 sm:p-6">
                 <header className="flex items-start justify-between gap-2">
                   <div className="flex gap-3 min-w-0 flex-1">
                     <Avatar className="h-10 w-10 sm:h-12 sm:w-12 flex-shrink-0">
-                      <AvatarFallback>{review.customerName?.[0] || "U"}</AvatarFallback>
+                      <AvatarFallback>{rName[0] || "U"}</AvatarFallback>
                     </Avatar>
                     <div className="min-w-0 flex-1">
-                      <h3 className="text-sm sm:text-base font-semibold truncate">{review.customerName}</h3>
-                      <div className="text-xs text-muted-foreground">{new Date(review.reviewDate).toLocaleDateString()}</div>
+                      <h3 className="text-sm sm:text-base font-semibold truncate">{rName}</h3>
+                      <div className="text-xs text-muted-foreground">{rDate ? new Date(rDate).toLocaleDateString() : "N/A"}</div>
                       <div className="mt-2 flex items-center gap-1.5 sm:gap-2">
                         {Array.from({ length: 5 }).map((_, i) => (
                           <Star
                             key={i}
-                            className={`h-3 w-3 sm:h-4 sm:w-4 ${i < (review.stars || 0) ? "fill-current text-yellow-400" : "text-muted-foreground"}`}
-                            style={{ opacity: i < (review.stars || 0) ? 1 : 0.35 }}
+                            className={`h-3 w-3 sm:h-4 sm:w-4 ${i < rRating ? "fill-current text-yellow-400" : "text-muted-foreground"}`}
+                            style={{ opacity: i < rRating ? 1 : 0.35 }}
                           />
                         ))}
-                        <span className="ml-1 text-xs sm:text-sm font-medium text-muted-foreground">{(review.stars || 0)} / 5</span>
+                        <span className="ml-1 text-xs sm:text-sm font-medium text-muted-foreground">{rRating} / 5</span>
                       </div>
                     </div>
                   </div>
                   <div className="flex flex-col items-end gap-2 flex-shrink-0">
-                    <Badge variant="outline" className="text-xs">{(review.stars || 0)}.0</Badge>
+                    <Badge variant="outline" className="text-xs">{rRating}.0</Badge>
                     <Button 
                       variant="ghost" 
                       size="sm" 
-                      onClick={() => handleDelete(review.id)}
+                      onClick={() => handleDelete(rId)}
                       className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
                       title="Delete review"
                     >
@@ -235,18 +294,70 @@ const Reviews = () => {
                   </div>
                 </header>
 
-                <div className="mt-3 sm:mt-4 text-xs sm:text-sm text-foreground break-words">{review.description}</div>
+                {/* Sub-ratings if available */}
+                {(review.foodQualityRating || review.serviceQualityRating || review.hygieneRating || review.valueForMoneyRating || review.punctualityRating) && (
+                  <div className="mt-2 flex flex-wrap gap-2 text-xs text-muted-foreground">
+                    {review.foodQualityRating != null && <Badge variant="secondary" className="text-[10px]">Food: {review.foodQualityRating}/5</Badge>}
+                    {review.serviceQualityRating != null && <Badge variant="secondary" className="text-[10px]">Service: {review.serviceQualityRating}/5</Badge>}
+                    {review.hygieneRating != null && <Badge variant="secondary" className="text-[10px]">Hygiene: {review.hygieneRating}/5</Badge>}
+                    {review.valueForMoneyRating != null && <Badge variant="secondary" className="text-[10px]">Value: {review.valueForMoneyRating}/5</Badge>}
+                    {review.punctualityRating != null && <Badge variant="secondary" className="text-[10px]">Punctuality: {review.punctualityRating}/5</Badge>}
+                  </div>
+                )}
+
+                <div className="mt-3 sm:mt-4 text-xs sm:text-sm text-foreground break-words">{rText}</div>
+
+                {/* Vendor Response */}
+                {review.vendorResponse && (
+                  <div className="mt-3 p-3 bg-orange-50 rounded-md border-l-2 border-orange-400">
+                    <p className="text-xs font-medium text-orange-600 mb-1">Your Response:</p>
+                    <p className="text-xs sm:text-sm text-foreground">{review.vendorResponse.responseText}</p>
+                    <p className="text-[10px] text-muted-foreground mt-1">
+                      {review.vendorResponse.respondedAt ? new Date(review.vendorResponse.respondedAt).toLocaleDateString() : ""}
+                    </p>
+                  </div>
+                )}
+
+                {/* Reply Form */}
+                {replyingTo === rId && (
+                  <div className="mt-3 flex flex-col gap-2">
+                    <Textarea 
+                      placeholder="Write your response..." 
+                      value={replyText} 
+                      onChange={(e) => setReplyText(e.target.value)}
+                      className="text-xs sm:text-sm"
+                      rows={3}
+                    />
+                    <div className="flex gap-2 justify-end">
+                      <Button variant="ghost" size="sm" onClick={() => { setReplyingTo(null); setReplyText(""); }}>Cancel</Button>
+                      <Button size="sm" onClick={() => handleReplySubmit(rId)} disabled={submittingReply || !replyText.trim()}>
+                        {submittingReply ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
+                        Post Reply
+                      </Button>
+                    </div>
+                  </div>
+                )}
 
                 <footer className="mt-3 sm:mt-4 flex items-center justify-between">
                   <div className="flex items-center gap-3 sm:gap-4 text-xs sm:text-sm text-muted-foreground">
                     <button className="flex items-center gap-1.5 sm:gap-2 hover:text-foreground px-2 sm:px-3 py-1 rounded-md bg-white/30 transition">
                       <ThumbsUp className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
-                      <span className="text-xs sm:text-sm">Helpful</span>
+                      <span className="text-xs sm:text-sm">{review.helpfulCount ? `${review.helpfulCount} Helpful` : "Helpful"}</span>
                     </button>
+                    {!review.vendorResponse && replyingTo !== rId && (
+                      <button 
+                        className="flex items-center gap-1.5 sm:gap-2 hover:text-foreground px-2 sm:px-3 py-1 rounded-md bg-white/30 transition"
+                        onClick={() => { setReplyingTo(rId); setReplyText(""); }}
+                      >
+                        <MessageCircle className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
+                        <span className="text-xs sm:text-sm">Reply</span>
+                      </button>
+                    )}
                   </div>
                 </footer>
               </article>
-            ))}
+              );
+            })}
             </div>
 
             {totalPages > 1 && (
@@ -256,7 +367,7 @@ const Reviews = () => {
                 </div>
                 <div className="flex items-center gap-2">
                   <Button variant="ghost" size="sm" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1}>Previous</Button>
-                  <div className="px-2 sm:px-3 py-1 rounded-md bg-slate-100 dark:bg-slate-800 text-xs sm:text-sm">Page {page} of {totalPages}</div>
+                  <div className="px-2 sm:px-3 py-1 rounded-md bg-gray-100 text-xs sm:text-sm text-gray-700">Page {page} of {totalPages}</div>
                   <Button variant="ghost" size="sm" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages}>Next</Button>
                 </div>
               </div>
@@ -264,6 +375,7 @@ const Reviews = () => {
           </div>
         )}
       </div>
+    </div>
     </div>
   );
 };

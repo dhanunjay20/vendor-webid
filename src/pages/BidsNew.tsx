@@ -378,6 +378,9 @@ export default function BidsNew() {
           totalAmount: quoteForm.totalAmount,
         },
         advancePercentage: quoteForm.advancePercentage > 0 ? quoteForm.advancePercentage : undefined,
+        requiredAdvanceAmount: quoteForm.advancePercentage > 0 
+          ? Math.round(quoteForm.totalAmount * quoteForm.advancePercentage / 100 * 100) / 100 
+          : undefined,
         itemizedPricing: quoteForm.itemizedPricing && quoteForm.itemizedPricing.length > 0 
           ? quoteForm.itemizedPricing.filter(item => item.itemName && item.quantity)
           : undefined,
@@ -447,6 +450,9 @@ export default function BidsNew() {
           totalAmount: quoteForm.totalAmount,
         },
         advancePercentage: quoteForm.advancePercentage > 0 ? quoteForm.advancePercentage : undefined,
+        requiredAdvanceAmount: quoteForm.advancePercentage > 0 
+          ? Math.round(quoteForm.totalAmount * quoteForm.advancePercentage / 100 * 100) / 100 
+          : undefined,
         validityPeriodHours: quoteForm.validityPeriodHours,
         termsAndConditions: quoteForm.termsAndConditions || undefined,
         notes: quoteForm.notes || undefined,
@@ -613,49 +619,45 @@ export default function BidsNew() {
   });
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-red-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
-      <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto">
+    <div className="min-h-screen bg-gray-50">
+      <div className="p-4 sm:p-6 lg:p-8 space-y-5 max-w-7xl mx-auto">
         {/* Header Section */}
-        <div className="space-y-2">
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent">
-            Bid Requests
-          </h1>
-          <p className="text-lg text-muted-foreground">
-            Manage incoming business opportunities and submit your quotations
-          </p>
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Bid Requests</h1>
+          <p className="text-sm text-gray-500 mt-1">Manage incoming business opportunities and submit your quotations</p>
         </div>
 
         {/* Search Bar */}
-        <div className="flex gap-4">
+        <div className="flex gap-3">
           <div className="relative flex-1">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
             <Input
               placeholder="Search by event name, type, or city..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-12 h-11 text-base shadow-sm"
+              className="pl-9 border-gray-300 focus:border-orange-500 focus:ring-orange-500"
             />
           </div>
         </div>
 
         {/* Tabs */}
-        <div className="border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-900/50 rounded-t-lg">
-          <div className="flex gap-2 p-2 sm:p-4">
+        <div className="bg-white border border-orange-100 rounded-lg">
+          <div className="flex gap-2 p-2 sm:p-3 overflow-x-auto">
             <button
               onClick={() => {
                 setActiveTab("active");
                 setPage(0);
               }}
-              className={`px-4 sm:px-6 py-3 font-semibold text-sm sm:text-base rounded-lg transition-all ${
+              className={`flex-shrink-0 px-4 py-2.5 font-semibold text-sm rounded-lg transition-all ${
                 activeTab === "active"
-                  ? "bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-lg"
-                  : "text-muted-foreground hover:text-foreground hover:bg-gray-100 dark:hover:bg-slate-800"
+                  ? "bg-orange-600 text-white shadow-sm"
+                  : "text-gray-600 hover:text-orange-600 hover:bg-orange-50"
               }`}
             >
               <div className="flex items-center gap-2">
-                <Clock className="h-5 w-5" />
+                <Clock className="h-4 w-4" />
                 <span>Active Bids</span>
-                <Badge className="ml-1 bg-orange-600 text-white">{activeBids.length}</Badge>
+                <Badge className="ml-1 bg-orange-100 text-orange-700 border-0 text-xs">{activeBids.length}</Badge>
               </div>
             </button>
             <button
@@ -663,14 +665,14 @@ export default function BidsNew() {
                 setActiveTab("quoted");
                 setPage(0);
               }}
-              className={`px-4 sm:px-6 py-3 font-semibold text-sm sm:text-base rounded-lg transition-all ${
+              className={`flex-shrink-0 px-4 py-2.5 font-semibold text-sm rounded-lg transition-all ${
                 activeTab === "quoted"
-                  ? "bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-lg"
-                  : "text-muted-foreground hover:text-foreground hover:bg-gray-100 dark:hover:bg-slate-800"
+                  ? "bg-orange-600 text-white shadow-sm"
+                  : "text-gray-600 hover:text-orange-600 hover:bg-orange-50"
               }`}
             >
               <div className="flex items-center gap-2">
-                <CheckCircle2 className="h-5 w-5" />
+                <CheckCircle2 className="h-4 w-4" />
                 <span>Your Quotes</span>
                 <Badge className="ml-1 bg-blue-600 text-white">{quotedBids.length}</Badge>
               </div>
@@ -680,16 +682,16 @@ export default function BidsNew() {
                 setActiveTab("accepted");
                 setPage(0);
               }}
-              className={`px-4 sm:px-6 py-3 font-semibold text-sm sm:text-base rounded-lg transition-all ${
+              className={`flex-shrink-0 px-4 py-2.5 font-semibold text-sm rounded-lg transition-all ${
                 activeTab === "accepted"
-                  ? "bg-gradient-to-r from-green-500 to-emerald-500 text-white shadow-lg"
-                  : "text-muted-foreground hover:text-foreground hover:bg-gray-100 dark:hover:bg-slate-800"
+                  ? "bg-orange-600 text-white shadow-sm"
+                  : "text-gray-600 hover:text-orange-600 hover:bg-orange-50"
               }`}
             >
               <div className="flex items-center gap-2">
-                <CheckCircle2 className="h-5 w-5" />
-                <span>Accepted Bids</span>
-                <Badge className="ml-1 bg-green-600 text-white">{acceptedBids.length}</Badge>
+                <CheckCircle2 className="h-4 w-4" />
+                <span>Accepted</span>
+                <Badge className="ml-1 bg-orange-100 text-orange-700 border-0 text-xs">{acceptedBids.length}</Badge>
               </div>
             </button>
             <button
@@ -697,16 +699,16 @@ export default function BidsNew() {
                 setActiveTab("revised");
                 setPage(0);
               }}
-              className={`px-4 sm:px-6 py-3 font-semibold text-sm sm:text-base rounded-lg transition-all ${
+              className={`flex-shrink-0 px-4 py-2.5 font-semibold text-sm rounded-lg transition-all ${
                 activeTab === "revised"
-                  ? "bg-gradient-to-r from-yellow-500 to-orange-500 text-white shadow-lg"
-                  : "text-muted-foreground hover:text-foreground hover:bg-gray-100 dark:hover:bg-slate-800"
+                  ? "bg-orange-600 text-white shadow-sm"
+                  : "text-gray-600 hover:text-orange-600 hover:bg-orange-50"
               }`}
             >
               <div className="flex items-center gap-2">
-                <Edit2 className="h-5 w-5" />
+                <Edit2 className="h-4 w-4" />
                 <span>Revised</span>
-                <Badge className="ml-1 bg-yellow-600 text-white">{revisedBids.length}</Badge>
+                <Badge className="ml-1 bg-orange-100 text-orange-700 border-0 text-xs">{revisedBids.length}</Badge>
               </div>
             </button>
             <button
@@ -714,40 +716,40 @@ export default function BidsNew() {
                 setActiveTab("withdrawn");
                 setPage(0);
               }}
-              className={`px-4 sm:px-6 py-3 font-semibold text-sm sm:text-base rounded-lg transition-all ${
+              className={`flex-shrink-0 px-4 py-2.5 font-semibold text-sm rounded-lg transition-all ${
                 activeTab === "withdrawn"
-                  ? "bg-gradient-to-r from-red-500 to-pink-500 text-white shadow-lg"
-                  : "text-muted-foreground hover:text-foreground hover:bg-gray-100 dark:hover:bg-slate-800"
+                  ? "bg-orange-600 text-white shadow-sm"
+                  : "text-gray-600 hover:text-orange-600 hover:bg-orange-50"
               }`}
             >
               <div className="flex items-center gap-2">
-                <Trash2 className="h-5 w-5" />
+                <Trash2 className="h-4 w-4" />
                 <span>Withdrawn</span>
-                <Badge className="ml-1 bg-red-600 text-white">{withdrawnBids.length}</Badge>
+                <Badge className="ml-1 bg-orange-100 text-orange-700 border-0 text-xs">{withdrawnBids.length}</Badge>
               </div>
             </button>
           </div>
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
+        <div className="grid grid-cols-3 sm:grid-cols-3 lg:grid-cols-6 gap-3">
           {[
-            { label: "Total Requests", value: bidRequests.length, icon: Clock, color: "from-blue-500 to-blue-600" },
-            { label: "Active", value: activeBids.length, icon: TrendingUp, color: "from-orange-500 to-red-600" },
-            { label: "Your Quotes", value: quotedBids.length, icon: CheckCircle2, color: "from-green-500 to-emerald-600" },
-            { label: "Accepted", value: acceptedBids.length, icon: CheckCircle2, color: "from-purple-500 to-pink-600" },
-            { label: "Revised", value: revisedBids.length, icon: Edit2, color: "from-yellow-500 to-orange-600" },
-            { label: "Withdrawn", value: withdrawnBids.length, icon: Trash2, color: "from-red-500 to-pink-600" },
+            { label: "Total", value: bidRequests.length, icon: Clock, color: "bg-gray-100 text-gray-700" },
+            { label: "Active", value: activeBids.length, icon: TrendingUp, color: "bg-orange-100 text-orange-700" },
+            { label: "Quotes", value: quotedBids.length, icon: CheckCircle2, color: "bg-green-100 text-green-700" },
+            { label: "Accepted", value: acceptedBids.length, icon: CheckCircle2, color: "bg-blue-100 text-blue-700" },
+            { label: "Revised", value: revisedBids.length, icon: Edit2, color: "bg-yellow-100 text-yellow-700" },
+            { label: "Withdrawn", value: withdrawnBids.length, icon: Trash2, color: "bg-red-100 text-red-700" },
           ].map((stat) => (
-            <Card key={stat.label} className="border-0 shadow-lg hover:shadow-xl transition-shadow bg-white dark:bg-slate-800">
-              <CardContent className="p-3 sm:p-4 md:p-5">
-                <div className="flex flex-col items-center justify-center text-center gap-2">
-                  <div className={`bg-gradient-to-br ${stat.color} p-3 rounded-lg`}>
-                    <stat.icon className="h-6 w-6 text-white" />
+            <Card key={stat.label} className="border border-orange-100 shadow-sm bg-white hover:shadow-md transition-all">
+              <CardContent className="p-3">
+                <div className="flex flex-col items-center text-center">
+                  <div className={`${stat.color} p-2 rounded-lg mb-2`}>
+                    <stat.icon className="h-4 w-4" />
                   </div>
                   <div>
-                    <p className="text-3xl md:text-4xl font-bold">{stat.value}</p>
-                    <p className="text-xs sm:text-sm font-medium text-muted-foreground line-clamp-2">{stat.label}</p>
+                    <p className="text-xl sm:text-2xl font-bold text-gray-900">{stat.value}</p>
+                    <p className="text-xs font-medium text-gray-500">{stat.label}</p>
                   </div>
                 </div>
               </CardContent>
@@ -775,8 +777,8 @@ export default function BidsNew() {
         ) : (
           <div className="grid gap-4">
             {filteredBids.map((request) => (
-              <Card key={request.bidRequestId} className="border-0 shadow-md hover:shadow-xl transition-all overflow-hidden hover:scale-[1.01]">
-                <CardHeader className="bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900 pb-4">
+              <Card key={request.bidRequestId} className="border border-orange-100 shadow-sm hover:shadow-md transition-all overflow-hidden bg-white">
+                <CardHeader className="bg-gray-50 border-b border-orange-100 py-3 px-4">
                   <div className="flex items-start justify-between gap-4">
                     <div className="space-y-1 flex-1 min-w-0">
                       <div className="flex items-center gap-3 flex-wrap">
@@ -802,7 +804,7 @@ export default function BidsNew() {
                           </p>
                         )}
                         {request.revisionCount !== undefined && (
-                          <p className="text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2 py-1 rounded">
+                          <p className="text-xs bg-orange-100 text-orange-700 px-2 py-1 rounded">
                             Revisions: {request.revisionCount}
                           </p>
                         )}
@@ -825,8 +827,8 @@ export default function BidsNew() {
                       { label: "Budget", icon: DollarSign, value: `${getCurrencySymbol(request.budget?.currency || "INR")}${(request.budget?.estimatedBudget || 0).toLocaleString()}` },
                       { label: "Location", icon: MapPin, value: request.eventDetails?.venueAddress?.city || "N/A" },
                     ].map((detail) => (
-                      <div key={detail.label} className="flex items-center gap-2 p-2 rounded-lg bg-gray-50 dark:bg-slate-800">
-                        <div className="p-1.5 rounded bg-orange-100 dark:bg-orange-900/30">
+                      <div key={detail.label} className="flex items-center gap-2 p-2 rounded-lg bg-orange-50">
+                        <div className="p-1.5 rounded bg-orange-100">
                           <detail.icon className="h-3.5 w-3.5 text-orange-600" />
                         </div>
                         <div className="min-w-0">
@@ -864,25 +866,25 @@ export default function BidsNew() {
                     <div className="border-t pt-4">
                       <p className="text-sm font-semibold mb-3">💰 Your Quotation</p>
                       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-                        <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800">
-                          <p className="text-xs text-muted-foreground">Subtotal</p>
-                          <p className="font-bold mt-1">{getCurrencySymbol(request.quotedPrice.currency || "INR")}{request.quotedPrice.subtotal.toLocaleString()}</p>
+                        <div className="p-3 rounded-lg bg-gray-50">
+                          <p className="text-xs text-gray-500">Subtotal</p>
+                          <p className="font-bold mt-1 text-gray-900">{getCurrencySymbol(request.quotedPrice.currency || "INR")}{request.quotedPrice.subtotal.toLocaleString()}</p>
                         </div>
                         {request.quotedPrice.taxAmount !== undefined && request.quotedPrice.taxAmount > 0 && (
-                          <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800">
-                            <p className="text-xs text-muted-foreground">Tax</p>
-                            <p className="font-bold mt-1">{getCurrencySymbol(request.quotedPrice.currency || "INR")}{request.quotedPrice.taxAmount.toLocaleString()}</p>
+                          <div className="p-3 rounded-lg bg-gray-50">
+                            <p className="text-xs text-gray-500">Tax</p>
+                            <p className="font-bold mt-1 text-gray-900">{getCurrencySymbol(request.quotedPrice.currency || "INR")}{request.quotedPrice.taxAmount.toLocaleString()}</p>
                           </div>
                         )}
                         {request.quotedPrice.serviceCharge !== undefined && request.quotedPrice.serviceCharge > 0 && (
-                          <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800">
-                            <p className="text-xs text-muted-foreground">Service</p>
-                            <p className="font-bold mt-1">{getCurrencySymbol(request.quotedPrice.currency || "INR")}{request.quotedPrice.serviceCharge.toLocaleString()}</p>
+                          <div className="p-3 rounded-lg bg-gray-50">
+                            <p className="text-xs text-gray-500">Service</p>
+                            <p className="font-bold mt-1 text-gray-900">{getCurrencySymbol(request.quotedPrice.currency || "INR")}{request.quotedPrice.serviceCharge.toLocaleString()}</p>
                           </div>
                         )}
-                        <div className="p-3 rounded-lg bg-gradient-to-br from-blue-100 to-cyan-100 dark:from-blue-900/50 dark:to-cyan-900/50 border-2 border-blue-300">
-                          <p className="text-xs text-muted-foreground font-semibold">TOTAL</p>
-                          <p className="font-bold mt-1 text-lg text-blue-600 dark:text-blue-300">{getCurrencySymbol(request.quotedPrice.currency || "INR")}{request.quotedPrice.totalAmount.toLocaleString()}</p>
+                        <div className="p-3 rounded-lg bg-orange-50 border border-orange-200">
+                          <p className="text-xs text-gray-500 font-semibold">TOTAL</p>
+                          <p className="font-bold mt-1 text-lg text-orange-600">{getCurrencySymbol(request.quotedPrice.currency || "INR")}{request.quotedPrice.totalAmount.toLocaleString()}</p>
                         </div>
                       </div>
                     </div>
@@ -890,17 +892,17 @@ export default function BidsNew() {
 
                   {/* Cooling Period Info */}
                   {activeTab === "quoted" && request.validUntil && (
-                    <div className={`p-4 rounded-lg border-2 flex items-start gap-3 ${
+                    <div className={`p-4 rounded-lg border flex items-start gap-3 ${
                       isValidUntilExpired(request.validUntil)
-                        ? "bg-red-50 dark:bg-red-950/30 border-red-300"
-                        : "bg-blue-50 dark:bg-blue-950/30 border-blue-300"
+                        ? "bg-red-50 border-red-200"
+                        : "bg-orange-50 border-orange-200"
                     }`}>
                       <AlertCircle className={`h-5 w-5 mt-0.5 flex-shrink-0 ${
                         isValidUntilExpired(request.validUntil) ? "text-red-600" : "text-blue-600"
                       }`} />
                       <div className="text-sm">
-                        <p className={`font-bold ${
-                          isValidUntilExpired(request.validUntil) ? "text-red-700" : "text-blue-700"
+                          <p className={`font-bold ${
+                          isValidUntilExpired(request.validUntil) ? "text-red-700" : "text-orange-700"
                         }`}>
                           {isValidUntilExpired(request.validUntil) ? "🕐 Cooling Period Expired" : "✏️ Cooling Period Active"}
                         </p>
@@ -908,7 +910,7 @@ export default function BidsNew() {
                           Valid until: <strong>{formatDate(request.validUntil)} at {formatTime(request.validUntil)}</strong>
                         </p>
                         {!isValidUntilExpired(request.validUntil) && (
-                          <p className="text-xs font-bold text-green-600 dark:text-green-400 mt-1">
+                          <p className="text-xs font-bold text-green-600 mt-1">
                             ⏱️ {getTimeUntilExpiry(request.validUntil)}
                           </p>
                         )}
@@ -925,7 +927,7 @@ export default function BidsNew() {
                         <>
                           <Button
                             onClick={() => handleOpenQuoteDialog(request)}
-                            className="flex-1 sm:flex-none bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white font-semibold h-11"
+                            className="flex-1 sm:flex-none bg-orange-600 hover:bg-orange-700 text-white font-semibold h-11"
                           >
                             <Send className="h-4 w-4 mr-2" />
                             Submit Quote
@@ -936,7 +938,7 @@ export default function BidsNew() {
                               setShowDetailsModal(true);
                             }}
                             variant="outline"
-                            className="flex-1 sm:flex-none h-11 border-2 border-purple-400 hover:bg-purple-50 dark:hover:bg-purple-950/30 text-purple-600 hover:text-purple-700 font-semibold"
+                            className="flex-1 sm:flex-none h-11 border-orange-300 hover:bg-orange-50 text-orange-600 hover:text-orange-700 font-semibold"
                           >
                             👁️ User Req Details
                           </Button>
@@ -946,7 +948,7 @@ export default function BidsNew() {
                           <Button
                             onClick={() => handleOpenEditDialog(request)}
                             disabled={!request.bidId || !canWithdrawBid(request.status)}
-                            className="flex-1 sm:flex-none bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white font-semibold h-11 disabled:opacity-50"
+                            className="flex-1 sm:flex-none bg-orange-600 hover:bg-orange-700 text-white font-semibold h-11 disabled:opacity-50"
                           >
                             <Edit2 className="h-4 w-4 mr-2" />
                             Revise
@@ -958,7 +960,7 @@ export default function BidsNew() {
                             }}
                             disabled={!canWithdrawBid(request.bidId ? request.status : "")}
                             variant="outline"
-                            className="h-11 bg-red-50 dark:bg-red-900/20 text-red-600 hover:bg-red-100 dark:hover:bg-red-900/40 hover:text-black dark:hover:text-black border-red-300 disabled:opacity-50"
+                            className="h-11 bg-red-50 text-red-600 hover:bg-red-100 border-red-300 disabled:opacity-50"
                           >
                             <Trash2 className="h-4 w-4 mr-2" />
                             <span className="hidden sm:inline">Withdraw</span>
@@ -969,7 +971,7 @@ export default function BidsNew() {
                               setShowDetailsModal(true);
                             }}
                             variant="outline"
-                            className="flex-1 sm:flex-none h-11 border-2 border-purple-400 hover:bg-purple-50 dark:hover:bg-purple-950/30 text-purple-600 hover:text-purple-700 font-semibold"
+                            className="flex-1 sm:flex-none h-11 border-orange-300 hover:bg-orange-50 text-orange-600 hover:text-orange-700 font-semibold"
                           >
                             👁️ View User Req Details
                           </Button>
@@ -979,7 +981,7 @@ export default function BidsNew() {
                               setShowQuotedDetailsModal(true);
                             }}
                             variant="outline"
-                            className="flex-1 sm:flex-none h-11 border-2 border-green-400 hover:bg-green-50 dark:hover:bg-green-950/30 text-green-600 hover:text-green-700 font-semibold"
+                            className="flex-1 sm:flex-none h-11 border-green-300 hover:bg-green-50 text-green-600 hover:text-green-700 font-semibold"
                           >
                             💚 Your Quoted Details
                           </Button>
@@ -988,7 +990,7 @@ export default function BidsNew() {
                     </div>
 
                     {request.totalBidsReceived > 0 && (
-                      <Badge variant="secondary" className="flex items-center gap-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300">
+                      <Badge variant="secondary" className="flex items-center gap-1 bg-green-100 text-green-700">
                         <TrendingUp className="h-3 w-3" />
                         {request.totalBidsReceived} bid{request.totalBidsReceived > 1 ? "s" : ""} received
                       </Badge>

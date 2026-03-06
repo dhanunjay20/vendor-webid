@@ -41,80 +41,78 @@ const Index = () => {
   // stats prepared for display
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Hero Banner - Mobile Responsive */}
-      <div className="relative h-32 sm:h-40 md:h-48 w-full overflow-hidden">
+    <div className="min-h-screen bg-gray-50">
+      {/* Hero Banner */}
+      <div className="relative h-28 sm:h-36 md:h-44 w-full overflow-hidden">
         <img
           src={dashboardHero}
           alt="Dashboard Hero"
-          className="h-full w-full object-cover"
+          className="h-full w-full object-cover object-center"
         />
-        <div className="absolute inset-0 bg-gradient-to-r from-background/90 to-background/50" />
-        <div className="absolute inset-0 flex items-center px-3 sm:px-6 md:px-8">
+        <div className="absolute inset-0 bg-gradient-to-r from-orange-900/80 to-orange-600/50" />
+        <div className="absolute inset-0 flex items-center px-4 sm:px-6 md:px-8">
           <div className="flex-1 min-w-0">
-            <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold text-foreground truncate">
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-white">
               Welcome Back!
             </h1>
-            <p className="mt-1 text-xs sm:text-sm md:text-base lg:text-lg text-muted-foreground line-clamp-2">
+            <p className="mt-1 text-xs sm:text-sm text-orange-100">
               Here's what's happening with your catering business today
             </p>
           </div>
         </div>
       </div>
 
-      {/* Main Content - Mobile Responsive */}
-      <main className="container mx-auto px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8">
+      {/* Main Content */}
+      <main className="px-4 sm:px-6 lg:px-8 py-5 sm:py-6">
 
-        {/* Error Alert with CORS Help */}
+        {/* Error Alert */}
         {error && (
-          <Alert variant="destructive" className="mb-4 sm:mb-6">
-            <AlertDescription className="text-xs sm:text-sm">
-              <div className="font-semibold mb-1">Unable to load dashboard data</div>
-              <div className="text-xs opacity-90 mb-2">
-                {error.includes('allowedOrigins') || error.includes('CORS') 
-                  ? 'Backend CORS configuration needs to be updated. Contact your administrator.'
+          <div className="mb-5 rounded-lg border border-red-200 bg-red-50 p-4 flex items-start gap-3">
+            <div className="flex-1 text-sm text-red-700">
+              <div className="font-semibold mb-0.5">Unable to load dashboard data</div>
+              <div className="text-xs text-red-600 mb-2">
+                {error.includes('allowedOrigins') || error.includes('CORS')
+                  ? 'Backend CORS configuration needs to be updated.'
                   : error}
               </div>
               <button onClick={() => refetch()} className="underline text-xs font-medium">
                 Try Again
               </button>
-            </AlertDescription>
-          </Alert>
+            </div>
+          </div>
         )}
 
         {/* Loading State */}
         {loading && !data && (
-          <div className="flex flex-col items-center justify-center py-12 sm:py-16 md:py-20">
-            <Loader2 className="h-6 w-6 sm:h-8 sm:w-8 animate-spin text-primary mb-2" />
-            <span className="text-xs sm:text-sm text-muted-foreground">Loading dashboard data...</span>
+          <div className="flex flex-col items-center justify-center py-16">
+            <Loader2 className="h-8 w-8 animate-spin text-orange-600 mb-3" />
+            <span className="text-sm text-gray-600">Loading dashboard data...</span>
           </div>
         )}
 
         {/* Dashboard Content */}
-        {!loading || data ? (
+        {(!loading || data) && (
           <>
-            {/* Stats Grid - Mobile Responsive */}
-            <div className="mb-6 sm:mb-8">
+            {/* Stats Grid */}
+            <div className="mb-6">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg sm:text-xl font-semibold text-foreground">
-                  Overview
-                </h3>
+                <h3 className="text-base sm:text-lg font-semibold text-gray-900">Overview</h3>
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => refetch()}
                   disabled={loading}
-                  className="flex items-center gap-1.5"
+                  className="flex items-center gap-1.5 border-orange-300 text-orange-600 hover:bg-orange-50 text-xs"
                 >
                   {loading ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
                   ) : (
-                    <RefreshCw className="h-4 w-4" />
+                    <RefreshCw className="h-3.5 w-3.5" />
                   )}
                   <span className="hidden sm:inline">Refresh</span>
                 </Button>
               </div>
-              <div className="grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-4">
+              <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
                 <StatsCard
                   title="Total Revenue"
                   value={`$${stats.totalRevenue.toLocaleString()}`}
@@ -146,17 +144,13 @@ const Index = () => {
               </div>
             </div>
 
-            {/* Analytics Section - Mobile Responsive */}
-            <div className="mb-6 sm:mb-8">
-              <div className="mb-4 sm:mb-6">
-                <h3 className="text-lg sm:text-xl md:text-2xl font-bold text-foreground">
-                  Analytics Overview
-                </h3>
-                <p className="text-xs sm:text-sm text-muted-foreground">
-                  Track your business performance and trends
-                </p>
+            {/* Analytics Section */}
+            <div className="mb-6">
+              <div className="mb-4">
+                <h3 className="text-base sm:text-lg font-semibold text-gray-900">Analytics Overview</h3>
+                <p className="text-xs sm:text-sm text-gray-500">Track your business performance and trends</p>
               </div>
-              <div className="grid gap-4 sm:gap-6 grid-cols-1 lg:grid-cols-2">
+              <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
                 <RevenueChart data={data?.revenueTrends} />
                 <OrderVolumeChart data={data?.orderVolume} />
                 <MonthlyComparisonChart data={data?.monthlyComparison} />
@@ -164,13 +158,13 @@ const Index = () => {
               </div>
             </div>
 
-            {/* Content Grid - Mobile Responsive */}
-            <div className="grid gap-4 sm:gap-6 grid-cols-1 lg:grid-cols-2">
+            {/* Content Grid */}
+            <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
               <OrdersTable data={data?.recentOrders} />
               <RecentActivity data={data?.recentActivities} />
             </div>
           </>
-        ) : null}
+        )}
       </main>
     </div>
   );

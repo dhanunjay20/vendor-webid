@@ -317,10 +317,14 @@ export async function resetPassword(payload: { email: string; otp: string; newPa
 }
 
 // Create vendor profile (called after registration to complete vendor setup)
+/**
+ * Create vendor profile
+ * POST /api/v1/vendors
+ */
 export async function createVendorProfile(payload: any) {
   try {
     const url = buildUrl("/api/v1/vendors");
-    const token = localStorage.getItem("authToken");
+    const token = localStorage.getItem("accessToken") || localStorage.getItem("authToken");
     const tokenType = localStorage.getItem("tokenType") || "Bearer";
     const headers: any = { "Content-Type": "application/json" };
     if (token) {
@@ -382,11 +386,12 @@ export async function loginVendor(payload: any) {
   }
 }
 
-// Get current vendor profile (v1 endpoint - /api/v1/vendors/me)
+// Get current vendor profile
+// GET /api/v1/vendors/me
 export async function getVendorMe() {
   try {
     const url = buildUrl("/api/v1/vendors/me");
-    const token = localStorage.getItem("authToken");
+    const token = localStorage.getItem("accessToken") || localStorage.getItem("authToken");
     const tokenType = localStorage.getItem("tokenType") || "Bearer";
     const headers: any = { "Content-Type": "application/json" };
     if (token) {
@@ -421,14 +426,16 @@ export async function getVendorProfile(vendorOrganizationId: string) {
   }
 }
 
-// Update vendor profile (v1 endpoint - PUT /api/v1/vendors/{vendorId})
-export async function updateVendorProfile(vendorId: string, payload: any) {
+// Update vendor profile
+// PUT /api/v1/vendors/me
+export async function updateVendorProfile(_vendorId: string, payload: any) {
   try {
-    const url = buildUrl(`/api/v1/vendors/${vendorId}`);
-    const token = localStorage.getItem("authToken");
+    const url = buildUrl("/api/v1/vendors/me");
+    const token = localStorage.getItem("accessToken") || localStorage.getItem("authToken");
+    const tokenType = localStorage.getItem("tokenType") || "Bearer";
     const headers: any = { "Content-Type": "application/json" };
     if (token) {
-      headers.Authorization = `Bearer ${token}`;
+      headers.Authorization = `${tokenType} ${token}`;
     }
     console.log("api.updateVendorProfile request:", { url, headers, payload });
     const res = await axios.put(url, payload, { headers });
@@ -541,16 +548,38 @@ export async function deleteServiceDetails(vendorId: string) {
 }
 
 // Menu item endpoints
-export async function getMenuItems(vendorOrganizationId: string) {
+
+/**
+ * Browse platform master menu items (catalogue)
+ * GET /api/v1/menu/items?page=0&size=20
+ */
+export async function getMasterMenuItems(page = 0, size = 20, search?: string) {
   try {
-    const url = buildUrl(`/api/vendor/${vendorOrganizationId}/menu`);
-    const token = localStorage.getItem("authToken");
-    const tokenType = localStorage.getItem("tokenType") || "Bearer";
-    const res = await axios.get(url, { headers: token ? { Authorization: `${tokenType} ${token}` } : undefined });
+    let url = buildUrl(`/api/v1/menu/items?page=${page}&size=${size}`);
+    if (search) url += `&query=${encodeURIComponent(search)}`;
+    const res = await apiClient.get(url);
     return res.data;
   } catch (err: any) {
     const { message, status } = extractError(err);
     throw { message, status } as ApiError;
+  }
+}
+
+// GET /api/v1/menu/vendor?vendorId=...&page=0&size=20
+export async function getMenuItems(_vendorOrganizationId?: string, page: number = 0, size: number = 100) {
+  try {
+    const vendorId = localStorage.getItem("vendorId");
+    let url = buildUrl(`/api/v1/menu/vendor?page=${page}&size=${size}`);
+    if (vendorId) url += `&vendorId=${encodeURIComponent(vendorId)}`;
+    const res = await apiClient.get(url);
+    // Return flat array for backward compatibility — extract data from paginated response
+    if (res.data && res.data.data && Array.isArray(res.data.data)) {
+      return res.data.data;
+    }
+    return res.data;
+  } catch (err: any) {
+    const { message, status: errStatus } = extractError(err);
+    throw { message, status: errStatus } as ApiError;
   }
 }
 
@@ -577,13 +606,12 @@ export async function getBidById(vendorOrgId: string, bidId: string) {
   }
 }
 
-export async function createMenuItem(vendorOrganizationId: string, payload: any) {
+export async function createMenuItem(_vendorOrganizationId: string, payload: any) {
   try {
-    const url = buildUrl(`/api/vendor/${vendorOrganizationId}/menu`);
-    const token = localStorage.getItem("authToken");
-    const tokenType = localStorage.getItem("tokenType") || "Bearer";
-    const res = await axios.post(url, payload, { headers: { "Content-Type": "application/json", ...(token ? { Authorization: `${tokenType} ${token}` } : {}) } });
-    return res.data;
+    // POST /api/v1/menu/vendor
+    const url = buildUrl(`/api/v1/menu/vendor`);
+    const res = await apiClient.post(url, payload);
+    return res.data?.data || res.data;
   } catch (err: any) {
     const { message, status } = extractError(err);
     throw { message, status } as ApiError;
@@ -601,13 +629,12 @@ export async function submitBidQuote(vendorOrgId: string, bidId: string, payload
   }
 }
 
-export async function updateMenuItem(vendorOrganizationId: string, id: string, payload: any) {
+export async function updateMenuItem(_vendorOrganizationId: string, id: string, payload: any) {
   try {
-    const url = buildUrl(`/api/vendor/${vendorOrganizationId}/menu/${id}`);
-    const token = localStorage.getItem("authToken");
-    const tokenType = localStorage.getItem("tokenType") || "Bearer";
-    const res = await axios.put(url, payload, { headers: { "Content-Type": "application/json", ...(token ? { Authorization: `${tokenType} ${token}` } : {}) } });
-    return res.data;
+    // PUT /api/v1/menu/vendor/{vendorItemId}
+    const url = buildUrl(`/api/v1/menu/vendor/${id}`);
+    const res = await apiClient.put(url, payload);
+    return res.data?.data || res.data;
   } catch (err: any) {
     const { message, status } = extractError(err);
     throw { message, status } as ApiError;
@@ -630,12 +657,12 @@ export async function acceptBid(vendorOrgId: string, bidId: string) {
 // ============ Bid Request & Bidding Flow ============
 
 /**
- * Get received bid requests for vendor (vendor was invited/targeted)
- * GET /api/v1/bids/vendor/received
+ * Get bid requests available in vendor's service area
+ * GET /api/v1/bids/requests/available?page=0&size=20
  */
 export async function getReceivedBidRequests(page = 0, size = 20) {
   try {
-    const url = buildUrl(`/api/v1/bids/vendor/received?page=${page}&size=${size}`);
+    const url = buildUrl(`/api/v1/bids/requests/available?page=${page}&size=${size}`);
     const res = await apiClient.get(url);
     return res.data;
   } catch (err: any) {
@@ -645,12 +672,12 @@ export async function getReceivedBidRequests(page = 0, size = 20) {
 }
 
 /**
- * Get active bid requests available for any vendor
- * GET /api/v1/bids/active
+ * Get available bid requests for vendor
+ * GET /api/v1/bids/requests/available?page=0&size=20
  */
 export async function getActiveBidRequests(page = 0, size = 20) {
   try {
-    const url = buildUrl(`/api/v1/bids/active?page=${page}&size=${size}`);
+    const url = buildUrl(`/api/v1/bids/requests/available?page=${page}&size=${size}`);
     const res = await apiClient.get(url);
     return res.data;
   } catch (err: any) {
@@ -661,22 +688,25 @@ export async function getActiveBidRequests(page = 0, size = 20) {
 
 /**
  * Get vendor's submitted bids
- * GET /api/v1/bids/vendor/submitted
+ * GET /api/v1/bids/my?page=0&size=20
  */
-export async function getVendorSubmittedBids(page = 0, size = 20) {
+export async function getVendorSubmittedBids(page = 0, size = 20, status?: string) {
   try {
-    const url = buildUrl(`/api/v1/bids/vendor/submitted?page=${page}&size=${size}`);
+    let url = buildUrl(`/api/v1/bids/my?page=${page}&size=${size}`);
+    if (status) {
+      url += `&status=${encodeURIComponent(status)}`;
+    }
     const res = await apiClient.get(url);
     return res.data;
   } catch (err: any) {
-    const { message, status } = extractError(err);
-    throw { message, status } as ApiError;
+    const { message, status: errStatus } = extractError(err);
+    throw { message, status: errStatus } as ApiError;
   }
 }
 
 /**
  * Submit bid for a bid request
- * POST /api/v1/bids/requests/{bidRequestId}/submit-bid
+ * POST /api/v1/bids/{bidRequestId}/submit
  */
 export async function submitBid(bidRequestId: string, payload: {
   quotedPrice: {
@@ -706,9 +736,11 @@ export async function submitBid(bidRequestId: string, payload: {
   };
   termsAndConditions?: string;
   validityPeriodHours?: number;
+  advancePercentage?: number;
+  requiredAdvanceAmount?: number;
 }) {
   try {
-    const url = buildUrl(`/api/v1/bids/requests/${bidRequestId}/submit-bid`);
+    const url = buildUrl(`/api/v1/bids/${bidRequestId}/submit`);
     const res = await apiClient.post(url, payload);
     return res.data;
   } catch (err: any) {
@@ -722,13 +754,13 @@ export async function submitBid(bidRequestId: string, payload: {
  * PUT /api/v1/bids/{bidId}
  */
 export async function reviseBid(bidId: string, payload: {
-  quotedPrice: {
+  quotedPrice?: {
     currency?: string;
-    subtotal: number;
+    subtotal?: number;
     serviceCharge?: number;
     taxPercentage?: number;
     taxAmount?: number;
-    totalAmount: number;
+    totalAmount?: number;
   };
   itemizedPricing?: Array<{
     vendorItemId?: string;
@@ -749,9 +781,11 @@ export async function reviseBid(bidId: string, payload: {
   };
   termsAndConditions?: string;
   validityPeriodHours?: number;
-}, reason: string = "Price adjustment") {
+  advancePercentage?: number;
+  requiredAdvanceAmount?: number;
+}, reason?: string) {
   try {
-    const url = buildUrl(`/api/v1/bids/${bidId}?reason=${encodeURIComponent(reason)}`);
+    const url = buildUrl(`/api/v1/bids/${bidId}`);
     const res = await apiClient.put(url, payload);
     return res.data;
   } catch (err: any) {
@@ -804,13 +838,57 @@ export async function updateBidQuotation(bidId: string, payload: any) {
   return reviseBid(bidId, payload);
 }
 
-export async function deleteMenuItem(vendorOrganizationId: string, id: string) {
+export async function deleteMenuItem(_vendorOrganizationId: string, id: string) {
 
   try {
-    const url = buildUrl(`/api/vendor/${vendorOrganizationId}/menu/${id}`);
-    const token = localStorage.getItem("authToken");
+    // DELETE /api/v1/menu/vendor/{vendorItemId}
+    const url = buildUrl(`/api/v1/menu/vendor/${id}`);
+    const res = await apiClient.delete(url);
+    return res.data;
+  } catch (err: any) {
+    const { message, status } = extractError(err);
+    throw { message, status } as ApiError;
+  }
+}
+
+/**
+ * Toggle menu item availability
+ * PATCH /api/v1/menu/vendor/{vendorItemId}/availability
+ */
+export async function toggleMenuItemAvailability(
+  vendorItemId: string,
+  isAvailable: boolean,
+  reason?: string
+) {
+  try {
+    // PATCH with query params per backend controller
+    let url = buildUrl(`/api/v1/menu/vendor/${vendorItemId}/availability?isAvailable=${isAvailable}`);
+    if (!isAvailable && reason) url += `&reason=${encodeURIComponent(reason)}`;
+    const res = await apiClient.patch(url);
+    return res.data;
+  } catch (err: any) {
+    const { message, status } = extractError(err);
+    throw { message, status } as ApiError;
+  }
+}
+
+/**
+ * Upload vendor document
+ * POST /api/v1/uploads/document
+ * Content-Type: multipart/form-data
+ */
+export async function uploadDocument(file: File, entityType: string = "VENDOR_DOCUMENT", entityId?: string) {
+  try {
+    const url = buildUrl(`/api/v1/uploads/document`);
+    const fd = new FormData();
+    fd.append("file", file);
+    fd.append("entityType", entityType);
+    if (entityId) fd.append("entityId", entityId);
+    const token = localStorage.getItem("accessToken") || localStorage.getItem("authToken");
     const tokenType = localStorage.getItem("tokenType") || "Bearer";
-    const res = await axios.delete(url, { headers: token ? { Authorization: `${tokenType} ${token}` } : undefined });
+    const headers: any = {};
+    if (token) headers.Authorization = `${tokenType} ${token}`;
+    const res = await axios.post(url, fd, { headers });
     return res.data;
   } catch (err: any) {
     const { message, status } = extractError(err);
@@ -830,10 +908,11 @@ export async function getOrdersByVendor(vendorOrgId: string) {
   }
 }
 
-// New API: Get vendor orders with pagination
+// Get vendor orders with pagination
+// GET /api/v1/orders/vendor/my?page=0&size=20
 export async function getVendorOrders(page: number = 0, size: number = 20, status?: string) {
   try {
-    let url = buildUrl(`/api/v1/orders/vendor?page=${page}&size=${size}`);
+    let url = buildUrl(`/api/v1/orders/vendor/my?page=${page}&size=${size}`);
     if (status && status !== 'all') {
       url += `&status=${encodeURIComponent(status)}`;
     }
@@ -999,11 +1078,13 @@ export async function updateOrderStatus(vendorOrgId: string, orderId: string, st
   }
 }
 
-// New API: Update order status (new endpoint)
-export async function updateOrderStatusNew(orderId: string, status: string) {
+// Update order status
+// PUT /api/v1/orders/{orderId}/status
+export async function updateOrderStatusNew(orderId: string, vendorStatus: string, _deliveryStatus?: string, _notes?: string) {
   try {
     const url = buildUrl(`/api/v1/orders/${orderId}/status`);
-    const res = await apiClient.patch(url, { status });
+    const body: any = { status: vendorStatus };
+    const res = await apiClient.put(url, body);
     return res.data;
   } catch (err: any) {
     const { message, status: errStatus } = extractError(err);
@@ -1027,10 +1108,35 @@ export async function cancelOrder(orderId: string, reason?: string) {
 }
 
 // Notification endpoints
-export async function getVendorNotifications(vendorOrgId: string) {
+// GET /api/v1/notifications?page=0&size=20
+export async function getVendorNotifications(_vendorOrgId?: string, page: number = 0, size: number = 20) {
   try {
-    const url = buildUrl(`/api/notifications/vendor/${vendorOrgId}`);
-    const res = await axios.get(url);
+    const url = buildUrl(`/api/v1/notifications?page=${page}&size=${size}`);
+    const res = await apiClient.get(url);
+    return res.data;
+  } catch (err: any) {
+    const { message, status } = extractError(err);
+    throw { message, status } as ApiError;
+  }
+}
+
+// GET /api/v1/notifications/unread/count
+export async function getNotificationsUnreadCount() {
+  try {
+    const url = buildUrl(`/api/v1/notifications/unread/count`);
+    const res = await apiClient.get(url);
+    return res.data;
+  } catch (err: any) {
+    const { message, status } = extractError(err);
+    throw { message, status } as ApiError;
+  }
+}
+
+// PUT /api/v1/notifications/read-all
+export async function markAllNotificationsRead() {
+  try {
+    const url = buildUrl(`/api/v1/notifications/read-all`);
+    const res = await apiClient.put(url, {});
     return res.data;
   } catch (err: any) {
     const { message, status } = extractError(err);
@@ -1039,10 +1145,15 @@ export async function getVendorNotifications(vendorOrgId: string) {
 }
 
 // Reviews
-export async function getVendorReviews(vendorOrgId: string) {
+// GET /api/v1/reviews/vendor/my?page=0&size=10
+export async function getVendorReviews(_vendorId?: string, page: number = 0, size: number = 20) {
   try {
-    const url = buildUrl(`/api/vendor/${vendorOrgId}/review`);
-    const res = await axios.get(url);
+    const url = buildUrl(`/api/v1/reviews/vendor/my?page=${page}&size=${size}`);
+    const res = await apiClient.get(url);
+    // Return data array for backward compatibility
+    if (res.data && res.data.data && Array.isArray(res.data.data)) {
+      return res.data.data;
+    }
     return res.data;
   } catch (err: any) {
     const { message, status } = extractError(err);
@@ -1050,10 +1161,11 @@ export async function getVendorReviews(vendorOrgId: string) {
   }
 }
 
-export async function getLatestVendorReviews(vendorOrgId: string) {
+// POST /api/v1/reviews/{reviewId}/respond
+export async function respondToReview(reviewId: string, responseText: string) {
   try {
-    const url = buildUrl(`/api/vendor/${vendorOrgId}/review/latest`);
-    const res = await axios.get(url);
+    const url = buildUrl(`/api/v1/reviews/${reviewId}/respond`);
+    const res = await apiClient.post(url, { responseText });
     return res.data;
   } catch (err: any) {
     const { message, status } = extractError(err);
@@ -1061,10 +1173,13 @@ export async function getLatestVendorReviews(vendorOrgId: string) {
   }
 }
 
-export async function deleteVendorReview(vendorOrgId: string, reviewId: string) {
+export async function getLatestVendorReviews(_vendorId?: string) {
   try {
-    const url = buildUrl(`/api/vendor/${vendorOrgId}/review/${reviewId}`);
-    const res = await axios.delete(url);
+    const url = buildUrl(`/api/v1/reviews/vendor/my?page=0&size=5`);
+    const res = await apiClient.get(url);
+    if (res.data && res.data.data && Array.isArray(res.data.data)) {
+      return res.data.data;
+    }
     return res.data;
   } catch (err: any) {
     const { message, status } = extractError(err);
@@ -1072,10 +1187,140 @@ export async function deleteVendorReview(vendorOrgId: string, reviewId: string) 
   }
 }
 
+export async function deleteVendorReview(reviewId: string) {
+  try {
+    const url = buildUrl(`/api/v1/reviews/${reviewId}`);
+    const res = await apiClient.delete(url);
+    return res.data;
+  } catch (err: any) {
+    const { message, status } = extractError(err);
+    throw { message, status } as ApiError;
+  }
+}
+
+// PUT /api/v1/notifications/{notificationId}/read
 export async function markNotificationAsRead(notificationId: string) {
   try {
-    const url = buildUrl(`/api/notifications/${notificationId}/read`);
-    const res = await axios.put(url);
+    const url = buildUrl(`/api/v1/notifications/${notificationId}/read`);
+    const res = await apiClient.put(url, {});
+    return res.data;
+  } catch (err: any) {
+    const { message, status } = extractError(err);
+    throw { message, status } as ApiError;
+  }
+}
+
+// PUT /api/v1/vendors/me/logo
+export async function updateVendorLogo(logoUrl: string) {
+  try {
+    const url = buildUrl("/api/v1/vendors/me/logo");
+    const res = await apiClient.put(url, { logoUrl });
+    return res.data;
+  } catch (err: any) {
+    const { message, status } = extractError(err);
+    throw { message, status } as ApiError;
+  }
+}
+
+// PUT /api/v1/vendors/me/banner
+export async function updateVendorBanner(bannerUrl: string) {
+  try {
+    const url = buildUrl("/api/v1/vendors/me/banner");
+    const res = await apiClient.put(url, { bannerUrl });
+    return res.data;
+  } catch (err: any) {
+    const { message, status } = extractError(err);
+    throw { message, status } as ApiError;
+  }
+}
+
+// GET /api/v1/orders/vendor/upcoming?page=0&size=20
+export async function getUpcomingOrders(page: number = 0, size: number = 20) {
+  try {
+    const url = buildUrl(`/api/v1/orders/vendor/upcoming?page=${page}&size=${size}`);
+    const res = await apiClient.get(url);
+    return res.data;
+  } catch (err: any) {
+    const { message, status: errStatus } = extractError(err);
+    throw { message, status: errStatus } as ApiError;
+  }
+}
+
+// PUT /api/v1/users/me/fcm-token
+export async function registerFcmToken(fcmToken: string) {
+  try {
+    const url = buildUrl("/api/v1/users/me/fcm-token");
+    const res = await apiClient.put(url, { fcmToken });
+    return res.data;
+  } catch (err: any) {
+    const { message, status } = extractError(err);
+    throw { message, status } as ApiError;
+  }
+}
+
+// POST /api/v1/upload/image (multipart/form-data)
+export async function uploadImage(file: File, entityType?: string, entityId?: string) {
+  try {
+    const url = buildUrl("/api/v1/upload/image");
+    const fd = new FormData();
+    fd.append("file", file);
+    if (entityType) fd.append("entityType", entityType);
+    if (entityId) fd.append("entityId", entityId);
+    const res = await apiClient.post(url, fd, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return res.data;
+  } catch (err: any) {
+    const { message, status } = extractError(err);
+    throw { message, status } as ApiError;
+  }
+}
+
+// POST /api/v1/upload/document (multipart/form-data)
+export async function uploadDocumentFile(file: File, entityType?: string, entityId?: string) {
+  try {
+    const url = buildUrl("/api/v1/upload/document");
+    const fd = new FormData();
+    fd.append("file", file);
+    if (entityType) fd.append("entityType", entityType);
+    if (entityId) fd.append("entityId", entityId);
+    const res = await apiClient.post(url, fd, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return res.data;
+  } catch (err: any) {
+    const { message, status } = extractError(err);
+    throw { message, status } as ApiError;
+  }
+}
+
+// POST /api/v1/support/tickets
+export async function createSupportTicket(payload: {
+  category: string;
+  subcategory?: string;
+  priority?: string;
+  subject: string;
+  description: string;
+  orderId?: string;
+  vendorId?: string;
+  paymentId?: string;
+  attachmentUrls?: string[];
+}) {
+  try {
+    const url = buildUrl("/api/v1/support/tickets");
+    const res = await apiClient.post(url, payload);
+    return res.data;
+  } catch (err: any) {
+    const { message, status } = extractError(err);
+    throw { message, status } as ApiError;
+  }
+}
+
+// GET /api/v1/support/tickets/my?page=0&size=20
+export async function getMySupportTickets(page: number = 0, size: number = 20) {
+  try {
+    const url = buildUrl(`/api/v1/support/tickets/my?page=${page}&size=${size}`);
+    const res = await apiClient.get(url);
     return res.data;
   } catch (err: any) {
     const { message, status } = extractError(err);
@@ -1113,8 +1358,10 @@ export default {
   forgotPhone,
   forgotPassword,
   resetPassword,
+  createVendorProfile,
   registerVendor,
   loginVendor,
+  getVendorMe,
   getVendorProfile,
   updateVendorProfile,
   createOrUpdateServiceDetails,
@@ -1128,6 +1375,8 @@ export default {
   createMenuItem,
   updateMenuItem,
   deleteMenuItem,
+  toggleMenuItemAvailability,
+  uploadDocument,
   getBidsByVendor,
   submitBidQuote,
   acceptBid,
@@ -1147,7 +1396,22 @@ export default {
   getOrderTransactions,
   cancelOrder,
   getVendorNotifications,
+  getNotificationsUnreadCount,
+  markAllNotificationsRead,
   markNotificationAsRead,
+  respondToReview,
+  getVendorReviews,
+  getLatestVendorReviews,
+  deleteVendorReview,
+  updateVendorLogo,
+  updateVendorBanner,
+  getUpcomingOrders,
+  registerFcmToken,
+  uploadImage,
+  uploadDocumentFile,
+  createSupportTicket,
+  getMySupportTickets,
+  getMasterMenuItems,
   sendOtp,
   verifyOtp,
 };

@@ -213,10 +213,10 @@ const Messaging = () => {
     setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }), 0);
   }, [currentUserId]);
 
-  const handleTypingEvent = useCallback((event: WSTypingEvent) => {
+  const handleTypingEvent = useCallback((event: { conversationId: string; userId: string; isTyping: boolean }) => {
     if (event.userId === currentUserId) return;
 
-    if (event.typing && selectedConversation) {
+    if (event.isTyping && selectedConversation) {
       const otherParticipant = getOtherParticipant(selectedConversation);
       setTypingUserName(otherParticipant.name || "Someone");
     } else {
@@ -224,7 +224,7 @@ const Messaging = () => {
     }
   }, [currentUserId, selectedConversation, getOtherParticipant]);
 
-  const handleReadReceipt = useCallback((_receipt: WSReadReceipt) => {
+  const handleReadReceipt = useCallback((event: { conversationId: string; messageIds: string[] }) => {
     console.log("[Messaging] Read receipt received");
     setMessages((prev) =>
       prev.map((msg) =>
@@ -250,10 +250,9 @@ const Messaging = () => {
     onMessage: handleIncomingMessage,
     onTyping: handleTypingEvent,
     onReadReceipt: handleReadReceipt,
-    onUserStatus: handleUserStatus,
   };
 
-  const { isConnected, sendMessage, sendTyping } = useWebSocketChat(
+  const { isConnected, sendMessage, sendTypingIndicator, sendReadReceipt } = useWebSocketChat(
     {
       conversationId: selectedConversation?.conversationId || "",
       autoConnect: Boolean(selectedConversation),
@@ -330,10 +329,10 @@ const Messaging = () => {
       const text = e.target.value;
       setMessageInput(text);
       if (text.length > 0) {
-        sendTyping(true);
+        sendTypingIndicator(true);
       }
     },
-    [sendTyping]
+    [sendTypingIndicator]
   );
 
   const handleSendMessage = useCallback(async () => {
@@ -386,11 +385,11 @@ const Messaging = () => {
       setMessages((prev) => [...prev, optimisticMessage]);
       setMessageInput("");
       setSelectedFile(null);
-      sendTyping(false); // Stop typing indicator
+      sendTypingIndicator(false); // Stop typing indicator
 
       // Send via WebSocket
       if (isConnected) {
-        const sent = sendMessage(messageText || "", messageType as "TEXT" | "IMAGE" | "FILE", attachments.length > 0 ? attachments : undefined);
+        const sent = await sendMessage(messageText || "", messageType as "TEXT" | "IMAGE" | "FILE");
         if (!sent) {
           // Fallback to REST
           const response = await chatApi.sendMessage({

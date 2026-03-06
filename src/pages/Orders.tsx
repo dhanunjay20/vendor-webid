@@ -81,13 +81,27 @@ interface OrderResponse {
   vendorOrders: VendorOrder[];
   pricing: Pricing;
   paymentDetails: PaymentDetails;
+  contactInfo?: {
+    primaryContactName: string;
+    primaryContactPhone: string;
+    primaryContactEmail: string;
+  };
+  specialInstructions?: string;
   status: string;
   cancellation: Cancellation;
   createdAt: string;
   confirmedAt: string;
+  deliveredAt?: string;
+  completedAt?: string;
 }
 
 const statusConfig: Record<string, { label: string; icon: any; color: string; bgColor: string }> = {
+  ACCEPTED: {
+    label: "Accepted",
+    icon: CheckCircle,
+    color: "text-blue-600",
+    bgColor: "bg-blue-50 dark:bg-blue-950/30 border-blue-300",
+  },
   CONFIRMED: {
     label: "Confirmed",
     icon: CheckCircle,
@@ -99,6 +113,18 @@ const statusConfig: Record<string, { label: string; icon: any; color: string; bg
     icon: Package,
     color: "text-orange-600",
     bgColor: "bg-orange-50 dark:bg-orange-950/30 border-orange-300",
+  },
+  DISPATCHED: {
+    label: "Dispatched",
+    icon: Truck,
+    color: "text-indigo-600",
+    bgColor: "bg-indigo-50 dark:bg-indigo-950/30 border-indigo-300",
+  },
+  SETUP_IN_PROGRESS: {
+    label: "Setting Up",
+    icon: Package,
+    color: "text-amber-600",
+    bgColor: "bg-amber-50 dark:bg-amber-950/30 border-amber-300",
   },
   READY_FOR_DELIVERY: {
     label: "Ready for Delivery",
@@ -137,6 +163,7 @@ export default function Orders() {
   // Detail modal states
   const [selectedOrder, setSelectedOrder] = useState<OrderResponse | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [updatingStatus, setUpdatingStatus] = useState(false);
   
   // Cancel dialog
   const [showCancelDialog, setShowCancelDialog] = useState(false);
@@ -195,6 +222,44 @@ export default function Orders() {
     }
   };
 
+  const handleUpdateVendorStatus = async (newStatus: string) => {
+    if (!selectedOrder) return;
+
+    try {
+      setUpdatingStatus(true);
+      await api.updateOrderStatusNew(selectedOrder.orderId, newStatus);
+      toast({
+        title: "Success",
+        description: `Order status updated to ${newStatus.replace(/_/g, " ")}`,
+      });
+      loadOrders();
+      // Update local state
+      setSelectedOrder(prev => prev ? {
+        ...prev,
+        vendorOrders: prev.vendorOrders?.map(vo => ({ ...vo, vendorStatus: newStatus }))
+      } : null);
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update status",
+        variant: "destructive",
+      });
+    } finally {
+      setUpdatingStatus(false);
+    }
+  };
+
+  const getNextVendorStatus = (currentStatus: string): string | null => {
+    const flow: Record<string, string> = {
+      ACCEPTED: "IN_PREPARATION",
+      IN_PREPARATION: "DISPATCHED",
+      DISPATCHED: "SETUP_IN_PROGRESS",
+      SETUP_IN_PROGRESS: "DELIVERED",
+      DELIVERED: "COMPLETED",
+    };
+    return flow[currentStatus] || null;
+  };
+
   const filteredOrders = orders.filter((order) => {
     const matchesSearch =
       order.eventDetails?.eventName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -233,27 +298,23 @@ export default function Orders() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-red-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
-      <div className="p-2 sm:p-4 md:p-6 lg:p-8 space-y-4 sm:space-y-6 max-w-7xl mx-auto">
+    <div className="min-h-screen bg-gray-50">
+      <div className="p-4 sm:p-6 lg:p-8 space-y-5 max-w-7xl mx-auto">
         {/* Header */}
-        <div className="space-y-1 sm:space-y-2">
-          <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent">
-            Orders Management
-          </h1>
-          <p className="text-sm sm:text-base md:text-lg text-muted-foreground">
-            Track and manage your catering orders
-          </p>
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Orders Management</h1>
+          <p className="text-sm text-gray-500 mt-1">Track and manage your catering orders</p>
         </div>
 
         {/* Search and Filters */}
-        <div className="flex flex-col gap-2 sm:gap-4">
-          <div className="relative">
-            <Search className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 h-4 sm:h-5 w-4 sm:w-5 text-muted-foreground flex-shrink-0" />
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
             <Input
               placeholder="Search by customer, event, or order ID..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 sm:pl-12 h-10 sm:h-11 text-sm sm:text-base shadow-sm"
+              className="pl-9 border-gray-300 focus:border-orange-500 focus:ring-orange-500"
             />
           </div>
 
@@ -261,14 +322,16 @@ export default function Orders() {
             setStatusFilter(val);
             setPage(0);
           }}>
-            <SelectTrigger className="h-10 sm:h-11 text-sm sm:text-base">
+            <SelectTrigger className="w-full sm:w-48 border-gray-300">
               <SelectValue placeholder="Filter by status" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Status</SelectItem>
               <SelectItem value="CONFIRMED">Confirmed</SelectItem>
+              <SelectItem value="ACCEPTED">Accepted</SelectItem>
               <SelectItem value="IN_PREPARATION">In Preparation</SelectItem>
-              <SelectItem value="READY_FOR_DELIVERY">Ready for Delivery</SelectItem>
+              <SelectItem value="DISPATCHED">Dispatched</SelectItem>
+              <SelectItem value="SETUP_IN_PROGRESS">Setting Up</SelectItem>
               <SelectItem value="DELIVERED">Delivered</SelectItem>
               <SelectItem value="COMPLETED">Completed</SelectItem>
               <SelectItem value="CANCELLED">Cancelled</SelectItem>
@@ -277,37 +340,21 @@ export default function Orders() {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 sm:gap-3">
-          <Card className="border-0 shadow-sm">
-            <CardContent className="p-2 sm:p-3">
-              <p className="text-xs sm:text-sm text-muted-foreground font-medium">{orders.length}</p>
-              <p className="text-lg sm:text-xl font-bold">Total Orders</p>
-            </CardContent>
-          </Card>
-          <Card className="border-0 shadow-sm">
-            <CardContent className="p-2 sm:p-3">
-              <p className="text-xs sm:text-sm text-muted-foreground font-medium">{orders.filter(o => o.status === "CONFIRMED").length}</p>
-              <p className="text-lg sm:text-xl font-bold text-blue-600">Confirmed</p>
-            </CardContent>
-          </Card>
-          <Card className="border-0 shadow-sm">
-            <CardContent className="p-2 sm:p-3">
-              <p className="text-xs sm:text-sm text-muted-foreground font-medium">{orders.filter(o => o.status === "IN_PREPARATION").length}</p>
-              <p className="text-lg sm:text-xl font-bold text-orange-600">Preparing</p>
-            </CardContent>
-          </Card>
-          <Card className="border-0 shadow-sm">
-            <CardContent className="p-2 sm:p-3">
-              <p className="text-xs sm:text-sm text-muted-foreground font-medium">{orders.filter(o => o.status === "DELIVERED").length}</p>
-              <p className="text-lg sm:text-xl font-bold text-green-600">Delivered</p>
-            </CardContent>
-          </Card>
-          <Card className="border-0 shadow-sm">
-            <CardContent className="p-2 sm:p-3">
-              <p className="text-xs sm:text-sm text-muted-foreground font-medium">{orders.filter(o => o.status === "CANCELLED").length}</p>
-              <p className="text-lg sm:text-xl font-bold text-red-600">Cancelled</p>
-            </CardContent>
-          </Card>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+          {[
+            { label: "Total", count: orders.length, color: "text-gray-900" },
+            { label: "Confirmed", count: orders.filter(o => o.status === "CONFIRMED").length, color: "text-blue-600" },
+            { label: "Preparing", count: orders.filter(o => o.status === "IN_PREPARATION").length, color: "text-orange-600" },
+            { label: "Delivered", count: orders.filter(o => o.status === "DELIVERED").length, color: "text-green-600" },
+            { label: "Cancelled", count: orders.filter(o => o.status === "CANCELLED").length, color: "text-red-600" },
+          ].map((s) => (
+            <Card key={s.label} className="border border-orange-100 shadow-sm bg-white">
+              <CardContent className="p-3 sm:p-4">
+                <p className={`text-xl sm:text-2xl font-bold ${s.color}`}>{s.count}</p>
+                <p className="text-xs sm:text-sm text-gray-500">{s.label}</p>
+              </CardContent>
+            </Card>
+          ))}
         </div>
 
         {/* Orders List */}
@@ -334,75 +381,67 @@ export default function Orders() {
               const firstVendor = order.vendorOrders?.[0];
 
               return (
-                <Card key={order.orderId} className="border-0 shadow-md hover:shadow-lg transition-all overflow-hidden">
-                  <CardHeader className="bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900 pb-3 sm:pb-4">
-                    <div className="flex flex-col sm:flex-row items-start justify-between gap-2 sm:gap-4">
+                <Card key={order.orderId} className="border border-orange-100 shadow-sm hover:shadow-md transition-all overflow-hidden bg-white">
+                  <CardHeader className="bg-gray-50 border-b border-orange-100 py-3 px-4">
+                    <div className="flex flex-col sm:flex-row items-start justify-between gap-2">
                       <div className="flex-1 min-w-0">
-                        <CardTitle className="text-base sm:text-lg truncate">{eventDetails?.eventName}</CardTitle>
-                        <p className="text-xs sm:text-sm text-muted-foreground truncate">Order ID: {order.orderId.slice(0, 16)}...</p>
+                        <CardTitle className="text-base sm:text-lg text-gray-900 truncate">{eventDetails?.eventName}</CardTitle>
+                        <p className="text-xs text-gray-500 truncate">ID: {order.orderId.slice(0, 16)}...</p>
                       </div>
-                      <Badge className={`${config.bgColor} border flex-shrink-0 text-xs sm:text-sm font-semibold`}>
-                        <StatusIcon className="h-3 sm:h-4 w-3 sm:w-4 mr-1" />
+                      <Badge className={`${config.bgColor} border flex-shrink-0 text-xs font-semibold`}>
+                        <StatusIcon className="h-3 w-3 mr-1" />
                         {config.label}
                       </Badge>
                     </div>
                   </CardHeader>
 
-                  <CardContent className="p-3 sm:p-6 space-y-3 sm:space-y-4">
+                  <CardContent className="p-4 space-y-3">
                     {/* Event Details Grid */}
-                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
-                      <div className="flex items-center gap-2 p-2 sm:p-3 rounded-lg bg-gray-50 dark:bg-slate-800">
-                        <div className="p-1 sm:p-1.5 rounded bg-blue-100 dark:bg-blue-900/30 flex-shrink-0">
-                          <Calendar className="h-3 sm:h-4 w-3 sm:w-4 text-blue-600" />
-                        </div>
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+                      <div className="flex items-center gap-2 p-2 rounded-lg bg-orange-50">
+                        <Calendar className="h-4 w-4 text-orange-600 flex-shrink-0" />
                         <div className="min-w-0">
-                          <p className="text-xs text-muted-foreground font-medium">Date</p>
-                          <p className="text-xs sm:text-sm font-bold">{formatDate(eventDetails?.eventDate || "")}</p>
+                          <p className="text-xs text-gray-500">Date</p>
+                          <p className="text-xs font-semibold text-gray-900">{formatDate(eventDetails?.eventDate || "")}</p>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2 p-2 sm:p-3 rounded-lg bg-gray-50 dark:bg-slate-800">
-                        <div className="p-1 sm:p-1.5 rounded bg-purple-100 dark:bg-purple-900/30 flex-shrink-0">
-                          <Users className="h-3 sm:h-4 w-3 sm:w-4 text-purple-600" />
-                        </div>
+                      <div className="flex items-center gap-2 p-2 rounded-lg bg-orange-50">
+                        <Users className="h-4 w-4 text-orange-600 flex-shrink-0" />
                         <div className="min-w-0">
-                          <p className="text-xs text-muted-foreground font-medium">Guests</p>
-                          <p className="text-xs sm:text-sm font-bold">{eventDetails?.numberOfGuests}</p>
+                          <p className="text-xs text-gray-500">Guests</p>
+                          <p className="text-xs font-semibold text-gray-900">{eventDetails?.numberOfGuests}</p>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2 p-2 sm:p-3 rounded-lg bg-gray-50 dark:bg-slate-800">
-                        <div className="p-1 sm:p-1.5 rounded bg-orange-100 dark:bg-orange-900/30 flex-shrink-0">
-                          <MapPin className="h-3 sm:h-4 w-3 sm:w-4 text-orange-600" />
-                        </div>
+                      <div className="flex items-center gap-2 p-2 rounded-lg bg-orange-50">
+                        <MapPin className="h-4 w-4 text-orange-600 flex-shrink-0" />
                         <div className="min-w-0 flex-1">
-                          <p className="text-xs text-muted-foreground font-medium">Location</p>
-                          <p className="text-xs sm:text-sm font-bold truncate">{eventDetails?.venueAddress?.city}</p>
+                          <p className="text-xs text-gray-500">Location</p>
+                          <p className="text-xs font-semibold text-gray-900 truncate">{eventDetails?.venueAddress?.city}</p>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2 p-2 sm:p-3 rounded-lg bg-gray-50 dark:bg-slate-800">
-                        <div className="p-1 sm:p-1.5 rounded bg-green-100 dark:bg-green-900/30 flex-shrink-0">
-                          <DollarSign className="h-3 sm:h-4 w-3 sm:w-4 text-green-600" />
-                        </div>
+                      <div className="flex items-center gap-2 p-2 rounded-lg bg-orange-50">
+                        <DollarSign className="h-4 w-4 text-orange-600 flex-shrink-0" />
                         <div className="min-w-0">
-                          <p className="text-xs text-muted-foreground font-medium">Total</p>
-                          <p className="text-xs sm:text-sm font-bold">{getCurrencySymbol(order.pricing?.currency || "INR")}{order.pricing?.totalAmount?.toLocaleString('en-IN', { maximumFractionDigits: 2 }) || "0"}</p>
+                          <p className="text-xs text-gray-500">Total</p>
+                          <p className="text-xs font-semibold text-gray-900">{getCurrencySymbol(order.pricing?.currency || "INR")}{order.pricing?.totalAmount?.toLocaleString('en-IN', { maximumFractionDigits: 2 }) || "0"}</p>
                         </div>
                       </div>
                     </div>
 
                     {/* Payment Info */}
-                    <div className="p-3 sm:p-4 bg-green-50 dark:bg-green-950/30 rounded-lg border border-green-300">
-                      <p className="text-xs sm:text-sm font-semibold text-green-700 dark:text-green-300 mb-2">💳 Payment Status: {order.paymentDetails?.paymentStatus}</p>
+                    <div className="p-3 bg-green-50 rounded-lg border border-green-200">
+                      <p className="text-xs font-semibold text-green-700 mb-2">Payment: {order.paymentDetails?.paymentStatus}</p>
                       <div className="grid grid-cols-3 gap-2 text-xs">
                         <div>
-                          <p className="text-muted-foreground">Advance</p>
+                          <p className="text-gray-500">Advance</p>
                           <p className="font-bold text-green-600">{getCurrencySymbol(order.pricing?.currency || "INR")}{order.paymentDetails?.tokenAmount?.toLocaleString('en-IN', { maximumFractionDigits: 2 }) || "0"}</p>
                         </div>
                         <div>
-                          <p className="text-muted-foreground">Paid</p>
+                          <p className="text-gray-500">Paid</p>
                           <p className="font-bold text-green-600">{getCurrencySymbol(order.pricing?.currency || "INR")}{order.paymentDetails?.totalPaid?.toLocaleString('en-IN', { maximumFractionDigits: 2 }) || "0"}</p>
                         </div>
                         <div>
-                          <p className="text-muted-foreground">Balance</p>
+                          <p className="text-gray-500">Balance</p>
                           <p className={`font-bold ${order.paymentDetails?.balanceDue === 0 ? "text-green-600" : "text-orange-600"}`}>{getCurrencySymbol(order.pricing?.currency || "INR")}{order.paymentDetails?.balanceDue?.toLocaleString('en-IN', { maximumFractionDigits: 2 }) || "0"}</p>
                         </div>
                       </div>
@@ -410,16 +449,16 @@ export default function Orders() {
 
                     {/* Vendor Info */}
                     {firstVendor && (
-                      <div className="p-3 sm:p-4 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-300">
-                        <p className="text-xs sm:text-sm font-semibold text-blue-700 dark:text-blue-300 mb-2">👨‍🍳 Vendor: {firstVendor.vendorName}</p>
+                      <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
+                        <p className="text-xs font-semibold text-blue-700 mb-2">Vendor: {firstVendor.vendorName}</p>
                         <div className="grid grid-cols-2 gap-2 text-xs">
                           <div>
-                            <p className="text-muted-foreground">Vendor Status</p>
-                            <p className="font-bold">{firstVendor.vendorStatus}</p>
+                            <p className="text-gray-500">Vendor Status</p>
+                            <p className="font-semibold text-gray-800">{firstVendor.vendorStatus}</p>
                           </div>
                           <div>
-                            <p className="text-muted-foreground">Delivery Status</p>
-                            <p className="font-bold">{firstVendor.deliveryStatus}</p>
+                            <p className="text-gray-500">Delivery Status</p>
+                            <p className="font-semibold text-gray-800">{firstVendor.deliveryStatus}</p>
                           </div>
                         </div>
                       </div>
@@ -428,7 +467,7 @@ export default function Orders() {
                     <Separator />
 
                     {/* Action Buttons */}
-                    <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 items-stretch sm:items-center">
+                    <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
                       <Button
                         onClick={() => handleViewOrder(order)}
                         className="flex-1 sm:flex-none h-10 sm:h-11 text-xs sm:text-sm bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-semibold"
@@ -460,23 +499,23 @@ export default function Orders() {
 
         {/* Pagination */}
         {totalPages > 1 && (
-          <div className="flex justify-center items-center gap-2 sm:gap-3 mt-6 sm:mt-8">
+          <div className="flex justify-center items-center gap-3 mt-6">
             <Button
               variant="outline"
               disabled={page === 0}
               onClick={() => setPage(page - 1)}
-              className="h-10 sm:h-11 px-2 sm:px-4 text-sm sm:text-base"
+              className="h-9 px-4 border-orange-300 text-orange-600 hover:bg-orange-50"
             >
               <ChevronLeft className="h-4 w-4" />
             </Button>
-            <span className="text-xs sm:text-sm font-semibold px-3 sm:px-4 py-2 rounded-lg bg-slate-100 dark:bg-slate-800">
+            <span className="text-sm font-semibold px-4 py-2 rounded-lg bg-orange-50 text-orange-700">
               Page {page + 1} of {totalPages}
             </span>
             <Button
               variant="outline"
               disabled={page >= totalPages - 1}
               onClick={() => setPage(page + 1)}
-              className="h-10 sm:h-11 px-2 sm:px-4 text-sm sm:text-base"
+              className="h-9 px-4 border-orange-300 text-orange-600 hover:bg-orange-50"
             >
               <ChevronRight className="h-4 w-4" />
             </Button>
@@ -643,7 +682,21 @@ export default function Orders() {
           </div>
 
           {/* Footer */}
-          <div className="border-t bg-slate-50 dark:bg-slate-800 p-3 sm:p-4 flex justify-end rounded-b-lg sm:rounded-b-2xl flex-shrink-0">
+          <div className="border-t bg-slate-50 dark:bg-slate-800 p-3 sm:p-4 flex flex-col sm:flex-row gap-2 sm:gap-3 justify-between items-stretch sm:items-center rounded-b-lg sm:rounded-b-2xl flex-shrink-0">
+            {selectedOrder && selectedOrder.vendorOrders?.[0] && (() => {
+              const currentVendorStatus = selectedOrder.vendorOrders[0].vendorStatus;
+              const nextStatus = getNextVendorStatus(currentVendorStatus);
+              return nextStatus ? (
+                <Button
+                  onClick={() => handleUpdateVendorStatus(nextStatus)}
+                  disabled={updatingStatus}
+                  className="h-9 sm:h-10 text-sm sm:text-base bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-semibold"
+                >
+                  {updatingStatus ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle className="h-4 w-4 mr-2" />}
+                  Move to: {nextStatus.replace(/_/g, " ")}
+                </Button>
+              ) : <div />;
+            })()}
             <Button onClick={() => setShowDetailsModal(false)} className="h-9 sm:h-10 text-sm sm:text-base bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-semibold">
               ✓ Close
             </Button>

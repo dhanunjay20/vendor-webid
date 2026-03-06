@@ -129,12 +129,16 @@ const VendorProfileSetup: React.FC = () => {
         ownerInfo: {
           firstName: formData.firstName,
           lastName: formData.lastName,
+          phone: formData.businessPhone,
+          email: formData.businessEmail,
         },
         documents: [
           { documentType: formData.doc1Type, documentName: formData.doc1Name, documentUrl: formData.doc1Url },
           { documentType: formData.doc2Type, documentName: formData.doc2Name, documentUrl: formData.doc2Url },
           { documentType: formData.doc3Type, documentName: formData.doc3Name, documentUrl: formData.doc3Url },
         ],
+        cuisineTypes: [],
+        serviceAreas: [],
       };
 
       await api.createVendorProfile(payload);
@@ -176,7 +180,7 @@ const VendorProfileSetup: React.FC = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-orange-50 flex items-center justify-center p-4 md:p-6">
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4 md:p-6">
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} className="w-full max-w-4xl">
         
         {/* Progress Steps */}
@@ -208,10 +212,10 @@ const VendorProfileSetup: React.FC = () => {
 
         {/* Main Card */}
         <Card className="shadow-2xl border-0 overflow-hidden">
-          <div className="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent p-6 md:p-8 border-b">
+          <div className="bg-orange-50 p-6 md:p-8 border-b border-orange-100">
             <CardHeader className="p-0">
               <CardTitle className="text-2xl md:text-3xl font-bold flex items-center gap-3">
-                <div className="p-2 bg-primary/10 rounded-xl"><Building2 className="h-7 w-7 text-primary" /></div>
+                <div className="p-2 bg-orange-100 rounded-xl"><Building2 className="h-7 w-7 text-orange-600" /></div>
                 <div>
                   <div>Complete Your Vendor Profile</div>
                   <CardDescription className="mt-1 text-sm md:text-base">Step {currentStep} of 3 - Provide your business details ({country})</CardDescription>
@@ -227,13 +231,13 @@ const VendorProfileSetup: React.FC = () => {
                 <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-6">
                   <div className="grid md:grid-cols-2 gap-6">
                     <div className="space-y-2">
-                      <Label htmlFor="businessName" className="flex items-center gap-2 text-sm font-semibold"><Building2 className="h-4 w-4 text-primary" />Business Name *</Label>
+                      <Label htmlFor="businessName" className="flex items-center gap-2 text-sm font-semibold"><Building2 className="h-4 w-4 text-primary" />Business Name <span className="text-red-500">*</span></Label>
                       <Input id="businessName" name="businessName" value={formData.businessName} onChange={handleChange} placeholder="Enter your business name" className={`h-11 ${errors.businessName ? "border-red-500" : ""}`} />
                       {errors.businessName && <p className="text-sm text-red-500">{errors.businessName}</p>}
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="businessType" className="flex items-center gap-2 text-sm font-semibold"><Building2 className="h-4 w-4 text-primary" />Business Type *</Label>
+                      <Label htmlFor="businessType" className="flex items-center gap-2 text-sm font-semibold"><Building2 className="h-4 w-4 text-primary" />Business Type <span className="text-red-500">*</span></Label>
                       <Select value={formData.businessType} onValueChange={(v) => handleSelectChange("businessType", v)}>
                         <SelectTrigger className="h-11"><SelectValue /></SelectTrigger>
                         <SelectContent>
@@ -245,19 +249,19 @@ const VendorProfileSetup: React.FC = () => {
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="businessEmail" className="flex items-center gap-2 text-sm font-semibold"><Mail className="h-4 w-4 text-primary" />Business Email *</Label>
+                      <Label htmlFor="businessEmail" className="flex items-center gap-2 text-sm font-semibold"><Mail className="h-4 w-4 text-primary" />Business Email <span className="text-red-500">*</span></Label>
                       <Input id="businessEmail" name="businessEmail" type="email" value={formData.businessEmail} onChange={handleChange} placeholder="business@example.com" className={`h-11 ${errors.businessEmail ? "border-red-500" : ""}`} />
                       {errors.businessEmail && <p className="text-sm text-red-500">{errors.businessEmail}</p>}
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="businessPhone" className="flex items-center gap-2 text-sm font-semibold"><Phone className="h-4 w-4 text-primary" />Business Phone *</Label>
+                      <Label htmlFor="businessPhone" className="flex items-center gap-2 text-sm font-semibold"><Phone className="h-4 w-4 text-primary" />Business Phone <span className="text-red-500">*</span></Label>
                       <Input id="businessPhone" name="businessPhone" value={formData.businessPhone} onChange={handleChange} placeholder={country === "USA" ? "+1 555 0199 888" : "+91 98765 43210"} className={`h-11 ${errors.businessPhone ? "border-red-500" : ""}`} />
                       {errors.businessPhone && <p className="text-sm text-red-500">{errors.businessPhone}</p>}
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="firstName" className="flex items-center gap-2 text-sm font-semibold"><User className="h-4 w-4 text-primary" />Owner First Name *</Label>
+                      <Label htmlFor="firstName" className="flex items-center gap-2 text-sm font-semibold"><User className="h-4 w-4 text-primary" />Owner First Name <span className="text-red-500">*</span></Label>
                       <Input id="firstName" name="firstName" value={formData.firstName} onChange={handleChange} readOnly className="bg-gray-50 h-11" />
                     </div>
 
@@ -274,26 +278,26 @@ const VendorProfileSetup: React.FC = () => {
                 <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-6">
                   <div className="space-y-4">
                     <div className="space-y-2">
-                      <Label htmlFor="streetAddress" className="flex items-center gap-2 text-sm font-semibold"><MapPin className="h-4 w-4 text-primary" />Street Address *</Label>
+                      <Label htmlFor="streetAddress" className="flex items-center gap-2 text-sm font-semibold"><MapPin className="h-4 w-4 text-primary" />Street Address <span className="text-red-500">*</span></Label>
                       <Input id="streetAddress" name="streetAddress" value={formData.streetAddress} onChange={handleChange} placeholder={country === "USA" ? "123 Broadway" : "45 MG Road"} className={`h-11 ${errors.streetAddress ? "border-red-500" : ""}`} />
                       {errors.streetAddress && <p className="text-sm text-red-500">{errors.streetAddress}</p>}
                     </div>
 
                     <div className="grid md:grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label htmlFor="city" className="text-sm font-semibold">City *</Label>
+                        <Label htmlFor="city" className="text-sm font-semibold">City <span className="text-red-500">*</span></Label>
                         <Input id="city" name="city" value={formData.city} onChange={handleChange} placeholder={country === "USA" ? "New York" : "Bengaluru"} className={`h-11 ${errors.city ? "border-red-500" : ""}`} />
                         {errors.city && <p className="text-sm text-red-500">{errors.city}</p>}
                       </div>
 
                       <div className="space-y-2">
-                        <Label htmlFor="state" className="text-sm font-semibold">{country === "USA" ? "State" : "State/Province"} *</Label>
+                        <Label htmlFor="state" className="text-sm font-semibold">{country === "USA" ? "State" : "State/Province"} <span className="text-red-500">*</span></Label>
                         <Input id="state" name="state" value={formData.state} onChange={handleChange} placeholder={country === "USA" ? "NY" : "Karnataka"} className={`h-11 ${errors.state ? "border-red-500" : ""}`} />
                         {errors.state && <p className="text-sm text-red-500">{errors.state}</p>}
                       </div>
 
                       <div className="space-y-2">
-                        <Label htmlFor="postalCode" className="text-sm font-semibold">{country === "USA" ? "ZIP Code" : "Postal Code"} *</Label>
+                        <Label htmlFor="postalCode" className="text-sm font-semibold">{country === "USA" ? "ZIP Code" : "Postal Code"} <span className="text-red-500">*</span></Label>
                         <Input id="postalCode" name="postalCode" value={formData.postalCode} onChange={handleChange} placeholder={country === "USA" ? "10001" : "560038"} className={`h-11 ${errors.postalCode ? "border-red-500" : ""}`} />
                         {errors.postalCode && <p className="text-sm text-red-500">{errors.postalCode}</p>}
                       </div>
@@ -326,11 +330,11 @@ const VendorProfileSetup: React.FC = () => {
                       </div>
                       <div className="grid md:grid-cols-2 gap-4">
                         <div className="space-y-2">
-                          <Label htmlFor={`doc${num}Name`} className="text-sm font-medium">Document Name *</Label>
+                          <Label htmlFor={`doc${num}Name`} className="text-sm font-medium">Document Name <span className="text-red-500">*</span></Label>
                           <Input id={`doc${num}Name`} name={`doc${num}Name`} value={formData[`doc${num}Name` as keyof typeof formData]} onChange={handleChange} placeholder={`${formData[`doc${num}Type` as keyof typeof formData]} Document`} className="h-11" />
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor={`doc${num}Url`} className="text-sm font-medium">Document URL *</Label>
+                          <Label htmlFor={`doc${num}Url`} className="text-sm font-medium">Document URL <span className="text-red-500">*</span></Label>
                           <Input id={`doc${num}Url`} name={`doc${num}Url`} value={formData[`doc${num}Url` as keyof typeof formData]} onChange={handleChange} placeholder="https://example.com/doc.pdf" className="h-11" />
                         </div>
                       </div>
@@ -367,10 +371,10 @@ const VendorProfileSetup: React.FC = () => {
             </div>
             <AlertDialogTitle className="text-center text-2xl font-bold">Profile Submitted Successfully!</AlertDialogTitle>
             <AlertDialogDescription className="text-center text-base leading-relaxed pt-2 space-y-3">
-              <p className="font-semibold text-foreground">🎉 Congratulations!</p>
-              <p>Your vendor profile has been submitted successfully.</p>
-              <p>Our team will review your profile and approve it shortly. You will be notified via email or text message.</p>
-              <p className="text-sm text-muted-foreground">Thank you for your patience!</p>
+              <div className="font-semibold text-foreground">🎉 Congratulations!</div>
+              <div>Your vendor profile has been submitted successfully.</div>
+              <div>Our team will review your profile and approve it shortly. You will be notified via email or text message.</div>
+              <div className="text-sm text-muted-foreground">Thank you for your patience!</div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="sm:justify-center">

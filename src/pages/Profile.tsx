@@ -666,26 +666,27 @@ export default function Profile() {
   const avgPrice = formData?.pricing?.averagePricePerPlate || "";
 
   return (
-    <div className="container px-3 sm:px-4 md:px-6 py-4 sm:py-6">
+    <div className="min-h-screen bg-gray-50">
+    <div className="container px-4 sm:px-6 lg:px-8 py-5 sm:py-6">
       <div className="mb-6 sm:mb-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-foreground">Business Profile</h1>
-          <p className="text-sm sm:text-base text-muted-foreground mt-1">Manage your catering business information</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Business Profile</h1>
+          <p className="text-sm text-gray-500 mt-1">Manage your catering business information</p>
         </div>
         {!isEditing ? (
           <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto">
-            <Button onClick={() => setIsEditing(true)} className="flex-1 sm:flex-none h-10 sm:h-11">Edit Profile</Button>
-            <Button variant="ghost" onClick={handleLogout} className="flex-1 sm:flex-none h-10 sm:h-11">Logout</Button>
+            <Button onClick={() => setIsEditing(true)} className="flex-1 sm:flex-none h-10 sm:h-11 bg-orange-600 hover:bg-orange-700">Edit Profile</Button>
+            <Button variant="ghost" onClick={handleLogout} className="flex-1 sm:flex-none h-10 sm:h-11 text-gray-600">Logout</Button>
           </div>
         ) : (
           <div className="flex gap-2 flex-wrap w-full sm:w-auto">
-            <Button variant="outline" onClick={() => { setIsEditing(false); setFormData(vendorProfile); }} className="flex-1 sm:flex-none h-10 sm:h-11">
+            <Button variant="outline" onClick={() => { setIsEditing(false); setFormData(vendorProfile); }} className="flex-1 sm:flex-none h-10 sm:h-11 border-orange-300 text-orange-600 hover:bg-orange-50">
               Cancel
             </Button>
-            <Button onClick={handleSave} disabled={saving} className="flex-1 sm:flex-none h-10 sm:h-11">
+            <Button onClick={handleSave} disabled={saving} className="flex-1 sm:flex-none h-10 sm:h-11 bg-orange-600 hover:bg-orange-700">
               {saving ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving...</> : "Save Changes"}
             </Button>
-            <Button variant="ghost" onClick={handleLogout} className="h-10 sm:h-11 w-full sm:w-auto">Logout</Button>
+            <Button variant="ghost" onClick={handleLogout} className="h-10 sm:h-11 w-full sm:w-auto text-gray-600">Logout</Button>
           </div>
         )}
       </div>
@@ -733,7 +734,7 @@ export default function Profile() {
           <CardContent className="space-y-3 sm:space-y-4 px-4 sm:px-6 pb-4 sm:pb-6">
             <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2">
               <div className="space-y-1.5 sm:space-y-2">
-                <Label className="text-sm sm:text-base">Business Name</Label>
+                <Label className="text-sm sm:text-base">Business Name <span className="text-red-500">*</span></Label>
                 <Input
                   value={formData?.businessName || ""}
                   onChange={(e) => handleChange("businessName", e.target.value)}
@@ -742,7 +743,7 @@ export default function Profile() {
                 />
               </div>
               <div className="space-y-1.5 sm:space-y-2">
-                <Label className="text-sm sm:text-base">Business Type</Label>
+                <Label className="text-sm sm:text-base">Business Type <span className="text-red-500">*</span></Label>
                 <Input 
                   value={formData?.businessType || ""} 
                   onChange={(e) => handleChange("businessType", e.target.value)}
@@ -753,7 +754,7 @@ export default function Profile() {
               <div className="space-y-1.5 sm:space-y-2">
                 <Label className="text-sm sm:text-base flex items-center gap-2">
                   <Phone className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                  Business Phone
+                  Business Phone <span className="text-red-500">*</span>
                   {formData?.isPhoneVerified ? (
                     <Badge variant="default" className="ml-2 bg-green-500 hover:bg-green-600">
                       <CheckCircle2 className="h-3 w-3 mr-1" />
@@ -791,7 +792,7 @@ export default function Profile() {
               <div className="space-y-1.5 sm:space-y-2">
                 <Label className="text-sm sm:text-base flex items-center gap-2">
                   <Mail className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                  Business Email
+                  Business Email <span className="text-red-500">*</span>
                   {formData?.isEmailVerified ? (
                     <Badge variant="default" className="ml-2 bg-green-500 hover:bg-green-600">
                       <CheckCircle2 className="h-3 w-3 mr-1" />
@@ -867,7 +868,7 @@ export default function Profile() {
             <div className="space-y-1.5 sm:space-y-2">
               <Label className="text-sm sm:text-base">
                 <MapPin className="mr-1.5 sm:mr-2 inline h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                Street Address
+                Street Address <span className="text-red-500">*</span>
               </Label>
               <Input
                 value={primaryAddress?.streetAddress || ""}
@@ -878,7 +879,7 @@ export default function Profile() {
             </div>
             <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2">
               <div className="space-y-1.5 sm:space-y-2">
-                <Label className="text-sm sm:text-base">City</Label>
+                <Label className="text-sm sm:text-base">City <span className="text-red-500">*</span></Label>
                 <Input
                   value={primaryAddress?.city || ""}
                   onChange={(e) => handleNestedChange("businessAddress", "city", e.target.value)}
@@ -887,7 +888,7 @@ export default function Profile() {
                 />
               </div>
               <div className="space-y-1.5 sm:space-y-2">
-                <Label className="text-sm sm:text-base">State</Label>
+                <Label className="text-sm sm:text-base">State <span className="text-red-500">*</span></Label>
                 <Input
                   value={primaryAddress?.state || ""}
                   onChange={(e) => handleNestedChange("businessAddress", "state", e.target.value)}
@@ -896,7 +897,7 @@ export default function Profile() {
                 />
               </div>
               <div className="space-y-1.5 sm:space-y-2">
-                <Label className="text-sm sm:text-base">Postal Code</Label>
+                <Label className="text-sm sm:text-base">Postal Code <span className="text-red-500">*</span></Label>
                 <Input
                   value={primaryAddress?.postalCode || ""}
                   onChange={(e) => handleNestedChange("businessAddress", "postalCode", e.target.value)}
@@ -1039,7 +1040,7 @@ export default function Profile() {
           <CardContent className="space-y-3 sm:space-y-4 px-4 sm:px-6 pb-4 sm:pb-6">
             <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
               <div className="space-y-1.5 sm:space-y-2">
-                <Label className="text-sm sm:text-base">Owner First Name</Label>
+                <Label className="text-sm sm:text-base">Owner First Name <span className="text-red-500">*</span></Label>
                 <Input
                   value={formData?.ownerInfo?.firstName || ""}
                   onChange={(e) => handleNestedChange("ownerInfo", "firstName", e.target.value)}
@@ -1562,6 +1563,7 @@ export default function Profile() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
     </div>
   );
 }

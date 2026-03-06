@@ -84,12 +84,18 @@ class NotificationWebSocketService {
     if (onDisconnected) this.onDisconnectedCallback = onDisconnected;
     if (onError) this.onErrorCallback = onError;
 
-    const socket = new SockJS(`${import.meta.env.VITE_API_URL || "http://localhost:8080"}/ws`);
+    const token = localStorage.getItem("accessToken") || localStorage.getItem("authToken") || "";
+    const baseUrl = (import.meta.env.VITE_API_BASE || "http://localhost:8080").replace(/\/$/, "");
+    // Connect to the backend WS endpoint with JWT token as query param
+    const wsUrl = `${baseUrl}/api/v1/ws`;
+    const socket = new SockJS(`${wsUrl}?token=${encodeURIComponent(token)}`);
     
     this.client = new Client({
       webSocketFactory: () => socket as any,
-      debug: (str) => {
+      connectHeaders: {
+        Authorization: token ? `Bearer ${token}` : "",
       },
+      debug: () => {},
       reconnectDelay: this.reconnectDelay,
       heartbeatIncoming: 4000,
       heartbeatOutgoing: 4000,
@@ -136,22 +142,41 @@ class NotificationWebSocketService {
   private subscribeToVendorTopics(vendorId: string): void {
     if (!this.client?.connected) return;
 
-    // Subscribe to vendor-specific bid notifications using MongoDB ID
+    // Per backend API: vendor notifications are delivered via user-specific topics
+    // The backend uses the userId (from JWT) to route notifications
+    // Subscribe to bid-related notifications
     this.client.subscribe(`/topic/vendor/${vendorId}/bids`, (message: IMessage) => {
       const notification: BidUpdateNotification = JSON.parse(message.body);
       this.bidCallbacks.forEach((callback) => callback(notification));
     });
 
-    // Subscribe to vendor-specific order notifications using MongoDB ID
+    // Subscribe to order notifications
     this.client.subscribe(`/topic/vendor/${vendorId}/orders`, (message: IMessage) => {
       const notification: OrderUpdateNotification = JSON.parse(message.body);
       this.orderCallbacks.forEach((callback) => callback(notification));
     });
 
-    // Subscribe to vendor-specific chat notifications using MongoDB ID
+    // Subscribe to chat notifications
     this.client.subscribe(`/topic/vendor/${vendorId}/chats`, (message: IMessage) => {
       const notification: ChatUpdateNotification = JSON.parse(message.body);
       this.chatCallbacks.forEach((callback) => callback(notification));
+    });
+
+    // Subscribe to user queue for personal notifications (delivery guaranteed)
+    this.client.subscribe(`/user/queue/notifications`, (message: IMessage) => {
+      try {
+        const notification = JSON.parse(message.body);
+        // Route to the appropriate callback based on notification type
+        if (notification.eventType?.startsWith("BID_")) {
+          this.bidCallbacks.forEach((callback) => callback(notification as BidUpdateNotification));
+        } else if (notification.eventType?.startsWith("ORDER_")) {
+          this.orderCallbacks.forEach((callback) => callback(notification as OrderUpdateNotification));
+        } else if (notification.eventType?.startsWith("MESSAGE_")) {
+          this.chatCallbacks.forEach((callback) => callback(notification as ChatUpdateNotification));
+        }
+      } catch (e) {
+        // ignore parse errors
+      }
     });
   }
 

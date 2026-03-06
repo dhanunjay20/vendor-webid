@@ -172,12 +172,6 @@ export const notifyNewMessage = (senderId: string, senderName: string, preview: 
     title: `💬 ${senderName}`,
     description: preview,
     duration: 5000,
-    action: {
-      label: "View",
-      onClick: () => {
-        window.location.href = `/dashboard/messaging?userId=${senderId}&userName=${encodeURIComponent(senderName)}`;
-      },
-    },
   });
   
   // Request browser notification permission if not granted
@@ -204,7 +198,6 @@ const showBrowserNotification = (senderName: string, message: string, senderId: 
       tag: `msg-${senderId}`,
       requireInteraction: false,
       silent: false,
-      timestamp: Date.now(),
     });
     
     notification.onclick = () => {
@@ -216,6 +209,7 @@ const showBrowserNotification = (senderName: string, message: string, senderId: 
     // Auto close after 10 seconds
     setTimeout(() => notification.close(), 10000);
   } catch (error) {
+    // ignore notification errors
   }
 };
 
@@ -251,7 +245,7 @@ export const notifyNewBidRequest = (clientName: string, eventType: string) => {
 export const startNotificationDemo = () => {
   const notifications = [
     () => notifyBidAccepted("BID-001", "Sarah Chen"),
-    () => notifyNewMessage("Mike Johnson", "When can you deliver the order?"),
+    () => notifyNewMessage("user-001", "Mike Johnson", "When can you deliver the order?"),
     () => notifyNewReview("Lisa Martinez", 5),
     () => notifyOrderUpdate("ORD-1003", "delivered"),
     () => notifyNewBidRequest("David Lee", "Corporate Event"),

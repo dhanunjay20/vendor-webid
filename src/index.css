@@ -181,3 +181,86 @@ All colors MUST be HSL.
   from { opacity: 0; }
   to { opacity: 1; }
 }
+
+/* ============================================
+   DARK MODE - Global overrides for hardcoded
+   Tailwind color classes across all pages
+   ============================================ */
+
+/* Backgrounds */
+.dark .bg-white {
+  background-color: hsl(217 33% 17%) !important;
+}
+.dark .bg-white\/95 {
+  background-color: hsl(217 33% 17% / 0.95) !important;
+}
+.dark .bg-gray-50 {
+  background-color: hsl(222 47% 11%) !important;
+}
+.dark .bg-gray-100 {
+  background-color: hsl(217 33% 20%) !important;
+}
+.dark .bg-orange-50 {
+  background-color: hsl(217 33% 20%) !important;
+}
+.dark .bg-slate-50\/60 {
+  background-color: hsl(217 33% 15% / 0.6) !important;
+}
+
+/* Text colors */
+.dark .text-gray-900,
+.dark .text-gray-800 {
+  color: hsl(210 40% 98%) !important;
+}
+.dark .text-gray-700 {
+  color: hsl(213 27% 84%) !important;
+}
+.dark .text-gray-600 {
+  color: hsl(215 20% 70%) !important;
+}
+.dark .text-gray-500 {
+  color: hsl(215 20% 58%) !important;
+}
+.dark .text-gray-400 {
+  color: hsl(215 20% 50%) !important;
+}
+
+/* Borders */
+.dark .border-orange-50  { border-color: hsl(217 33% 22%) !important; }
+.dark .border-orange-100 { border-color: hsl(217 33% 26%) !important; }
+.dark .border-orange-200 { border-color: hsl(217 33% 28%) !important; }
+.dark .border-gray-100   { border-color: hsl(217 33% 24%) !important; }
+.dark .border-gray-200   { border-color: hsl(217 33% 26%) !important; }
+.dark .divide-orange-100 > * + * { border-color: hsl(217 33% 22%) !important; }
+
+/* Hover states */
+.dark .hover\:bg-orange-50:hover  { background-color: hsl(217 33% 22%) !important; }
+.dark .hover\:bg-orange-100:hover { background-color: hsl(217 33% 25%) !important; }
+.dark .hover\:bg-gray-50:hover    { background-color: hsl(217 33% 20%) !important; }
+.dark .hover\:bg-gray-100:hover   { background-color: hsl(217 33% 22%) !important; }
+
+/* Input / form backgrounds */
+.dark input,
+.dark textarea,
+.dark select {
+  background-color: hsl(217 33% 17%) !important;
+  color: hsl(210 40% 98%) !important;
+  border-color: hsl(217 33% 28%) !important;
+}
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: hsl(215 20% 50%) !important;
+}
+
+/* Dropdown menus and popovers */
+.dark [data-radix-popper-content-wrapper] [class*="bg-white"],
+.dark [role="menu"],
+.dark [role="listbox"],
+.dark [role="dialog"] {
+  background-color: hsl(217 33% 17%) !important;
+}
+
+/* Dialog overlay for dark mode */
+.dark [data-radix-dialog-overlay] {
+  background-color: rgba(10, 14, 23, 0.6) !important;
+}

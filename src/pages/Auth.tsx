@@ -9,6 +9,7 @@ import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter } from "@/components/ui/alert-dialog";
 import { toast } from "@/hooks/use-toast";
 import * as api from "@/lib/api";
+import { requestFcmToken } from "@/lib/firebase";
 import heroImg from "@/assets/dashboard-hero.jpg";
 import ForgotPasswordModal from "@/components/modals/ForgotPasswordModal";
 import ForgotUsernameModal from "@/components/modals/ForgotUsernameModal";
@@ -265,6 +266,7 @@ const Auth: React.FC = () => {
           } else if (approvalStatus === "APPROVED") {
             // Profile approved, proceed to dashboard
             toast({ title: `Welcome back${fullName ? `, ${fullName}` : ""}` });
+            requestFcmToken().catch(() => {});
             navigate("/dashboard");
             return;
           }
@@ -283,6 +285,7 @@ const Auth: React.FC = () => {
       }
 
       toast({ title: `Welcome back${fullName ? `, ${fullName}` : ""}` });
+      requestFcmToken().catch(() => {});
       navigate("/dashboard");
     } catch (err: any) {
       // Increment failed attempts
@@ -459,7 +462,7 @@ const Auth: React.FC = () => {
                         <motion.div variants={formContainerVariants} initial="hidden" animate="visible" className="space-y-5 p-1">
                           <motion.div variants={fieldVariants} className="space-y-2">
                             <div className="ml-1 flex items-center justify-between">
-                              <Label className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">Email or Mobile</Label>
+                              <Label className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">Email or Mobile <span className="text-red-500">*</span></Label>
                               <button 
                                 type="button"
                                 onClick={() => setShowForgotUsernameModal(true)}
@@ -476,7 +479,7 @@ const Auth: React.FC = () => {
 
                           <motion.div variants={fieldVariants} className="space-y-2">
                             <div className="ml-1 flex items-center justify-between">
-                              <Label className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">Password</Label>
+                              <Label className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">Password <span className="text-red-500">*</span></Label>
                               <button 
                                 type="button"
                                 onClick={() => setShowForgotPasswordModal(true)}
@@ -507,7 +510,7 @@ const Auth: React.FC = () => {
                         <motion.div variants={formContainerVariants} initial="hidden" animate="visible" className="space-y-5 p-1">
                           <div className="grid grid-cols-2 gap-4">
                             <motion.div variants={fieldVariants} className="space-y-2">
-                              <Label htmlFor="firstName" className="ml-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">First Name</Label>
+                              <Label htmlFor="firstName" className="ml-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">First Name <span className="text-red-500">*</span></Label>
                               <Input id="firstName" name="firstName" value={formData.firstName} onChange={handleChange} placeholder="First name" className={`${errors.firstName ? "border-red-500" : ""} h-10 rounded-xl border-border bg-background/60 text-sm font-medium text-foreground`} />
                               {errors.firstName && <p className="text-sm text-red-500">{errors.firstName}</p>}
                             </motion.div>
@@ -520,7 +523,7 @@ const Auth: React.FC = () => {
 
                           <div className="grid grid-cols-2 gap-4">
                             <motion.div variants={fieldVariants} className="space-y-2">
-                              <Label htmlFor="email" className="ml-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">Email Address</Label>
+                              <Label htmlFor="email" className="ml-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">Email Address <span className="text-red-500">*</span></Label>
                               <div className="group relative">
                                 <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors" />
                                 <Input id="email" name="email" type="email" value={formData.email} onChange={handleChange} placeholder="you@example.com" className={`${errors.email ? "border-red-500" : ""} h-10 rounded-xl border-border bg-background/60 pl-10 text-sm font-medium text-foreground`} />
@@ -529,7 +532,7 @@ const Auth: React.FC = () => {
                             </motion.div>
 
                             <motion.div variants={fieldVariants} className="space-y-2">
-                              <Label htmlFor="mobile" className="ml-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">Mobile</Label>
+                              <Label htmlFor="mobile" className="ml-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">Mobile <span className="text-red-500">*</span></Label>
                               <div className="relative">
                                 <Input id="mobile" name="mobile" value={formData.mobile} onChange={handleChange} placeholder="Mobile number" className={`${errors.mobile ? "border-red-500" : ""} h-10 rounded-xl border-border bg-background/60 pl-3 text-sm font-medium text-foreground`} />
                               </div>
@@ -539,7 +542,7 @@ const Auth: React.FC = () => {
 
                           <div className="grid md:grid-cols-2 gap-6">
                             <motion.div variants={fieldVariants} className="space-y-2">
-                              <Label htmlFor="password" className="ml-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">Password</Label>
+                              <Label htmlFor="password" className="ml-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">Password <span className="text-red-500">*</span></Label>
                               <div className="relative">
                                 <Input id="password" name="password" type={showRegPassword ? "text" : "password"} value={formData.password} onChange={handleChange} placeholder="Create a strong password" className={`${errors.password ? "border-red-500" : ""} h-10 rounded-xl border-border bg-background/60 pr-12 text-sm font-medium text-foreground`} />
                                 <button type="button" aria-label={showRegPassword ? "Hide password" : "Show password"} onClick={() => setShowRegPassword((p) => !p)} className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700">{showRegPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}</button>
@@ -548,7 +551,7 @@ const Auth: React.FC = () => {
                             </motion.div>
 
                             <motion.div variants={fieldVariants} className="space-y-2">
-                              <Label htmlFor="confirmPassword" className="ml-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">Confirm Password</Label>
+                              <Label htmlFor="confirmPassword" className="ml-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">Confirm Password <span className="text-red-500">*</span></Label>
                               <div className="relative">
                                 <Input id="confirmPassword" name="confirmPassword" type={showRegPassword ? "text" : "password"} value={formData.confirmPassword} onChange={handleChange} placeholder="Re-enter password" className={`${errors.confirmPassword ? "border-red-500" : ""} h-10 rounded-xl border-border bg-background/60`} />
                               </div>
@@ -557,7 +560,7 @@ const Auth: React.FC = () => {
                           </div>
 
                           <motion.div variants={fieldVariants} className="space-y-2">
-                            <Label htmlFor="country">Country</Label>
+                            <Label htmlFor="country">Country <span className="text-red-500">*</span></Label>
                             <Select value={formData.country} onValueChange={(v) => setFormData((p: any) => ({ ...p, country: v }))}>
                               <SelectTrigger className={`h-10 rounded-xl border-border bg-background/60 text-sm ${errors.country ? "border-red-500" : ""}`}>
                                 <SelectValue />

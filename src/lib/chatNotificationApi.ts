@@ -16,7 +16,9 @@ axiosInstance.interceptors.request.use((config) => {
       localStorage.getItem('idToken') ||
       localStorage.getItem('jwt');
     if (token) {
-      config.headers = config.headers || {};
+      if (!config.headers) {
+        config.headers = {} as any;
+      }
       config.headers['Authorization'] = `Bearer ${token}`;
     }
   } catch (e) {

@@ -19,6 +19,7 @@ import Reviews from "./pages/Reviews";
 import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound";
 import BidsNew from "./pages/BidsNew.tsx";
+import Support from "./pages/Support";
 
 const queryClient = new QueryClient();
 
@@ -46,6 +47,7 @@ const App = () => (
               <Route path="messaging" element={<Messaging />} />
               <Route path="reviews" element={<Reviews />} />
               <Route path="profile" element={<Profile />} />
+              <Route path="support" element={<Support />} />
             </Route>
             
             {/* 404 Route */}

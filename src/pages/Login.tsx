@@ -2,10 +2,9 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 // inline alert removed; using toasts only
 import { useNavigate } from "react-router-dom";
-import { ChefHat, LogIn, AlertCircle, Eye, EyeOff } from "lucide-react";
+import { ChefHat, LogIn, Eye, EyeOff, ArrowRight } from "lucide-react";
 import * as api from "@/lib/api";
 import { toast } from "@/hooks/use-toast";
 
@@ -33,7 +32,7 @@ export default function Login() {
       const res = await api.login({ login: formData.username, password: formData.password });
       
       // Debug: Log the entire response to see what backend returns
-      );
+      console.debug("Auth.handleSubmit - login response:", res);
       
       // store token
       if (res?.token) {
@@ -63,7 +62,7 @@ export default function Login() {
         if (profileUrl) localStorage.setItem("profileUrl", profileUrl);
         
         // Debug: Show what was stored
-        ,
+        console.debug("Auth.handleSubmit - stored values:", {
           id: localStorage.getItem('id'),
           vendorOrganizationId: localStorage.getItem('vendorOrganizationId'),
           userType: localStorage.getItem('userType')
@@ -130,131 +129,200 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-amber-50 flex items-center justify-center px-3 py-4 sm:px-4 sm:py-6">
-      <div className="max-w-md w-full">
-        <div className="text-center mb-6 sm:mb-8">
-          <div className="flex justify-center mb-3 sm:mb-4">
-              <div className="flex items-center space-x-2">
-              <ChefHat className="h-8 w-8 sm:h-10 sm:w-10 text-orange-600" />
-              <span className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-orange-600 to-amber-600 bg-clip-text text-transparent">
-                Bidzaro
-              </span>
+    <div className="min-h-screen w-full bg-white flex flex-col lg:flex-row">
+      {/* Left side - Welcome section (hidden on mobile) */}
+      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-orange-600 to-orange-700 flex-col items-center justify-center px-6 py-12">
+        <div className="text-center max-w-md">
+          <div className="flex justify-center mb-6">
+            <div className="p-3 bg-white/20 rounded-full">
+              <ChefHat className="h-12 w-12 text-white" />
             </div>
           </div>
-          <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900">Welcome Back</h1>
-          <p className="text-sm sm:text-base text-gray-600 mt-2">Sign in to your vendor account</p>
+          <h1 className="text-5xl font-bold text-white mb-4">Bidzaro</h1>
+          <p className="text-lg text-orange-100 mb-8">Professional Catering Services Marketplace</p>
+          
+          <div className="space-y-6 text-left">
+            <div className="flex gap-4">
+              <div className="flex-shrink-0">
+                <div className="flex items-center justify-center h-10 w-10 rounded-lg bg-white/20">
+                  <svg className="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+              </div>
+              <div>
+                <p className="text-white font-medium">Manage your bids and quotes</p>
+                <p className="text-orange-100 text-sm">Track all opportunities in one place</p>
+              </div>
+            </div>
+            
+            <div className="flex gap-4">
+              <div className="flex-shrink-0">
+                <div className="flex items-center justify-center h-10 w-10 rounded-lg bg-white/20">
+                  <svg className="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+              </div>
+              <div>
+                <p className="text-white font-medium">Real-time notifications</p>
+                <p className="text-orange-100 text-sm">Get instant updates on your orders</p>
+              </div>
+            </div>
+            
+            <div className="flex gap-4">
+              <div className="flex-shrink-0">
+                <div className="flex items-center justify-center h-10 w-10 rounded-lg bg-white/20">
+                  <svg className="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+              </div>
+              <div>
+                <p className="text-white font-medium">Grow your business</p>
+                <p className="text-orange-100 text-sm">Reach more customers and increase revenue</p>
+              </div>
+            </div>
+          </div>
         </div>
+      </div>
 
-        <Card className="shadow-xl sm:shadow-2xl border sm:border-2">
-          <CardHeader className="px-4 py-4 sm:px-6 sm:py-6">
-            <CardTitle className="text-xl sm:text-2xl">Login to Dashboard</CardTitle>
-            <CardDescription className="text-sm sm:text-base">Enter your credentials to access your account</CardDescription>
-          </CardHeader>
-          <CardContent className="px-4 py-4 sm:px-6 sm:py-6">
-            <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
-                {/* Errors are shown via toast notifications; inline form alert removed */}
+      {/* Right side - Login form */}
+      <div className="w-full lg:w-1/2 flex items-center justify-center px-4 py-8 sm:px-6 lg:px-8">
+        <div className="w-full max-w-md">
+          {/* Mobile header with logo */}
+          <div className="lg:hidden text-center mb-8">
+            <div className="flex justify-center mb-4">
+              <div className="flex items-center space-x-2">
+                <ChefHat className="h-8 w-8 text-orange-600" />
+                <span className="text-3xl font-bold text-orange-600">Bidzaro</span>
+              </div>
+            </div>
+            <h2 className="text-3xl font-bold text-gray-900">Welcome Back</h2>
+            <p className="text-gray-600 mt-2">Sign in to your vendor account</p>
+          </div>
 
-              <div className="space-y-1.5 sm:space-y-2">
-                <Label htmlFor="username" className="text-sm sm:text-base">Username</Label>
+          {/* Desktop header */}
+          <div className="hidden lg:block mb-10">
+            <h2 className="text-3xl font-bold text-gray-900">Log in</h2>
+            <p className="text-gray-600 mt-2">Enter your credentials to access your account</p>
+          </div>
+
+          {/* Login form */}
+          <form onSubmit={handleSubmit} className="space-y-5">
+            {/* Username field */}
+            <div>
+              <Label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-2">
+                Username <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                id="username"
+                name="username"
+                type="text"
+                value={formData.username}
+                onChange={handleChange}
+                placeholder="Enter your username"
+                autoComplete="username"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition"
+              />
+            </div>
+
+            {/* Password field */}
+            <div>
+              <Label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
+                Password <span className="text-red-500">*</span>
+              </Label>
+              <div className="relative">
                 <Input
-                  id="username"
-                  name="username"
-                  value={formData.username}
+                  id="password"
+                  name="password"
+                  type={showPassword ? "text" : "password"}
+                  value={formData.password}
                   onChange={handleChange}
-                  placeholder="Enter your username"
-                  autoComplete="username"
-                  className="h-11 sm:h-12 text-sm sm:text-base"
+                  placeholder="Enter your password"
+                  autoComplete="current-password"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition pr-12"
                 />
-              </div>
-
-              <div className="space-y-1.5 sm:space-y-2">
-                <Label htmlFor="password" className="text-sm sm:text-base">Password</Label>
-                <div className="relative">
-                  <Input
-                    id="password"
-                    name="password"
-                    type={showPassword ? "text" : "password"}
-                    value={formData.password}
-                    onChange={handleChange}
-                    placeholder="Enter your password"
-                    autoComplete="current-password"
-                    className="h-11 sm:h-12 pr-10 sm:pr-12 text-sm sm:text-base"
-                  />
-                  <button
-                    type="button"
-                    aria-label={showPassword ? "Hide password" : "Show password"}
-                    onClick={() => setShowPassword(prev => !prev)}
-                    className="absolute right-2 sm:right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
-                  >
-                    {showPassword ? <EyeOff className="h-4 w-4 sm:h-5 sm:w-5" /> : <Eye className="h-4 w-4 sm:h-5 sm:w-5" />}
-                  </button>
-                </div>
-              </div>
-
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-3 text-xs sm:text-sm">
                 <button
                   type="button"
-                  onClick={() => navigate("/forgot-username")}
-                  className="text-orange-600 hover:text-orange-700 font-medium hover:underline"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  onClick={() => setShowPassword(prev => !prev)}
+                  className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700 transition"
                 >
-                  Forgot Username?
-                </button>
-                <button
-                  type="button"
-                  onClick={() => navigate("/forgot-password")}
-                  className="text-orange-600 hover:text-orange-700 font-medium hover:underline"
-                >
-                  Forgot Password?
+                  {showPassword ? (
+                    <EyeOff className="h-5 w-5" />
+                  ) : (
+                    <Eye className="h-5 w-5" />
+                  )}
                 </button>
               </div>
+            </div>
 
-              <Button
-                type="submit"
-                className="w-full bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-700 hover:to-amber-700 text-white h-11 sm:h-auto sm:py-6 text-base sm:text-lg"
-                disabled={loading}
+            {/* Forgot credentials links */}
+            <div className="flex flex-col sm:flex-row gap-3 justify-between text-sm">
+              <button
+                type="button"
+                onClick={() => navigate("/forgot-username")}
+                className="text-orange-600 hover:text-orange-700 font-medium transition"
               >
-                {loading ? (
-                  "Signing in..."
-                ) : (
-                  <>
-                    <LogIn className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
-                    Sign In
-                  </>
-                )}
-              </Button>
+                Forgot username?
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate("/forgot-password")}
+                className="text-orange-600 hover:text-orange-700 font-medium transition"
+              >
+                Forgot password?
+              </button>
+            </div>
 
-              <div className="relative my-4 sm:my-6">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-gray-300"></div>
-                </div>
-                <div className="relative flex justify-center text-xs sm:text-sm">
-                  <span className="px-3 sm:px-4 bg-white text-gray-500">Don't have an account?</span>
-                </div>
+            {/* Sign in button */}
+            <Button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-orange-600 hover:bg-orange-700 text-white font-semibold py-3 rounded-lg transition flex items-center justify-center gap-2"
+            >
+              {loading ? (
+                <>
+                  <div className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full"></div>
+                  Signing in...
+                </>
+              ) : (
+                <>
+                  <LogIn className="h-5 w-5" />
+                  Sign In
+                </>
+              )}
+            </Button>
+
+            {/* Sign up link */}
+            <div className="relative my-6">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-gray-300"></div>
               </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="px-3 bg-white text-gray-600">New to Bidzaro?</span>
+              </div>
+            </div>
 
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => navigate("/register")}
-                className="w-full border sm:border-2 border-orange-600 text-orange-600 hover:bg-orange-50 h-11 sm:h-auto sm:py-6 text-base sm:text-lg"
-              >
-                Create New Account
-              </Button>
+            <Button
+              type="button"
+              onClick={() => navigate("/register")}
+              className="w-full border-2 border-orange-600 text-orange-600 bg-white hover:bg-orange-50 font-semibold py-3 rounded-lg transition flex items-center justify-center gap-2"
+            >
+              Create Account
+              <ArrowRight className="h-5 w-5" />
+            </Button>
 
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={() => navigate("/")}
-                className="w-full h-10 sm:h-auto text-sm sm:text-base"
-              >
-                Back to Home
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
-
-        <div className="mt-4 sm:mt-6 text-center text-xs sm:text-sm text-gray-500 px-2">
-          <p>By signing in, you agree to our Terms of Service and Privacy Policy</p>
+            {/* Back to home link */}
+            <button
+              type="button"
+              onClick={() => navigate("/")}
+              className="w-full text-gray-600 hover:text-gray-900 font-medium py-2 transition"
+            >
+              ← Back to Home
+            </button>
+          </form>
         </div>
       </div>
     </div>

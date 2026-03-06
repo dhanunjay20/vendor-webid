@@ -4,7 +4,7 @@ const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080/api
 
 const withAuth = () => ({
   headers: {
-    Authorization: `Bearer ${localStorage.getItem("webid_token") || ""}`,
+    Authorization: `Bearer ${localStorage.getItem("accessToken") || localStorage.getItem("authToken") || ""}`,
     "Content-Type": "application/json",
   },
 });
@@ -216,12 +216,12 @@ export const chatApi = {
 
   /**
    * D. Mark Conversation as Read
-   * PATCH /chat/conversations/{conversationId}/read
+   * PUT /chat/conversations/{conversationId}/read
    * Marks all messages as read; triggers WebSocket event to other user
    */
   markAsRead: async (conversationId: string): Promise<ApiResponse<any>> => {
     try {
-      const { data } = await axios.patch<ApiResponse<any>>(
+      const { data } = await axios.put<ApiResponse<any>>(
         `${API_BASE}/chat/conversations/${conversationId}/read`,
         {},
         withAuth()
@@ -239,21 +239,25 @@ export const chatApi = {
   },
 
   /**
-   * E. Upload File
-   * POST /chat/upload
+   * E. Upload File for Chat
+   * POST /upload/image or /upload/document
    * Upload image or document for chat messages
    */
   uploadFile: async (file: File): Promise<ApiResponse<FileUploadResponse>> => {
     try {
       const formData = new FormData();
       formData.append("file", file);
+      formData.append("entityType", "CHAT");
+
+      const isDocument = !file.type.startsWith("image/");
+      const endpoint = isDocument ? `${API_BASE}/upload/document` : `${API_BASE}/upload/image`;
 
       const { data } = await axios.post<ApiResponse<FileUploadResponse>>(
-        `${API_BASE}/chat/upload`,
+        endpoint,
         formData,
         {
           headers: {
-            Authorization: `Bearer ${localStorage.getItem("webid_token") || ""}`,
+            Authorization: `Bearer ${localStorage.getItem("accessToken") || localStorage.getItem("authToken") || ""}`,
           },
         }
       );
@@ -271,16 +275,19 @@ export const chatApi = {
 
   /**
    * Send Message via REST (fallback when WebSocket unavailable)
-   * POST /chat/messages
-   * Saves message to database and broadcasts via WebSocket
+   * POST /chat/conversations/{conversationId}/messages
    */
   sendMessage: async (
     request: SendMessageRequest
   ): Promise<ApiResponse<MessageDto>> => {
     try {
       const { data } = await axios.post<ApiResponse<MessageDto>>(
-        `${API_BASE}/chat/messages`,
-        request,
+        `${API_BASE}/chat/conversations/${request.conversationId}/messages`,
+        {
+          message: request.message,
+          messageType: request.messageType,
+          fileUrl: request.attachments?.[0]?.fileUrl,
+        },
         withAuth()
       );
       console.log("[Chat API] Message sent (REST fallback):", data.data?.messageId);
@@ -297,12 +304,12 @@ export const chatApi = {
 
   /**
    * Register FCM Token for Push Notifications
-   * POST /notifications/register-token
+   * PUT /users/me/fcm-token
    */
   registerFCMToken: async (fcmToken: string): Promise<ApiResponse<void>> => {
     try {
-      const { data } = await axios.post<ApiResponse<void>>(
-        `${API_BASE}/notifications/register-token`,
+      const { data } = await axios.put<ApiResponse<void>>(
+        `${API_BASE}/users/me/fcm-token`,
         { fcmToken },
         withAuth()
       );

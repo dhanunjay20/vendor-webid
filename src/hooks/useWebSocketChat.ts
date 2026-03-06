@@ -1,26 +1,16 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
-import { Client, StompSubscription } from '@stomp/stompjs';
-import SockJS from 'sockjs-client';
-import type {
-  MessageDto,
-  WSIncomingMessage,
-  WSTypingEvent,
-  WSReadReceipt,
-  WSUserStatus,
-  WSChatMessage,
-  WSTypingIndicator,
-  MessageAttachment,
-} from '../lib/chatApi';
+import { chatWebSocketService, type MessagePayload, type WebSocketMessageType } from '../lib/websocket/ChatWebSocketService';
+import { getAccessToken } from '../lib/tokenManager';
+import type { MessageAttachment } from '../lib/chatApi';
 
 // ======================================================================
 // TYPES
 // ======================================================================
 
 export interface ChatHookCallbacks {
-  onMessage?: (message: WSIncomingMessage) => void;
-  onTyping?: (event: WSTypingEvent) => void;
-  onReadReceipt?: (event: WSReadReceipt) => void;
-  onUserStatus?: (event: WSUserStatus) => void;
+  onMessage?: (message: MessagePayload) => void;
+  onTyping?: (event: { conversationId: string; userId: string; isTyping: boolean }) => void;
+  onReadReceipt?: (event: { conversationId: string; messageIds: string[] }) => void;
   onConnect?: () => void;
   onDisconnect?: () => void;
   onError?: (error: string) => void;
@@ -36,327 +26,224 @@ export interface ChatHookOptions {
 // PRODUCTION-READY WEBSOCKET CHAT HOOK
 // ======================================================================
 
-export function useWebSocketChat(options: ChatHookOptions, callbacks: ChatHookCallbacks = {}) {
+/**
+ * Hook for real-time chat via WebSocket
+ * 
+ * - Auto-connects on mount
+ * - Auto-disconnects on unmount
+ * - Handles reconnection automatically
+ * - Provides methods for sending messages, typing indicators, and read receipts
+ * 
+ * @example
+ * const { isConnected, sendMessage } = useWebSocketChat(
+ *   { conversationId: '123', autoConnect: true },
+ *   { onMessage: (msg) => console.log(msg) }
+ * );
+ */
+export function useWebSocketChat(
+  options: ChatHookOptions,
+  callbacks: ChatHookCallbacks = {}
+) {
   const { conversationId, autoConnect = true, debug = false } = options;
   const {
     onMessage,
     onTyping,
     onReadReceipt,
-    onUserStatus,
     onConnect,
     onDisconnect,
-    onError
+    onError,
   } = callbacks;
 
-  // Get current user ID from localStorage
-  const currentUserId = localStorage.getItem('webid_user_id') || '';
-
-  const clientRef = useRef<Client | null>(null);
-  const subscriptionsRef = useRef<StompSubscription[]>([]);
-  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
+  const [isConnected, setIsConnected] = useState(false);
+  const unsubscribeRef = useRef<(() => void)[]>([]);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
 
-  const [isConnected, setIsConnected] = useState(false);
-  const [connectionAttempts, setConnectionAttempts] = useState(0);
-
-  const log = useCallback((...args: any[]) => {
-    if (debug) {
-      console.log('[WebSocket Chat]', ...args);
-    }
-  }, [debug]);
+  // Only for logging
+  const log = useCallback(
+    (...args: any[]) => {
+      if (debug) {
+        console.log('[useWebSocketChat]', ...args);
+      }
+    },
+    [debug]
+  );
 
   // ======================================================================
-  // WEBSOCKET CONNECTION
+  // CONNECTION LIFECYCLE
   // ======================================================================
 
-  const connect = useCallback(() => {
+  const setupConnection = useCallback(() => {
     if (!conversationId) {
-      log('No conversation ID provided');
-      return;
-    }
-
-    const token = localStorage.getItem('webid_token') || 
-                  localStorage.getItem('authToken') || 
-                  localStorage.getItem('token');
-    
-    if (!token) {
-      const error = 'No authentication token found';
+      const error = 'No conversation ID provided';
       log(error);
       onError?.(error);
       return;
     }
 
-    // Determine WebSocket URL (prefer SockJS for better compatibility)
-    const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api/v1';
-    const wsBaseUrl = baseUrl.replace('http:', 'ws:').replace('https:', 'wss:');
-    
-    // Use SockJS for reliability with token in URL for additional security
-    const sockJsUrl = `${baseUrl.replace('/api/v1', '')}/api/v1/ws/sockjs/chat?token=${encodeURIComponent(token)}`;
-
-    log('Connecting to WebSocket chat server');
-
-    // Create STOMP client over SockJS
-    const client = new Client({
-      webSocketFactory: () => new SockJS(sockJsUrl),
-      connectHeaders: {
-        Authorization: `Bearer ${token}`,
-        'X-Conversation-ID': conversationId
-      },
-      debug: debug ? (str) => log('STOMP:', str) : undefined,
-      reconnectDelay: 5000,
-      heartbeatIncoming: 4000,
-      heartbeatOutgoing: 4000,
-    });
-
-    // Connection callback
-    client.onConnect = () => {
-      log('Connected');
-      setIsConnected(true);
-      setConnectionAttempts(0);
-      onConnect?.();
-
-      // Subscribe to message topic
-      const messageSub = client.subscribe(
-        `/topic/conversations.${conversationId}`,
-        (message) => {
-          try {
-            const incomingMessage: WSIncomingMessage = JSON.parse(message.body);
-            log('Message received:', incomingMessage);
-            onMessage?.(incomingMessage);
-          } catch (err) {
-            log('Failed to parse message:', err);
-          }
-        }
-      );
-      subscriptionsRef.current.push(messageSub);
-
-      // Subscribe to typing indicators
-      const typingSub = client.subscribe(
-        `/topic/conversations.${conversationId}.typing`,
-        (message) => {
-          try {
-            const typingEvent: WSTypingEvent = JSON.parse(message.body);
-            log('Typing event:', typingEvent);
-            onTyping?.(typingEvent);
-          } catch (err) {
-            log('Failed to parse typing event:', err);
-          }
-        }
-      );
-      subscriptionsRef.current.push(typingSub);
-
-      // Subscribe to read receipts
-      const readSub = client.subscribe(
-        `/topic/conversations.${conversationId}.read`,
-        (message) => {
-          try {
-            const readReceipt: WSReadReceipt = JSON.parse(message.body);
-            log('Read receipt:', readReceipt);
-            onReadReceipt?.(readReceipt);
-          } catch (err) {
-            log('Failed to parse read receipt:', err);
-          }
-        }
-      );
-      subscriptionsRef.current.push(readSub);
-
-      // Subscribe to user presence/status
-      const statusSub = client.subscribe(
-        `/topic/public.users`,
-        (message) => {
-          try {
-            const userStatus: WSUserStatus = JSON.parse(message.body);
-            log('User status:', userStatus);
-            onUserStatus?.(userStatus);
-          } catch (err) {
-            log('Failed to parse user status:', err);
-          }
-        }
-      );
-      subscriptionsRef.current.push(statusSub);
-    };
-
-    // Disconnection callback
-    client.onDisconnect = () => {
-      log('Disconnected');
-      setIsConnected(false);
-      onDisconnect?.();
-    };
-
-    // Error callback
-    client.onStompError = (frame) => {
-      const error = `STOMP error: ${frame.headers['message']} - ${frame.body}`;
+    if (!getAccessToken()) {
+      const error = 'No authentication token available';
       log(error);
       onError?.(error);
-    };
+      return;
+    }
 
-    //WebSocket error callback
-    client.onWebSocketError = (event) => {
-      const error = 'WebSocket connection error';
-      log(error, event);
-      onError?.(error);
-      
-      // Retry connection with exponential backoff
-      setConnectionAttempts(prev => prev + 1);
-    };
+    (async () => {
+      try {
+        // Connect to WebSocket service
+        await chatWebSocketService.connect();
+        log('Connected to chat server');
+        setIsConnected(true);
+        onConnect?.();
 
-    clientRef.current = client;
-    client.activate();
-  }, [conversationId, debug, log, onMessage, onTyping, onReadReceipt, onUserStatus, onConnect, onDisconnect, onError]);
+        // Subscribe to messages for this conversation
+        const unsubscribeMessages = chatWebSocketService.subscribeToConversation(
+          conversationId,
+          (msg: MessagePayload) => {
+            log('Message received:', msg);
+            onMessage?.(msg);
+          }
+        );
+        unsubscribeRef.current.push(unsubscribeMessages);
 
-  // ======================================================================
-  // DISCONNECT
-  // ======================================================================
+        // Register global message handler for other event types
+        const unsubscribeGlobal = chatWebSocketService.onMessage(
+          (wsMessage: WebSocketMessageType) => {
+            if (wsMessage.type === 'typing' && wsMessage.payload.conversationId === conversationId) {
+              log('Typing indicator:', wsMessage.payload);
+              onTyping?.(wsMessage.payload);
+            } else if (wsMessage.type === 'read' && wsMessage.payload.conversationId === conversationId) {
+              log('Read receipt:', wsMessage.payload);
+              onReadReceipt?.(wsMessage.payload);
+            }
+          }
+        );
+        unsubscribeRef.current.push(unsubscribeGlobal);
+      } catch (error) {
+        const errorMsg = `Failed to connect: ${error instanceof Error ? error.message : String(error)}`;
+        log('Connection error:', errorMsg);
+        onError?.(errorMsg);
+        setIsConnected(false);
+      }
+    })();
+  }, [conversationId, debug, log, onConnect, onError, onMessage, onReadReceipt, onTyping]);
 
-  const disconnect = useCallback(() => {
-    log('Disconnecting...');
+  const teardownConnection = useCallback(() => {
+    log('Disconnecting from chat server');
     
     // Unsubscribe from all topics
-    subscriptionsRef.current.forEach(sub => sub.unsubscribe());
-    subscriptionsRef.current = [];
-
-    // Deactivate client
-    if (clientRef.current) {
-      clientRef.current.deactivate();
-      clientRef.current = null;
-    }
-
-    setIsConnected(false);
-    clearTimeout(reconnectTimeoutRef.current);
-    clearTimeout(typingTimeoutRef.current);
-  }, [log]);
-
-  // ======================================================================
-  // SEND MESSAGE
-  // ======================================================================
-
-  const sendMessage = useCallback((
-    message: string, 
-    messageType: 'TEXT' | 'IMAGE' | 'FILE' = 'TEXT',
-    attachments?: MessageAttachment[]
-  ): boolean => {
-    if (!clientRef.current || !clientRef.current.connected) {
-      const error = 'WebSocket not connected';
-      log(error);
-      onError?.(error);
-      return false;
-    }
-
-    try {
-      const payload: WSChatMessage = {
-        conversationId,
-        message,
-        messageType,
-        ...(attachments && attachments.length > 0 && { attachments })
-      };
-
-      clientRef.current.publish({
-        destination: '/app/chat.sendMessage',
-        body: JSON.stringify(payload)
-      });
-
-      log('Message sent:', payload);
-      return true;
-    } catch (error) {
-      const errorMsg = `Failed to send message: ${error}`;
-      log(errorMsg);
-      onError?.(errorMsg);
-      return false;
-    }
-  }, [conversationId, log, onError]);
-
-  // ======================================================================
-  // SEND TYPING INDICATOR
-  // ======================================================================
-
-  const sendTyping = useCallback((isTyping: boolean = true) => {
-    if (!clientRef.current || !clientRef.current.connected) {
-      return;
-    }
-
-    if (!currentUserId) {
-      log('No user ID available for typing indicator');
-      return;
-    }
-
-    try {
-      const payload: WSTypingIndicator = {
-        conversationId,
-        userId: currentUserId,  // CRITICAL: Include current user's ID
-        typing: isTyping
-      };
-
-      clientRef.current.publish({
-        destination: '/app/chat.typing',
-        body: JSON.stringify(payload)
-      });
-
-      log('Typing indicator sent:', isTyping);
-
-      // Auto-stop typing after 3 seconds if user doesn't send a message
-      if (isTyping) {
-        clearTimeout(typingTimeoutRef.current);
-        typingTimeoutRef.current = setTimeout(() => {
-          sendTyping(false);
-        }, 3000);
+    unsubscribeRef.current.forEach((unsubscribe) => {
+      try {
+        unsubscribe();
+      } catch (error) {
+        console.error('Error unsubscribing:', error);
       }
-    } catch (error) {
-      log('Failed to send typing indicator:', error);
-    }
-  }, [conversationId, currentUserId, log]);
+    });
+    unsubscribeRef.current = [];
+
+    // Clear typing timeout
+    clearTimeout(typingTimeoutRef.current);
+
+    // Update state but don't disconnect service (it may be used by other components)
+    setIsConnected(false);
+    onDisconnect?.();
+  }, [log, onDisconnect]);
 
   // ======================================================================
-  // SEND READ RECEIPT
+  // PUBLIC API - MESSAGE SENDING
   // ======================================================================
 
-  const sendReadReceipt = useCallback((readAt: string = new Date().toISOString()) => {
-    if (!clientRef.current || !clientRef.current.connected) {
-      return;
-    }
+  const sendMessage = useCallback(
+    async (
+      message: string,
+      messageType: 'TEXT' | 'IMAGE' | 'FILE' = 'TEXT'
+    ) => {
+      if (!chatWebSocketService.getIsConnected()) {
+        const error = 'WebSocket not connected. Cannot send message.';
+        log(error);
+        onError?.(error);
+        throw new Error(error);
+      }
 
-    try {
-      const payload = {
-        conversationId,
-        readAt
-      };
+      try {
+        log('Sending message:', { conversationId, message, messageType });
+        await chatWebSocketService.sendMessage(conversationId, message, messageType);
+        return true;
+      } catch (error) {
+        const errorMsg = `Failed to send message: ${error instanceof Error ? error.message : String(error)}`;
+        log(errorMsg);
+        onError?.(errorMsg);
+        throw error;
+      }
+    },
+    [conversationId, log, onError]
+  );
 
-      clientRef.current.publish({
-        destination: '/app/chat.markRead',
-        body: JSON.stringify(payload)
-      });
+  const sendTypingIndicator = useCallback(
+    (isTyping: boolean = true) => {
+      if (!chatWebSocketService.getIsConnected()) {
+        log('WebSocket not connected. Cannot send typing indicator.');
+        return;
+      }
 
-      log('Read receipt sent:', readAt);
-    } catch (error) {
-      log('Failed to send read receipt:', error);
-    }
-  }, [conversationId, log]);
+      try {
+        log(`Sending typing indicator: ${isTyping}`);
+        chatWebSocketService.sendTypingIndicator(conversationId, isTyping);
+
+        // Auto-stop typing after 3 seconds if not continued
+        if (isTyping) {
+          clearTimeout(typingTimeoutRef.current);
+          typingTimeoutRef.current = setTimeout(() => {
+            sendTypingIndicator(false);
+          }, 3000);
+        } else {
+          clearTimeout(typingTimeoutRef.current);
+        }
+      } catch (error) {
+        console.error('Failed to send typing indicator:', error);
+      }
+    },
+    [conversationId, log]
+  );
+
+  const sendReadReceipt = useCallback(
+    (messageIds: string[]) => {
+      if (!chatWebSocketService.getIsConnected()) {
+        log('WebSocket not connected. Cannot send read receipt.');
+        return;
+      }
+
+      try {
+        log('Sending read receipt for messages:', messageIds);
+        chatWebSocketService.sendReadReceipt(conversationId, messageIds);
+      } catch (error) {
+        console.error('Failed to send read receipt:', error);
+      }
+    },
+    [conversationId, log]
+  );
 
   // ======================================================================
-  // LIFECYCLE
+  // LIFECYCLE MANAGEMENT
   // ======================================================================
 
-  // Auto-connect on mount
   useEffect(() => {
     if (autoConnect && conversationId) {
-      connect();
+      setupConnection();
     }
 
     return () => {
-      disconnect();
+      teardownConnection();
     };
-  }, [autoConnect, conversationId, connect, disconnect]);
+  }, [autoConnect, conversationId, setupConnection, teardownConnection]);
 
   // ======================================================================
-  // RETURN INTERFACE
+  // RETURN HOOK INTERFACE
   // ======================================================================
 
   return {
     isConnected,
-    connectionAttempts,
-    connect,
-    disconnect,
     sendMessage,
-    sendTyping,
+    sendTypingIndicator,
     sendReadReceipt,
   };
 }

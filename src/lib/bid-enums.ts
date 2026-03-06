@@ -13,8 +13,10 @@ export enum BidRequestStatus {
 
 /**
  * Bid Status - Status of the vendor's bid
+ * Per API docs: PENDING | ACCEPTED | REJECTED | EXPIRED | WITHDRAWN
  */
 export enum BidStatus {
+  PENDING = "PENDING",
   SUBMITTED = "SUBMITTED",
   REVISED = "REVISED",
   ACCEPTED = "ACCEPTED",
@@ -52,6 +54,7 @@ export function getBidRequestStatusLabel(status: string | BidRequestStatus): str
  */
 export function getBidStatusLabel(status: string | BidStatus): string {
   const labels: Record<string, string> = {
+    [BidStatus.PENDING]: "Pending",
     [BidStatus.SUBMITTED]: "Submitted",
     [BidStatus.REVISED]: "Revised",
     [BidStatus.ACCEPTED]: "Accepted",
@@ -71,7 +74,7 @@ export function getStatusBadgeClass(status: string): string {
   if (statusUpper === BidRequestStatus.ACTIVE || statusUpper === BidRequestStatus.COMPETITIVE) {
     return "bg-orange-500/20 text-orange-700 dark:text-orange-300";
   }
-  if (statusUpper === BidRequestStatus.COOLING) {
+  if (statusUpper === BidRequestStatus.COOLING || statusUpper === BidStatus.PENDING) {
     return "bg-blue-500/20 text-blue-700 dark:text-blue-300";
   }
   if (statusUpper === BidRequestStatus.ACCEPTED || statusUpper === BidStatus.ACCEPTED) {
@@ -96,11 +99,11 @@ export function isRequestOpen(status: string): boolean {
 }
 
 /**
- * Check if a bid is in cooling period (can be revised)
+ * Check if a bid can be revised (PENDING or SUBMITTED or REVISED bids can be revised)
  */
 export function isBidInCoolingPeriod(bidStatus: string): boolean {
   const statusUpper = bidStatus?.toUpperCase() || "";
-  return statusUpper === BidStatus.SUBMITTED || statusUpper === BidStatus.REVISED;
+  return statusUpper === BidStatus.PENDING || statusUpper === BidStatus.SUBMITTED || statusUpper === BidStatus.REVISED;
 }
 
 /**
