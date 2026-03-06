@@ -1,6 +1,7 @@
 ﻿import { useState, useEffect, useCallback } from "react";
 import {
   Plus, Pencil, Trash2, Search, ChevronLeft, Package, AlertCircle, X,
+  DollarSign, Clock, Users, Settings2, ToggleRight,
 } from "lucide-react";
 import * as api from "@/lib/api";
 import { Button } from "@/components/ui/button";
@@ -95,6 +96,26 @@ function fmt(n?: number) {
 
 function displayName(item: VendorItem) {
   return item.customName || item.masterItemName || "Unnamed Item";
+}
+
+function normalizeVendorItem(it: any): VendorItem {
+  return {
+    vendorItemId: it.vendorItemId || it.id || "",
+    masterItemId: it.masterItemId || "",
+    masterItemName: it.masterItemName || "",
+    masterItemCategory: it.masterItemCategory || it.categoryName || "",
+    masterItemImage:
+      it.masterItemImage ||
+      (Array.isArray(it.images) ? it.images[0] : undefined) ||
+      it.image || "",
+    customName: it.customName || "",
+    customDescription: it.customDescription || "",
+    pricing: it.pricing || {},
+    availability: it.availability || { isAvailable: it.available ?? true },
+    preparationTimeMinutes: it.preparationTimeMinutes,
+    customizationOptions: it.customizationOptions || [],
+    status: it.status || "ACTIVE",
+  };
 }
 
 // â”€â”€ Pricing sub-form â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€

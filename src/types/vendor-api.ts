@@ -84,39 +84,91 @@ export interface VendorDocument {
   uploadedAt: string;
 }
 
-/** POST /vendors/register — request body */
+/** POST /vendors — request body */
 export interface VendorRegistrationRequest {
   businessName: string;
   businessEmail: string;
   businessPhone: string;
-  businessType: string; // CATERING | RESTAURANT | HOME_CHEF | CLOUD_KITCHEN
+  businessType: string; // CATERING | RESTAURANT | CLOUD_KITCHEN | HOME_CHEF | BAKERY
   businessRegistrationNumber?: string;
   taxId?: string;
   description?: string;
   establishedYear?: number;
   cuisinesOffered?: string[];
   specialties?: string[];
-  businessAddress: Address;
-  ownerInfo: OwnerInfo;
+  businessAddress?: {
+    streetAddress: string;
+    city: string;
+    state: string;
+    postalCode: string;
+    latitude?: number;
+    longitude?: number;
+  };
+  ownerInfo?: {
+    firstName: string;
+    lastName: string;
+    phone?: string;
+    email?: string;
+    idProofType?: string;
+    idProofNumber?: string;
+  };
   serviceAreas?: ServiceArea[];
-  capacity: VendorCapacity;
-  pricing: VendorPricing;
-  country: string; // INDIA | USA
+  capacity?: VendorCapacity;
+  pricing?: VendorPricing;
+  country: string; // INDIA | USA — required
+  documents?: Array<{
+    documentType: string;
+    documentName: string;
+    documentUrl: string;
+    documentNumber?: string;
+    issueDate?: string;
+    expiryDate?: string;
+  }>;
 }
 
-/** PUT /vendors/{vendorId} — request body */
+/** PUT /vendors/me — all fields optional */
 export interface VendorUpdateRequest {
   businessName?: string;
   businessEmail?: string;
   businessPhone?: string;
+  businessType?: string;
+  businessRegistrationNumber?: string;
+  taxId?: string;
   description?: string;
+  establishedYear?: number;
   cuisinesOffered?: string[];
   specialties?: string[];
   logoUrl?: string;
   bannerUrl?: string;
+  businessAddress?: {
+    streetAddress?: string;
+    city?: string;
+    state?: string;
+    postalCode?: string;
+    country?: string;
+    latitude?: number;
+    longitude?: number;
+  };
+  ownerInfo?: {
+    firstName?: string;
+    lastName?: string;
+    phone?: string;
+    email?: string;
+    idProofType?: string;
+    idProofNumber?: string;
+  };
   serviceAreas?: ServiceArea[];
-  capacity?: VendorCapacity;
-  pricing?: VendorPricing;
+  capacity?: Partial<VendorCapacity>;
+  pricing?: Partial<VendorPricing>;
+  country?: string;
+  documents?: Array<{
+    documentType: string;
+    documentName: string;
+    documentUrl: string;
+    documentNumber?: string;
+    issueDate?: string;
+    expiryDate?: string;
+  }>;
 }
 
 /** Full vendor profile response (GET /vendors/my-profile, POST /vendors/register response, etc.) */
@@ -188,24 +240,29 @@ export interface MenuItemStats {
   totalReviews: number;
 }
 
-/** POST /menu/vendor-items — request body */
+/** POST /menu/vendor-items — request body (flat fields, not nested) */
 export interface AddMenuItemRequest {
-  masterItemId: string;
+  masterItemId: string;           // Required on POST
   customName?: string;
   customDescription?: string;
-  pricing: MenuItemPricing;
-  availability: MenuItemAvailability;
-  preparationTimeMinutes?: number;
+  pricePerPlate: number;          // Required on POST, must be >= 0.01
+  minimumOrderQuantity?: number;  // Min 1, default 1
+  discountPercentage?: number;    // 0–100
+  isAvailable?: boolean;          // Default true
+  unavailableReason?: string;
+  advanceNoticeHours?: number;    // Min 0
+  maxDailyCapacity?: number;      // Min 1
+  preparationTimeMinutes?: number; // Min 1
   customizationOptions?: CustomizationOption[];
 }
 
-/** PUT /menu/vendor-items/{vendorItemId} — request body (same shape) */
+/** PUT /menu/vendor-items/{vendorItemId} — all fields optional, same flat shape */
 export type UpdateMenuItemRequest = Partial<Omit<AddMenuItemRequest, 'masterItemId'>>;
 
-/** PATCH /menu/vendor-items/{vendorItemId}/availability */
+/** PATCH /menu/vendor-items/{vendorItemId}/availability — sent as QUERY PARAMS not body */
 export interface ToggleAvailabilityRequest {
   isAvailable: boolean;
-  reason?: string;
+  reason?: string;  // maps to &reason= query param
 }
 
 /** Full vendor menu item response */
@@ -311,17 +368,15 @@ export interface StaffProvided {
   cleaners?: number;
 }
 
-/** POST /bids/submit — request body */
+/** POST /bids/{bidRequestId}/submit — request body (bidRequestId is a PATH param) */
 export interface SubmitBidRequest {
-  bidRequestId: string;
   quotedPrice: QuotedPrice;
   itemizedPricing?: ItemizedPrice[];
   deliveryDetails?: DeliveryDetails;
   staffProvided?: StaffProvided;
   termsAndConditions?: string;
-  validityPeriodHours: number;
-  advancePercentage: number;
-  requiredAdvanceAmount: number;
+  validityPeriodHours?: number;   // Default 168 (7 days)
+  advancePercentage?: number;     // 0–100
 }
 
 /** PUT /bids/{bidId} — request body */
@@ -333,10 +388,9 @@ export interface ReviseBidRequest {
   termsAndConditions?: string;
   validityPeriodHours?: number;
   advancePercentage?: number;
-  requiredAdvanceAmount?: number;
 }
 
-/** Full bid response (GET /bids/my-bids, POST /bids/submit response) */
+/** Full bid response */
 export interface VendorBidResponse {
   bidId: string;
   bidRequestId: string;
@@ -350,9 +404,9 @@ export interface VendorBidResponse {
   termsAndConditions?: string | null;
   validityPeriodHours: number;
   advancePercentage: number;
-  requiredAdvanceAmount: number;
+  requiredAdvanceAmount: number; // server-calculated
   revisionCount: number;
-  status: string; // PENDING | ACCEPTED | REJECTED | EXPIRED | WITHDRAWN
+  status: string; // SUBMITTED | REVISED | ACCEPTED | REJECTED | EXPIRED | WITHDRAWN
   isLowest: boolean;
   rank: number;
   submittedAt: string;
@@ -451,13 +505,13 @@ export interface VendorReviewResponse {
   } | null;
 }
 
-/** GET /reviews/vendor/{vendorId} response item */
+/** GET /reviews/vendor/my response item */
 export interface ReviewResponse {
   reviewId: string;
   orderId: string;
   vendorId: string;
   userId: string;
-  userName: string;
+  userName?: string;
   rating: number;
   foodQualityRating?: number;
   serviceQualityRating?: number;
@@ -471,8 +525,11 @@ export interface ReviewResponse {
     respondedAt: string;
   } | null;
   helpfulCount: number;
+  reportedCount?: number;
+  moderationNotes?: string | null;
   status: string; // APPROVED | PENDING | REJECTED
   createdAt: string;
+  updatedAt?: string;
 }
 
 /** POST /reviews/{reviewId}/vendor-response — request body */
@@ -482,74 +539,73 @@ export interface VendorReviewResponseRequest {
 
 // ==================== Analytics ====================
 
-export interface VendorMetrics {
+export interface RevenueMetrics {
+  totalRevenue: number;
+  currentMonthRevenue: number;
+  lastMonthRevenue: number;
+  revenueGrowth: number;
+  pendingPayouts: number;
+}
+
+export interface OrderMetrics {
   totalOrders: number;
   completedOrders: number;
-  pendingOrders: number;
   cancelledOrders: number;
-  totalRevenue: number;
-  pendingPayouts: number;
-  thisMonthRevenue: number;
-  currency: string;
+  activeOrders: number;
+  completionRate: number;
+  cancellationRate: number;
 }
 
 export interface BidMetrics {
   totalBidsSubmitted: number;
-  acceptedBids: number;
-  pendingBids: number;
-  acceptanceRate: number;
-  averageBidAmount: number;
+  bidsAccepted: number;
+  bidsRejected: number;
+  bidsPending: number;
+  bidSuccessRate: number;
 }
 
-export interface RecentOrderSummary {
-  orderId: string;
-  eventName: string;
-  eventDate: string;
-  guestCount: number;
-  amount: number;
-  status: string;
+export interface RatingMetrics {
+  averageRating: number;
+  totalReviews: number;
+  fiveStarCount: number;
+  fourStarCount: number;
+  threeStarCount: number;
+  twoStarCount: number;
+  oneStarCount: number;
 }
 
 export interface UpcomingEventSummary {
   orderId: string;
-  eventName: string;
+  eventType: string;
   eventDate: string;
-  eventTime: string;
-  venue: string;
-  guestCount: number;
-  daysUntil: number;
-}
-
-export interface PerformanceMetrics {
-  averageRating: number;
-  totalReviews: number;
-  responseRate: number;
-  onTimeDeliveryRate: number;
-  repeatCustomers: number;
+  numberOfGuests: number;
+  totalAmount: number;
+  status: string;
 }
 
 /** GET /analytics/vendor/dashboard response */
 export interface VendorDashboardResponse {
-  vendorId: string;
-  vendorName: string;
-  metrics: VendorMetrics;
+  revenueMetrics: RevenueMetrics;
+  orderMetrics: OrderMetrics;
   bidMetrics: BidMetrics;
-  recentOrders: RecentOrderSummary[];
+  ratingMetrics: RatingMetrics;
   upcomingEvents: UpcomingEventSummary[];
-  performance: PerformanceMetrics;
 }
 
 // ==================== File Upload ====================
 
-/** POST /uploads/document response */
+/** POST /upload/image or POST /upload/document response */
 export interface FileUploadResponse {
   fileId: string;
   fileName: string;
   originalName: string;
-  fileType: string; // DOCUMENT | IMAGE
+  fileUrl: string;
+  fileType: string; // IMAGE | DOCUMENT
   contentType: string;
   fileSize: number;
-  fileUrl: string;
+  entityType?: string; // VENDOR_LOGO | VENDOR_BANNER | MENU_ITEM | VENDOR_DOCUMENT
+  entityId?: string;
+  uploadedBy?: string;
   createdAt: string;
 }
 
@@ -573,8 +629,10 @@ export interface ConversationResponse {
   conversationId: string;
   participants: ChatParticipant[];
   otherParticipant?: ChatParticipant;
+  conversationType?: string; // USER_VENDOR | VENDOR_SUPPORT
+  relatedTo?: { entityType: string; entityId: string } | null;
   lastMessage?: LastMessage | null;
-  unreadCount: number;
+  unreadCount: Record<string, number> | number; // map of userId -> count, or scalar
   status: string; // ACTIVE | ARCHIVED
   createdAt: string;
   updatedAt?: string;
@@ -595,9 +653,13 @@ export interface ChatMessageResponse {
   senderType: string; // USER | VENDOR
   senderName?: string | null;
   message: string;
-  messageType: string; // TEXT | IMAGE | FILE
+  messageType: string; // TEXT | IMAGE | FILE | SYSTEM
   attachments?: MessageAttachment[] | null;
+  readBy?: Array<{ userId: string; readAt: string }>;
+  isDeleted?: boolean;
+  deletedAt?: string | null;
   timestamp: string;
+  createdAt?: string;
 }
 
 /** POST /chat/conversations — request */
@@ -615,7 +677,18 @@ export interface SendChatMessage {
 
 // ==================== Status Enums ====================
 
-export type VendorStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'SUSPENDED' | 'ACTIVE' | 'INACTIVE';
-export type BidStatus = 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'EXPIRED' | 'WITHDRAWN';
-export type OrderVendorStatus = 'ACCEPTED' | 'IN_PREPARATION' | 'DISPATCHED' | 'SETUP_IN_PROGRESS' | 'DELIVERED' | 'COMPLETED' | 'CANCELLED';
+export type VendorStatus = 'PENDING_APPROVAL' | 'ACTIVE' | 'SUSPENDED' | 'REJECTED' | 'DELETED';
+export type ApprovalStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'UNDER_REVIEW';
+export type BusinessType = 'CATERING' | 'RESTAURANT' | 'CLOUD_KITCHEN' | 'HOME_CHEF' | 'BAKERY';
+export type DocumentVerificationStatus = 'PENDING' | 'VERIFIED' | 'REJECTED';
+export type BidStatus = 'SUBMITTED' | 'REVISED' | 'ACCEPTED' | 'REJECTED' | 'EXPIRED' | 'WITHDRAWN';
+export type VendorOrderStatus = 'PENDING' | 'ACCEPTED' | 'CONFIRMED' | 'IN_PREPARATION' | 'READY' | 'DELIVERED' | 'COMPLETED';
+export type DeliveryStatus = 'PENDING' | 'ON_THE_WAY' | 'DELIVERED';
+export type OrderStatus = 'PENDING_TOKEN_PAYMENT' | 'CONFIRMED' | 'IN_PREPARATION' | 'READY_FOR_DELIVERY' | 'DELIVERING' | 'DELIVERED' | 'COMPLETED' | 'CANCELLED';
+export type MenuItemStatus = 'ACTIVE' | 'INACTIVE' | 'OUT_OF_STOCK';
+export type FoodType = 'VEG' | 'NON_VEG' | 'VEGAN' | 'EGG';
+export type SpiceLevel = 'MILD' | 'MEDIUM' | 'HOT' | 'EXTRA_HOT';
+export type ConversationType = 'USER_VENDOR' | 'VENDOR_SUPPORT';
+export type MessageType = 'TEXT' | 'IMAGE' | 'FILE' | 'SYSTEM';
+export type PaymentMethod = 'CARD' | 'UPI' | 'NET_BANKING' | 'WALLET';
 export type PaymentStatus = 'TOKEN_PAID' | 'PARTIALLY_PAID' | 'FULLY_PAID';

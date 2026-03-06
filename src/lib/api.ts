@@ -565,21 +565,60 @@ export async function getMasterMenuItems(page = 0, size = 20, search?: string) {
   }
 }
 
-// GET /api/v1/menu/vendor?vendorId=...&page=0&size=20
+/**
+ * Get the authenticated vendor's OWN menu items.
+ * Uses GET /api/v1/menu/vendor-items/my — vendorId is derived from JWT on the server.
+ * No vendorId query param required. Falls back to public endpoint with stored vendorId
+ * if the /my endpoint is unavailable.
+ */
 export async function getMenuItems(_vendorOrganizationId?: string, page: number = 0, size: number = 100) {
   try {
-    const vendorId = localStorage.getItem("vendorId");
-    let url = buildUrl(`/api/v1/menu/vendor?page=${page}&size=${size}`);
-    if (vendorId) url += `&vendorId=${encodeURIComponent(vendorId)}`;
+    // Primary: authenticated /my endpoint — no vendorId param needed, derived from JWT
+    const url = buildUrl(`/api/v1/menu/vendor-items/my?page=${page}&size=${size}`);
     const res = await apiClient.get(url);
-    // Return flat array for backward compatibility — extract data from paginated response
-    if (res.data && res.data.data && Array.isArray(res.data.data)) {
+    if (res.data?.data && Array.isArray(res.data.data)) {
       return res.data.data;
     }
-    return res.data;
+    return Array.isArray(res.data) ? res.data : [];
   } catch (err: any) {
-    const { message, status: errStatus } = extractError(err);
-    throw { message, status: errStatus } as ApiError;
+    // Fallback: public endpoint with vendorId query param
+    try {
+      let vendorId = localStorage.getItem("vendorId");
+      if (!vendorId) {
+        const stored = localStorage.getItem("vendorProfile");
+        if (stored) {
+          const p = JSON.parse(stored);
+          const src = p?.data || p;
+          vendorId = src?.vendorId || src?.id || null;
+          if (vendorId) localStorage.setItem("vendorId", String(vendorId));
+        }
+      }
+      if (!vendorId) throw err; // re-throw original error
+      const fallbackUrl = buildUrl(`/api/v1/menu/vendor-items?vendorId=${encodeURIComponent(vendorId)}&page=${page}&size=${size}`);
+      const fallbackRes = await apiClient.get(fallbackUrl);
+      if (fallbackRes.data?.data && Array.isArray(fallbackRes.data.data)) {
+        return fallbackRes.data.data;
+      }
+      return Array.isArray(fallbackRes.data) ? fallbackRes.data : [];
+    } catch (fallbackErr: any) {
+      const { message, status: errStatus } = extractError(fallbackErr);
+      throw { message, status: errStatus } as ApiError;
+    }
+  }
+}
+
+/**
+ * Get single vendor menu item
+ * GET /api/v1/menu/vendor-items/{vendorItemId}
+ */
+export async function getSingleVendorMenuItem(vendorItemId: string) {
+  try {
+    const url = buildUrl(`/api/v1/menu/vendor-items/${vendorItemId}`);
+    const res = await apiClient.get(url);
+    return res.data?.data || res.data;
+  } catch (err: any) {
+    const { message, status } = extractError(err);
+    throw { message, status } as ApiError;
   }
 }
 
@@ -608,8 +647,8 @@ export async function getBidById(vendorOrgId: string, bidId: string) {
 
 export async function createMenuItem(_vendorOrganizationId: string, payload: any) {
   try {
-    // POST /api/v1/menu/vendor
-    const url = buildUrl(`/api/v1/menu/vendor`);
+    // POST /api/v1/menu/vendor-items
+    const url = buildUrl(`/api/v1/menu/vendor-items`);
     const res = await apiClient.post(url, payload);
     return res.data?.data || res.data;
   } catch (err: any) {
@@ -631,8 +670,8 @@ export async function submitBidQuote(vendorOrgId: string, bidId: string, payload
 
 export async function updateMenuItem(_vendorOrganizationId: string, id: string, payload: any) {
   try {
-    // PUT /api/v1/menu/vendor/{vendorItemId}
-    const url = buildUrl(`/api/v1/menu/vendor/${id}`);
+    // PUT /api/v1/menu/vendor-items/{vendorItemId}
+    const url = buildUrl(`/api/v1/menu/vendor-items/${id}`);
     const res = await apiClient.put(url, payload);
     return res.data?.data || res.data;
   } catch (err: any) {
@@ -825,6 +864,21 @@ export async function getBidRequestDetails(bidRequestId: string) {
 }
 
 /**
+ * Get bid by ID
+ * GET /api/v1/bids/{bidId}
+ */
+export async function getBidByIdV1(bidId: string) {
+  try {
+    const url = buildUrl(`/api/v1/bids/${bidId}`);
+    const res = await apiClient.get(url);
+    return res.data;
+  } catch (err: any) {
+    const { message, status } = extractError(err);
+    throw { message, status } as ApiError;
+  }
+}
+
+/**
  * @deprecated Use submitBid instead
  */
 export async function submitBidQuotation(bidRequestId: string, payload: any) {
@@ -841,8 +895,8 @@ export async function updateBidQuotation(bidId: string, payload: any) {
 export async function deleteMenuItem(_vendorOrganizationId: string, id: string) {
 
   try {
-    // DELETE /api/v1/menu/vendor/{vendorItemId}
-    const url = buildUrl(`/api/v1/menu/vendor/${id}`);
+    // DELETE /api/v1/menu/vendor-items/{vendorItemId}
+    const url = buildUrl(`/api/v1/menu/vendor-items/${id}`);
     const res = await apiClient.delete(url);
     return res.data;
   } catch (err: any) {
@@ -853,7 +907,7 @@ export async function deleteMenuItem(_vendorOrganizationId: string, id: string) 
 
 /**
  * Toggle menu item availability
- * PATCH /api/v1/menu/vendor/{vendorItemId}/availability
+ * PATCH /api/v1/menu/vendor-items/{vendorItemId}/availability?isAvailable=...&reason=...
  */
 export async function toggleMenuItemAvailability(
   vendorItemId: string,
@@ -861,8 +915,7 @@ export async function toggleMenuItemAvailability(
   reason?: string
 ) {
   try {
-    // PATCH with query params per backend controller
-    let url = buildUrl(`/api/v1/menu/vendor/${vendorItemId}/availability?isAvailable=${isAvailable}`);
+    let url = buildUrl(`/api/v1/menu/vendor-items/${vendorItemId}/availability?isAvailable=${isAvailable}`);
     if (!isAvailable && reason) url += `&reason=${encodeURIComponent(reason)}`;
     const res = await apiClient.patch(url);
     return res.data;
@@ -916,6 +969,21 @@ export async function getVendorOrders(page: number = 0, size: number = 20, statu
     if (status && status !== 'all') {
       url += `&status=${encodeURIComponent(status)}`;
     }
+    const res = await apiClient.get(url);
+    return res.data;
+  } catch (err: any) {
+    const { message, status: errStatus } = extractError(err);
+    throw { message, status: errStatus } as ApiError;
+  }
+}
+
+/**
+ * Get single order by ID
+ * GET /api/v1/orders/{orderId}
+ */
+export async function getVendorOrderById(orderId: string) {
+  try {
+    const url = buildUrl(`/api/v1/orders/${orderId}`);
     const res = await apiClient.get(url);
     return res.data;
   } catch (err: any) {
@@ -1372,9 +1440,11 @@ export default {
   searchServicesByArea,
   deleteServiceDetails,
   getMenuItems,
+  getMasterMenuItems,
   createMenuItem,
   updateMenuItem,
   deleteMenuItem,
+  getSingleVendorMenuItem,
   toggleMenuItemAvailability,
   uploadDocument,
   getBidsByVendor,
@@ -1386,6 +1456,7 @@ export default {
   submitBid,
   reviseBid,
   withdrawBid,
+  getBidByIdV1,
   submitBidQuotation,
   updateBidQuotation,
   getBidRequestDetails,
@@ -1393,6 +1464,7 @@ export default {
   updateOrderStatus,
   updateOrderStatusNew,
   getVendorOrders,
+  getVendorOrderById,
   getOrderTransactions,
   cancelOrder,
   getVendorNotifications,
@@ -1411,7 +1483,6 @@ export default {
   uploadDocumentFile,
   createSupportTicket,
   getMySupportTickets,
-  getMasterMenuItems,
   sendOtp,
   verifyOtp,
 };

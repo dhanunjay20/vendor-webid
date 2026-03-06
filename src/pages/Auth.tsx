@@ -124,10 +124,11 @@ const Auth: React.FC = () => {
       setCheckingProfile(true);
       try {
         const vendorProfile = await api.getVendorMe();
+        const profileData = vendorProfile?.data || vendorProfile;
         
-        if (vendorProfile && vendorProfile.id) {
+        if (vendorProfile && (profileData?.id || profileData?.vendorId)) {
           // Profile exists, check approval status
-          const approvalStatus = vendorProfile.approvalStatus || vendorProfile.approval_status;
+          const approvalStatus = profileData?.approvalStatus || profileData?.approval_status || vendorProfile.approvalStatus || vendorProfile.approval_status;
           
           if (approvalStatus === "PENDING") {
             toast({
@@ -243,14 +244,17 @@ const Auth: React.FC = () => {
         if (vendorProfile) {
           // Store complete vendor response for future use
           localStorage.setItem("vendorProfile", JSON.stringify(vendorProfile));
+          // Normalize: API wraps response as { success, status, data: { id, ... } }
+          const profileData = vendorProfile?.data || vendorProfile;
           // Update vendorId from profile if available
-          if (vendorProfile.id) {
-            localStorage.setItem("vendorId", String(vendorProfile.id));
-            localStorage.setItem("id", String(vendorProfile.id));
+          if (profileData?.id || profileData?.vendorId) {
+            const vid = profileData.id || profileData.vendorId;
+            localStorage.setItem("vendorId", String(vid));
+            localStorage.setItem("id", String(vid));
           }
           
           // Check approval status
-          const approvalStatus = vendorProfile.approvalStatus || vendorProfile.approval_status;
+          const approvalStatus = profileData?.approvalStatus || profileData?.approval_status || vendorProfile.approvalStatus || vendorProfile.approval_status;
           
           if (approvalStatus === "PENDING") {
             // Profile exists but pending approval
