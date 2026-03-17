@@ -67,6 +67,14 @@ export interface VendorDashboardResponse {
   performance: PerformanceMetrics;
 }
 
+export interface VendorStatsResponse {
+  vendorId: string;
+  vendorName: string;
+  metrics: VendorMetrics;
+  bidMetrics: BidMetrics;
+  performance: PerformanceMetrics;
+}
+
 // Frontend DTOs (for components)
 export interface MonthlyComparisonDto {
   month: string;
@@ -117,122 +125,109 @@ export interface DashboardDataDto {
   revenueTrends: RevenueTrendDto[];
   recentOrders: OrderTableDto[];
   recentActivities: RecentActivityDto[];
+  dashboard: VendorDashboardResponse;
+  stats: VendorStatsResponse | null;
 }
 
 // ==================== Helper Functions ====================
 
 /**
  * Transform the backend API response into the frontend dashboard data structure
- * Uses actual data from the backend without generating fake data
+ * Use only data provided by the backend
  */
-const transformDashboardResponse = (response: VendorDashboardResponse): DashboardDataDto => {
-  const { metrics, bidMetrics, performance, recentOrders, upcomingEvents } = response;
-  const currentDate = new Date();
-  
-  // Generate last 6 months of data for monthly comparison from metrics trends
-  const monthlyComparison: MonthlyComparisonDto[] = [];
-  for (let i = 5; i >= 0; i--) {
-    const date = new Date(currentDate);
-    date.setMonth(date.getMonth() - i);
-    monthlyComparison.push({
-      month: date.toLocaleString('default', { month: 'short' }),
-      thisYear: metrics.thisMonthRevenue || 0,
-      lastYear: Math.max(0, (metrics.totalRevenue / 6) - (metrics.thisMonthRevenue || 0)) || 0,
-    });
-  }
-  
-  // Order volume data from metrics
-  const orderVolume: OrderVolumeDto[] = [];
-  for (let i = 5; i >= 0; i--) {
-    const date = new Date(currentDate);
-    date.setDate(date.getDate() - i * 7);
-    const weekOrders = Math.floor(metrics.totalOrders / 6);
-    const weekCompleted = Math.floor(metrics.completedOrders / 6);
-    orderVolume.push({
-      date: date.toLocaleDateString('default', { month: 'short', day: 'numeric' }),
-      orders: weekOrders,
-      completed: weekCompleted,
-    });
-  }
-  
-  // Create revenue trends from actual metrics
-  const revenueTrends: RevenueTrendDto[] = [];
-  for (let i = 5; i >= 0; i--) {
-    const date = new Date(currentDate);
-    date.setMonth(date.getMonth() - i);
-    const monthRevenue = i === 0 ? (metrics.thisMonthRevenue || 0) : ((metrics.totalRevenue / 6) || 0);
-    revenueTrends.push({
-      month: date.toLocaleString('default', { month: 'short' }),
-      revenue: monthRevenue,
-      target: (metrics.totalRevenue / 6) || 0,
-    });
-  }
-  
-  // Create popular items from actual bid and order data
+const transformDashboardResponse = (
+  dashboard: VendorDashboardResponse,
+  stats: VendorStatsResponse | null
+): DashboardDataDto => {
+  const source = dashboard || stats;
+  const metrics = source?.metrics;
+  const bidMetrics = source?.bidMetrics;
+  const performance = source?.performance;
+  const recentOrders = dashboard?.recentOrders || stats?.recentOrders || [];
+  const upcomingEvents = dashboard?.upcomingEvents || stats?.upcomingEvents || [];
+
+  const recentOrdersTable: OrderTableDto[] = recentOrders.slice(0, 5).map((o: any) => {
+    const amount = o.amount ?? o.totalAmount ?? o.pricing?.totalAmount ?? 0;
+    const currency = o.currency ?? o.pricing?.currency ?? metrics?.currency ?? "INR";
+    const user = o.userDetails || {};
+    const clientName = user.fullName || o.clientName || o.userName || "Unknown";
+    const clientContact = user.email || user.phone || "";
+    return {
+      id: o.orderId || "",
+      client: clientContact ? `${clientName} · ${clientContact}` : clientName,
+      event: o.eventName || o.eventDetails?.eventName || "Event",
+      date: o.eventDate || o.eventDetails?.eventDate || new Date().toLocaleDateString(),
+      guests: o.guestCount || o.eventDetails?.numberOfGuests || 0,
+      status: o.status || "CONFIRMED",
+      amount: `${currency} ${Number(amount).toLocaleString()}`,
+    };
+  });
+
+  const monthLabel = new Date().toLocaleString('default', { month: 'short' });
+  const revenueTrends: RevenueTrendDto[] = metrics
+    ? [{ month: monthLabel, revenue: metrics.thisMonthRevenue || 0, target: metrics.totalRevenue || 0 }]
+    : [];
+
+  const monthlyComparison: MonthlyComparisonDto[] = metrics
+    ? [{ month: monthLabel, thisYear: metrics.thisMonthRevenue || 0, lastYear: 0 }]
+    : [];
+
+  const orderVolume: OrderVolumeDto[] = metrics
+    ? [{ date: new Date().toLocaleDateString('default', { month: 'short', day: 'numeric' }), orders: metrics.totalOrders || 0, completed: metrics.completedOrders || 0 }]
+    : [];
+
   const popularMenuItems: PopularMenuItemDto[] = [];
-  if (metrics.totalOrders > 0) {
+  if (metrics && metrics.totalOrders > 0) {
     popularMenuItems.push({
       item: 'Total Orders',
       orders: metrics.totalOrders,
-      revenue: metrics.totalRevenue,
+      revenue: metrics.totalRevenue || 0,
     });
   }
-  if (bidMetrics.acceptedBids > 0) {
+  if (bidMetrics && bidMetrics.acceptedBids > 0) {
     popularMenuItems.push({
       item: 'Accepted Bids',
       orders: bidMetrics.acceptedBids,
-      revenue: bidMetrics.averageBidAmount * bidMetrics.acceptedBids,
+      revenue: (bidMetrics.averageBidAmount || 0) * bidMetrics.acceptedBids,
     });
   }
-  if (metrics.completedOrders > 0) {
+  if (performance && performance.totalReviews > 0) {
     popularMenuItems.push({
-      item: 'Completed Orders',
-      orders: metrics.completedOrders,
-      revenue: (metrics.totalRevenue * metrics.completedOrders) / (metrics.totalOrders || 1),
+      item: 'Total Reviews',
+      orders: performance.totalReviews,
+      revenue: 0,
     });
   }
-  
-  // Recent activities based on actual performance metrics
+
   const recentActivities: RecentActivityDto[] = [];
-  if (performance.totalReviews > 0) {
+  recentOrders.slice(0, 3).forEach((o: any, index: number) => {
+    const user = o.userDetails || {};
+    const userName = user.fullName || o.clientName || o.userName || "Customer";
+    const eventName = o.eventName || o.eventDetails?.eventName || "Event";
+    const status = o.status || "CONFIRMED";
     recentActivities.push({
-      id: 1,
-      user: response.vendorName || 'Vendor',
-      action: `Received ${performance.totalReviews} review(s)`,
-      time: 'Recent',
-      type: 'review',
+      id: index + 1,
+      user: userName,
+      action: `order for ${eventName} is ${status.replace(/_/g, " ")}`,
+      time: o.eventDate || o.eventDetails?.eventDate || "Recent",
+      type: "order",
     });
-  }
-  if (bidMetrics.totalBidsSubmitted > 0) {
+  });
+
+  upcomingEvents.slice(0, 2).forEach((e: any, index: number) => {
+    const user = e.userDetails || {};
+    const userName = user.fullName || "Customer";
+    const eventName = e.eventName || "Upcoming event";
+    const daysUntil = e.daysUntil !== undefined ? `${e.daysUntil} days` : "Upcoming";
     recentActivities.push({
-      id: 2,
-      user: response.vendorName || 'Vendor',
-      action: `Submitted ${bidMetrics.totalBidsSubmitted} bid(s)`,
-      time: 'Today',
-      type: 'bid',
+      id: recentActivities.length + index + 1,
+      user: userName,
+      action: `${eventName} scheduled (${daysUntil})`,
+      time: e.eventDate || "Upcoming",
+      type: "order",
     });
-  }
-  if (metrics.completedOrders > 0) {
-    recentActivities.push({
-      id: 3,
-      user: response.vendorName || 'Vendor',
-      action: `Completed ${metrics.completedOrders} order(s)`,
-      time: 'Today',
-      type: 'order',
-    });
-  }
-  
-  // Convert recent orders to table format
-  const recentOrdersTable: OrderTableDto[] = (recentOrders || []).slice(0, 5).map((o: any) => ({
-    id: o.orderId || '',
-    client: o.clientName || 'Unknown',
-    event: o.eventName || 'Event',
-    date: o.eventDate || new Date().toLocaleDateString(),
-    guests: o.guestCount || 0,
-    status: o.status || 'PENDING',
-    amount: `$${(o.amount || 0).toFixed(2)}`,
-  }));
-  
+  });
+
   return {
     monthlyComparison,
     orderVolume,
@@ -240,6 +235,8 @@ const transformDashboardResponse = (response: VendorDashboardResponse): Dashboar
     revenueTrends,
     recentOrders: recentOrdersTable,
     recentActivities,
+    dashboard,
+    stats,
   };
 };
 
@@ -253,10 +250,14 @@ export const analyticsApi = {
    */
   getCompleteDashboard: async (): Promise<DashboardDataDto> => {
     try {
-      const response = await axiosInstance.get<{ data: VendorDashboardResponse }>(
-        `/v1/analytics/vendor/dashboard`
+      const [dashboardRes, statsRes] = await Promise.all([
+        axiosInstance.get<{ data: VendorDashboardResponse }>(`/v1/analytics/vendor/dashboard`),
+        axiosInstance.get<{ data: VendorStatsResponse }>(`/v1/analytics/vendor/stats`),
+      ]);
+      const dashboardData = transformDashboardResponse(
+        dashboardRes.data.data,
+        statsRes?.data?.data || null
       );
-      const dashboardData = transformDashboardResponse(response.data.data);
       return dashboardData;
     } catch (error: any) {
 

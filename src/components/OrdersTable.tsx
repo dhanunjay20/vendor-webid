@@ -47,11 +47,17 @@ export default function OrdersTable({ data = [] }: OrdersTableProps) {
   };
   
   return (
-    <div className="rounded-lg border bg-card shadow-card">
+    <div className="rounded-2xl border border-orange-100 bg-white/80 shadow-sm backdrop-blur">
+      <div className="flex items-center justify-between border-b border-orange-100 px-5 py-4">
+        <div>
+          <div className="text-sm font-semibold text-gray-900">Recent Orders</div>
+          <div className="text-xs text-gray-500">Latest activity from your vendor dashboard</div>
+        </div>
+        <div className="text-xs text-gray-500">{data.length} showing</div>
+      </div>
       <Table>
         <TableHeader>
           <TableRow className="hover:bg-muted/50">
-            <TableHead className="font-semibold">Order ID</TableHead>
             <TableHead className="font-semibold">Client</TableHead>
             <TableHead className="font-semibold">Event</TableHead>
             <TableHead className="font-semibold">Date</TableHead>
@@ -64,39 +70,52 @@ export default function OrdersTable({ data = [] }: OrdersTableProps) {
         <TableBody>
           {data.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                No orders found
+              <TableCell colSpan={7} className="text-center py-10 text-muted-foreground">
+                No recent orders yet
               </TableCell>
             </TableRow>
           ) : (
             data.map((order) => {
               const statusKey = (order.status || "").toLowerCase();
               const statusInfo = statusConfig[statusKey] || statusConfig.confirmed;
+              const clientPrimary = (order.client || "Unknown").split(" · ")[0];
+              const clientSecondary = (order.client || "").split(" · ")[1] || "";
               return (
-                <TableRow key={order.id} className="transition-smooth hover:bg-muted/50">
-                  <TableCell className="font-medium">{order.id}</TableCell>
-                  <TableCell>{order.client}</TableCell>
-                  <TableCell>{order.event}</TableCell>
-                  <TableCell>{order.date}</TableCell>
-                  <TableCell className="text-center">{order.guests}</TableCell>
+                <TableRow key={order.id} className="transition-smooth hover:bg-orange-50/60">
+                  <TableCell className="min-w-[160px]">
+                    <div className="font-semibold text-gray-900 truncate">{clientPrimary}</div>
+                    {clientSecondary && (
+                      <div className="text-xs text-gray-500 truncate">{clientSecondary}</div>
+                    )}
+                    <div className="text-[11px] text-gray-400 mt-1">ID: {order.id.slice(0, 10)}...</div>
+                  </TableCell>
+                  <TableCell className="min-w-[150px]">
+                    <div className="font-medium text-gray-900 truncate">{order.event}</div>
+                  </TableCell>
+                  <TableCell className="text-sm text-gray-600">{order.date}</TableCell>
+                  <TableCell className="text-center">
+                    <span className="inline-flex items-center rounded-full bg-orange-50 px-2 py-0.5 text-xs font-semibold text-orange-700">
+                      {order.guests}
+                    </span>
+                  </TableCell>
                   <TableCell>
                     <Badge variant="secondary" className={statusInfo.className}>
                       {statusInfo.label}
                     </Badge>
                   </TableCell>
-                  <TableCell className="text-right font-medium">{order.amount}</TableCell>
+                  <TableCell className="text-right font-semibold text-gray-900">{order.amount}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
-                      <Button 
-                        size="sm" 
+                      <Button
+                        size="sm"
                         variant="ghost"
                         onClick={() => handleViewOrder(order.id)}
                         title="View order details"
                       >
                         <Eye className="h-4 w-4" />
                       </Button>
-                      <Button 
-                        size="sm" 
+                      <Button
+                        size="sm"
                         variant="ghost"
                         onClick={() => handleMessageCustomer(order.id, order.client)}
                         title="Message customer"
