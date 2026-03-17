@@ -204,9 +204,15 @@ export default function BidsNew() {
       let totalPages = 1;
       
       if (receivedResponse && typeof receivedResponse === 'object') {
+        // According to documentation, response format is { success, status, message, data: [], pagination: {} }
         if (Array.isArray(receivedResponse.data)) {
           receivedData = receivedResponse.data;
-          totalPages = receivedResponse.pageInfo?.totalPages || 1;
+          // IMPORTANT: Check for pagination object as per new API spec
+          if (receivedResponse.pagination) {
+             totalPages = receivedResponse.pagination.totalPages || 1;
+          } else {
+             totalPages = receivedResponse.pageInfo?.totalPages || 1;
+          }
         } else if (Array.isArray(receivedResponse)) {
           receivedData = receivedResponse;
         } else if (Array.isArray(receivedResponse.items) || Array.isArray(receivedResponse.results)) {
@@ -217,7 +223,9 @@ export default function BidsNew() {
       
       // Parse submitted bids
       let submittedData: any[] = [];
+      
       if (submittedResponse && typeof submittedResponse === 'object') {
+        // According to documentation, response format is { success, status, message, data: [], pagination: {} }
         if (Array.isArray(submittedResponse.data)) {
           submittedData = submittedResponse.data;
         } else if (Array.isArray(submittedResponse)) {
@@ -578,28 +586,35 @@ export default function BidsNew() {
   };
 
   const activeBids = bidRequests.filter((r) => {
-    const status = r.status?.toUpperCase() || "";
+    const bidStatus = r.status?.toUpperCase() || "";
     const hasQuote = r.quotedPrice !== undefined && r.quotedPrice !== null;
-    return (status === BidRequestStatus.ACTIVE || status === BidRequestStatus.COMPETITIVE) || !hasQuote;
+    const hasBidId = r.bidId && r.bidId.length > 0;
+    // Show bids that haven't been submitted yet (no bidId, no status, or pending bid request)
+    return !hasBidId && !hasQuote;
   });
   
   const quotedBids = bidRequests.filter((r) => {
-    const hasQuote = r.quotedPrice !== undefined && r.quotedPrice !== null;
-    return hasQuote;
+    const bidStatus = r.status?.toUpperCase() || "";
+    // Show bids that are SUBMITTED (just submitted quote, not yet accepted/revised/withdrawn)
+    return bidStatus === "SUBMITTED";
   });
 
   const acceptedBids = bidRequests.filter((r) => {
-    const status = r.status?.toUpperCase() || "";
-    return status === "ACCEPTED";
+    const bidStatus = r.status?.toUpperCase() || "";
+    // Show bids accepted by the customer
+    return bidStatus === "ACCEPTED";
   });
 
   const revisedBids = bidRequests.filter((r) => {
-    return r.revisionCount && r.revisionCount > 0;
+    const bidStatus = r.status?.toUpperCase() || "";
+    // Show bids that have been revised (status is REVISED)
+    return bidStatus === "REVISED";
   });
 
   const withdrawnBids = bidRequests.filter((r) => {
-    const status = r.status?.toUpperCase() || "";
-    return status === "WITHDRAWN";
+    const bidStatus = r.status?.toUpperCase() || "";
+    // Show bids that have been withdrawn
+    return bidStatus === "WITHDRAWN";
   });
 
   const filteredBids = (

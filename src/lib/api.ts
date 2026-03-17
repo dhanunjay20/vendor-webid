@@ -2,6 +2,41 @@ import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
 
 type ApiError = { message?: string; status?: number };
 
+// Utility function to convert snake_case to camelCase
+function snakeToCamel(str: string): string {
+  return str.replace(/_([a-z])/g, (g) => g[1].toUpperCase());
+}
+
+// Recursively transform object keys from snake_case to camelCase
+function transformData(data: any): any {
+  if (data === null || data === undefined) {
+    return data;
+  }
+
+  if (Array.isArray(data)) {
+    return data.map(item => transformData(item));
+  }
+
+  if (typeof data === 'object' && data.constructor === Object) {
+    return Object.keys(data).reduce((result: any, key: string) => {
+      const camelKey = snakeToCamel(key);
+      const value = data[key];
+
+      // Handle special MongoDB date format
+      if (value && typeof value === 'object' && '$date' in value) {
+        result[camelKey] = new Date(value.$date);
+      } else if (value && typeof value === 'object') {
+        result[camelKey] = transformData(value);
+      } else {
+        result[camelKey] = value;
+      }
+      return result;
+    }, {});
+  }
+
+  return data;
+}
+
 // Read base from env (Vite replaces import.meta.env at build/dev time)
 const RAW_BASE = (import.meta.env.VITE_API_BASE || "").trim();
 const BASE = RAW_BASE.replace(/\/$/, "");
@@ -691,9 +726,12 @@ export async function acceptBid(vendorOrgId: string, bidId: string) {
  */
 export async function getReceivedBidRequests(page = 0, size = 20) {
   try {
-    const url = buildUrl(`/api/v1/bids/requests/available?page=${page}&size=${size}`);
+    // UPDATED: Using correct endpoint from documentation
+    const url = buildUrl(`/api/v1/bids/vendor/received?page=${page}&size=${size}`);
     const res = await apiClient.get(url);
-    return res.data;
+    // Transform snake_case to camelCase
+    const transformed = transformData(res.data);
+    return transformed;
   } catch (err: any) {
     const { message, status } = extractError(err);
     throw { message, status } as ApiError;
@@ -708,7 +746,8 @@ export async function getActiveBidRequests(page = 0, size = 20) {
   try {
     const url = buildUrl(`/api/v1/bids/requests/available?page=${page}&size=${size}`);
     const res = await apiClient.get(url);
-    return res.data;
+    // Transform snake_case to camelCase
+    return transformData(res.data);
   } catch (err: any) {
     const { message, status } = extractError(err);
     throw { message, status } as ApiError;
@@ -721,12 +760,15 @@ export async function getActiveBidRequests(page = 0, size = 20) {
  */
 export async function getVendorSubmittedBids(page = 0, size = 20, status?: string) {
   try {
-    let url = buildUrl(`/api/v1/bids/my?page=${page}&size=${size}`);
+    // UPDATED: Using correct endpoint from documentation
+    let url = buildUrl(`/api/v1/bids/vendor/submitted?page=${page}&size=${size}`);
     if (status) {
       url += `&status=${encodeURIComponent(status)}`;
     }
     const res = await apiClient.get(url);
-    return res.data;
+    // Transform snake_case to camelCase
+    const transformed = transformData(res.data);
+    return transformed;
   } catch (err: any) {
     const { message, status: errStatus } = extractError(err);
     throw { message, status: errStatus } as ApiError;
@@ -769,9 +811,12 @@ export async function submitBid(bidRequestId: string, payload: {
   requiredAdvanceAmount?: number;
 }) {
   try {
+    // UPDATED: Using shorthand endpoint (same functionality as /submit-bid)
     const url = buildUrl(`/api/v1/bids/${bidRequestId}/submit`);
+    console.log("API CALL: submitBid URL =", url);
     const res = await apiClient.post(url, payload);
-    return res.data;
+    // Transform snake_case to camelCase
+    return transformData(res.data);
   } catch (err: any) {
     const { message, status } = extractError(err);
     throw { message, status } as ApiError;
@@ -816,7 +861,8 @@ export async function reviseBid(bidId: string, payload: {
   try {
     const url = buildUrl(`/api/v1/bids/${bidId}`);
     const res = await apiClient.put(url, payload);
-    return res.data;
+    // Transform snake_case to camelCase
+    return transformData(res.data);
   } catch (err: any) {
     const { message, status } = extractError(err);
     throw { message, status } as ApiError;
@@ -831,7 +877,8 @@ export async function withdrawBid(bidId: string) {
   try {
     const url = buildUrl(`/api/v1/bids/${bidId}`);
     const res = await apiClient.delete(url);
-    return res.data;
+    // Transform snake_case to camelCase
+    return transformData(res.data);
   } catch (err: any) {
     const { message, status } = extractError(err);
     throw { message, status } as ApiError;
@@ -846,7 +893,8 @@ export async function getBidRequestDetails(bidRequestId: string) {
   try {
     const url = buildUrl(`/api/v1/bids/requests/${bidRequestId}`);
     const res = await apiClient.get(url);
-    return res.data;
+    // Transform snake_case to camelCase
+    return transformData(res.data);
   } catch (err: any) {
     const { message, status } = extractError(err);
     throw { message, status } as ApiError;
@@ -861,7 +909,8 @@ export async function getBidByIdV1(bidId: string) {
   try {
     const url = buildUrl(`/api/v1/bids/${bidId}`);
     const res = await apiClient.get(url);
-    return res.data;
+    // Transform snake_case to camelCase
+    return transformData(res.data);
   } catch (err: any) {
     const { message, status } = extractError(err);
     throw { message, status } as ApiError;
@@ -1136,13 +1185,12 @@ export async function updateOrderStatus(vendorOrgId: string, orderId: string, st
   }
 }
 
-// Update order status
-// PUT /api/v1/orders/{orderId}/status
+// Update vendor order status
+// PUT /api/v1/orders/vendor/{orderId}/status?status=IN_PREPARATION
 export async function updateOrderStatusNew(orderId: string, vendorStatus: string, _deliveryStatus?: string, _notes?: string) {
   try {
-    const url = buildUrl(`/api/v1/orders/${orderId}/status`);
-    const body: any = { status: vendorStatus };
-    const res = await apiClient.put(url, body);
+    const url = buildUrl(`/api/v1/orders/vendor/${orderId}/status?status=${encodeURIComponent(vendorStatus)}`);
+    const res = await apiClient.put(url);
     return res.data;
   } catch (err: any) {
     const { message, status: errStatus } = extractError(err);

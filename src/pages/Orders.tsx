@@ -99,56 +99,50 @@ const statusConfig: Record<string, { label: string; icon: any; color: string; bg
   ACCEPTED: {
     label: "Accepted",
     icon: CheckCircle,
-    color: "text-blue-600",
-    bgColor: "bg-blue-50 dark:bg-blue-950/30 border-blue-300",
+    color: "text-blue-700",
+    bgColor: "bg-blue-100 dark:bg-blue-900/50 border-blue-400 text-blue-700 dark:text-blue-300",
   },
   CONFIRMED: {
     label: "Confirmed",
     icon: CheckCircle,
-    color: "text-blue-600",
-    bgColor: "bg-blue-50 dark:bg-blue-950/30 border-blue-300",
+    color: "text-green-700",
+    bgColor: "bg-green-100 dark:bg-green-900/50 border-green-400 text-green-700 dark:text-green-300",
   },
   IN_PREPARATION: {
     label: "In Preparation",
     icon: Package,
-    color: "text-orange-600",
-    bgColor: "bg-orange-50 dark:bg-orange-950/30 border-orange-300",
-  },
-  DISPATCHED: {
-    label: "Dispatched",
-    icon: Truck,
-    color: "text-indigo-600",
-    bgColor: "bg-indigo-50 dark:bg-indigo-950/30 border-indigo-300",
-  },
-  SETUP_IN_PROGRESS: {
-    label: "Setting Up",
-    icon: Package,
-    color: "text-amber-600",
-    bgColor: "bg-amber-50 dark:bg-amber-950/30 border-amber-300",
+    color: "text-orange-700",
+    bgColor: "bg-orange-100 dark:bg-orange-900/50 border-orange-400 text-orange-700 dark:text-orange-300",
   },
   READY_FOR_DELIVERY: {
     label: "Ready for Delivery",
     icon: Truck,
-    color: "text-purple-600",
-    bgColor: "bg-purple-50 dark:bg-purple-950/30 border-purple-300",
+    color: "text-purple-700",
+    bgColor: "bg-purple-100 dark:bg-purple-900/50 border-purple-400 text-purple-700 dark:text-purple-300",
+  },
+  DELIVERING: {
+    label: "Delivering",
+    icon: Truck,
+    color: "text-cyan-700",
+    bgColor: "bg-cyan-100 dark:bg-cyan-900/50 border-cyan-400 text-cyan-700 dark:text-cyan-300",
   },
   DELIVERED: {
     label: "Delivered",
     icon: Truck,
-    color: "text-green-600",
-    bgColor: "bg-green-50 dark:bg-green-950/30 border-green-300",
+    color: "text-teal-700",
+    bgColor: "bg-teal-100 dark:bg-teal-900/50 border-teal-400 text-teal-700 dark:text-teal-300",
   },
   COMPLETED: {
     label: "Completed",
     icon: CheckCircle,
-    color: "text-emerald-600",
-    bgColor: "bg-emerald-50 dark:bg-emerald-950/30 border-emerald-300",
+    color: "text-emerald-700",
+    bgColor: "bg-emerald-100 dark:bg-emerald-900/50 border-emerald-400 text-emerald-700 dark:text-emerald-300",
   },
   CANCELLED: {
     label: "Cancelled",
     icon: X,
-    color: "text-red-600",
-    bgColor: "bg-red-50 dark:bg-red-950/30 border-red-300",
+    color: "text-red-700",
+    bgColor: "bg-red-100 dark:bg-red-900/50 border-red-400 text-red-700 dark:text-red-300",
   },
 };
 
@@ -165,15 +159,51 @@ export default function Orders() {
   const [selectedOrder, setSelectedOrder] = useState<OrderResponse | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [selectedVendorStatus, setSelectedVendorStatus] = useState("");
+  const [quickStatusByOrder, setQuickStatusByOrder] = useState<Record<string, string>>({});
+  const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null);
   
   // Cancel dialog
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
   const [cancelling, setCancelling] = useState(false);
 
+  const vendorStatusOptions = [
+    "IN_PREPARATION",
+    "READY_FOR_DELIVERY",
+    "DELIVERING",
+    "DELIVERED",
+  ];
+
+  const getNextVendorStatus = (currentStatus: string): string | null => {
+    const flow: Record<string, string> = {
+      CONFIRMED: "IN_PREPARATION",
+      IN_PREPARATION: "READY_FOR_DELIVERY",
+      READY_FOR_DELIVERY: "DELIVERING",
+      DELIVERING: "DELIVERED",
+    };
+    return flow[currentStatus] || null;
+  };
+
+  const getVendorStatusOptions = (currentStatus?: string) => {
+    if (!currentStatus) return vendorStatusOptions;
+    const currentIndex = vendorStatusOptions.indexOf(currentStatus);
+    if (currentIndex === -1) {
+      return [currentStatus, ...vendorStatusOptions];
+    }
+    const nextOptions = vendorStatusOptions.slice(currentIndex + 1);
+    return [currentStatus, ...nextOptions];
+  };
+
   useEffect(() => {
     loadOrders();
   }, [page, statusFilter]);
+
+  useEffect(() => {
+    const currentOrderStatus = selectedOrder?.status || "";
+    const options = getVendorStatusOptions(currentOrderStatus);
+    setSelectedVendorStatus(currentOrderStatus || options[0] || "");
+  }, [selectedOrder]);
 
   const loadOrders = async () => {
     try {
@@ -236,10 +266,18 @@ export default function Orders() {
         variant: "success",
       });
       loadOrders();
+      setOrders(prev => prev.map(order => (
+        order.orderId === selectedOrder.orderId
+          ? {
+              ...order,
+              status: newStatus,
+            }
+          : order
+      )));
       // Update local state
       setSelectedOrder(prev => prev ? {
         ...prev,
-        vendorOrders: prev.vendorOrders?.map(vo => ({ ...vo, vendorStatus: newStatus }))
+        status: newStatus,
       } : null);
     } catch (error: any) {
       showToast({
@@ -252,15 +290,35 @@ export default function Orders() {
     }
   };
 
-  const getNextVendorStatus = (currentStatus: string): string | null => {
-    const flow: Record<string, string> = {
-      ACCEPTED: "IN_PREPARATION",
-      IN_PREPARATION: "DISPATCHED",
-      DISPATCHED: "SETUP_IN_PROGRESS",
-      SETUP_IN_PROGRESS: "DELIVERED",
-      DELIVERED: "COMPLETED",
-    };
-    return flow[currentStatus] || null;
+  const handleQuickStatusUpdate = async (order: OrderResponse, newStatus: string) => {
+    if (!order || !newStatus) return;
+
+    try {
+      setUpdatingOrderId(order.orderId);
+      await api.updateOrderStatusNew(order.orderId, newStatus);
+      showToast({
+        title: "Success",
+        description: `Order status updated to ${newStatus.replace(/_/g, " ")}`,
+        variant: "success",
+      });
+      setOrders(prev => prev.map(o => (
+        o.orderId === order.orderId
+          ? {
+              ...o,
+              status: newStatus,
+            }
+          : o
+      )));
+      setQuickStatusByOrder(prev => ({ ...prev, [order.orderId]: newStatus }));
+    } catch (error: any) {
+      showToast({
+        title: "Error",
+        description: error.message || "Failed to update status",
+        variant: "error",
+      });
+    } finally {
+      setUpdatingOrderId(null);
+    }
   };
 
   const filteredOrders = orders.filter((order) => {
@@ -331,10 +389,9 @@ export default function Orders() {
             <SelectContent>
               <SelectItem value="all">All Status</SelectItem>
               <SelectItem value="CONFIRMED">Confirmed</SelectItem>
-              <SelectItem value="ACCEPTED">Accepted</SelectItem>
               <SelectItem value="IN_PREPARATION">In Preparation</SelectItem>
-              <SelectItem value="DISPATCHED">Dispatched</SelectItem>
-              <SelectItem value="SETUP_IN_PROGRESS">Setting Up</SelectItem>
+              <SelectItem value="READY_FOR_DELIVERY">Ready for Delivery</SelectItem>
+              <SelectItem value="DELIVERING">Delivering</SelectItem>
               <SelectItem value="DELIVERED">Delivered</SelectItem>
               <SelectItem value="COMPLETED">Completed</SelectItem>
               <SelectItem value="CANCELLED">Cancelled</SelectItem>
@@ -348,8 +405,8 @@ export default function Orders() {
             { label: "Total", count: orders.length, color: "text-gray-900" },
             { label: "Confirmed", count: orders.filter(o => o.status === "CONFIRMED").length, color: "text-blue-600" },
             { label: "Preparing", count: orders.filter(o => o.status === "IN_PREPARATION").length, color: "text-orange-600" },
+            { label: "Delivering", count: orders.filter(o => o.status === "DELIVERING").length, color: "text-cyan-600" },
             { label: "Delivered", count: orders.filter(o => o.status === "DELIVERED").length, color: "text-green-600" },
-            { label: "Cancelled", count: orders.filter(o => o.status === "CANCELLED").length, color: "text-red-600" },
           ].map((s) => (
             <Card key={s.label} className="border border-orange-100 shadow-sm bg-white">
               <CardContent className="p-3 sm:p-4">
@@ -378,13 +435,22 @@ export default function Orders() {
         ) : (
           <div className="grid gap-3 sm:gap-4">
             {filteredOrders.map((order) => {
-              const config = statusConfig[order.status] || statusConfig.CONFIRMED;
-              const StatusIcon = config.icon;
               const eventDetails = order.eventDetails;
               const firstVendor = order.vendorOrders?.[0];
+              const orderStatus = order.status;
+              const config = statusConfig[orderStatus] || statusConfig.CONFIRMED;
+              const StatusIcon = config.icon;
+              const isDelivered = orderStatus === "DELIVERED";
 
               return (
-                <Card key={order.orderId} className="border border-orange-100 shadow-sm hover:shadow-md transition-all overflow-hidden bg-white">
+                <Card
+                  key={order.orderId}
+                  className={`border shadow-sm hover:shadow-md transition-all overflow-hidden bg-white ${
+                    isDelivered
+                      ? "border-emerald-200 bg-emerald-50/40"
+                      : "border-orange-100"
+                  }`}
+                >
                   <CardHeader className="bg-gray-50 border-b border-orange-100 py-3 px-4">
                     <div className="flex flex-col sm:flex-row items-start justify-between gap-2">
                       <div className="flex-1 min-w-0">
@@ -479,6 +545,49 @@ export default function Orders() {
                         <span className="hidden sm:inline">View Details</span>
                         <span className="sm:hidden">Details</span>
                       </Button>
+
+                      {firstVendor && order.status !== "DELIVERED" && (
+                        <div className="flex flex-1 sm:flex-none gap-2 items-stretch sm:items-center">
+                          <Select
+                            value={quickStatusByOrder[order.orderId] || order.status}
+                            onValueChange={(value) =>
+                              setQuickStatusByOrder(prev => ({ ...prev, [order.orderId]: value }))
+                            }
+                          >
+                            <SelectTrigger className="w-full sm:w-52 border-gray-300 h-10 sm:h-11 text-xs sm:text-sm">
+                              <SelectValue placeholder="Update status" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {getVendorStatusOptions(order.status).map((status) => (
+                                <SelectItem key={status} value={status}>
+                                  {status.replace(/_/g, " ")}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <Button
+                            onClick={() =>
+                              handleQuickStatusUpdate(
+                                order,
+                                quickStatusByOrder[order.orderId] || order.status
+                              )
+                            }
+                            disabled={
+                              updatingOrderId === order.orderId ||
+                              (quickStatusByOrder[order.orderId] || order.status) ===
+                                order.status
+                            }
+                            className="h-10 sm:h-11 text-xs sm:text-sm bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-semibold"
+                          >
+                            {updatingOrderId === order.orderId ? (
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            ) : (
+                              <CheckCircle className="h-4 w-4 mr-2" />
+                            )}
+                            Update
+                          </Button>
+                        </div>
+                      )}
 
                       {canCancelOrder(order.status) && (
                         <Button
@@ -686,20 +795,36 @@ export default function Orders() {
 
           {/* Footer */}
           <div className="border-t bg-slate-50 dark:bg-slate-800 p-3 sm:p-4 flex flex-col sm:flex-row gap-2 sm:gap-3 justify-between items-stretch sm:items-center rounded-b-lg sm:rounded-b-2xl flex-shrink-0">
-            {selectedOrder && selectedOrder.vendorOrders?.[0] && (() => {
-              const currentVendorStatus = selectedOrder.vendorOrders[0].vendorStatus;
-              const nextStatus = getNextVendorStatus(currentVendorStatus);
-              return nextStatus ? (
+            {selectedOrder && selectedOrder.vendorOrders?.[0] && selectedOrder.status !== "DELIVERED" ? (
+              <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 items-stretch sm:items-center">
+                <Select value={selectedVendorStatus} onValueChange={setSelectedVendorStatus}>
+                  <SelectTrigger className="w-full sm:w-56 border-gray-300">
+                    <SelectValue placeholder="Update status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {getVendorStatusOptions(selectedOrder.status).map((status) => (
+                      <SelectItem key={status} value={status}>
+                        {status.replace(/_/g, " ")}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 <Button
-                  onClick={() => handleUpdateVendorStatus(nextStatus)}
-                  disabled={updatingStatus}
+                  onClick={() => selectedVendorStatus && handleUpdateVendorStatus(selectedVendorStatus)}
+                  disabled={
+                    updatingStatus ||
+                    !selectedVendorStatus ||
+                    selectedVendorStatus === selectedOrder.status
+                  }
                   className="h-9 sm:h-10 text-sm sm:text-base bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-semibold"
                 >
                   {updatingStatus ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle className="h-4 w-4 mr-2" />}
-                  Move to: {nextStatus.replace(/_/g, " ")}
+                  Update Status
                 </Button>
-              ) : <div />;
-            })()}
+              </div>
+            ) : (
+              <div />
+            )}
             <Button onClick={() => setShowDetailsModal(false)} className="h-9 sm:h-10 text-sm sm:text-base bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-semibold">
               ✓ Close
             </Button>

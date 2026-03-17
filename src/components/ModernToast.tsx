@@ -91,7 +91,7 @@ export function ModernToastItem({
   return (
     <div
       className={cn(
-        "fixed top-6 right-6 z-50 max-w-md pointer-events-auto transition-all duration-300 ease-out",
+        "fixed top-6 right-6 z-[9999] max-w-md pointer-events-auto transition-all duration-300 ease-out",
         isClosing 
           ? "translate-x-[450px] opacity-0" 
           : "translate-x-0 opacity-100 animate-slideInRight"

@@ -54,23 +54,23 @@ interface OrderDetailModalProps {
 const statusConfig = {
   pending: {
     label: "Pending",
-    className: "bg-yellow-500/10 text-yellow-600 border-yellow-500/20",
+    className: "bg-yellow-100 text-yellow-700 border-yellow-400",
   },
   confirmed: {
     label: "Confirmed",
-    className: "bg-blue-500/10 text-blue-600 border-blue-500/20",
+    className: "bg-green-100 text-green-700 border-green-400",
   },
   in_progress: {
     label: "In Progress",
-    className: "bg-purple-500/10 text-purple-600 border-purple-500/20",
+    className: "bg-purple-100 text-purple-700 border-purple-400",
   },
   completed: {
     label: "Completed",
-    className: "bg-green-500/10 text-green-600 border-green-500/20",
+    className: "bg-emerald-100 text-emerald-700 border-emerald-400",
   },
   cancelled: {
     label: "Cancelled",
-    className: "bg-red-500/10 text-red-600 border-red-500/20",
+    className: "bg-red-100 text-red-700 border-red-400",
   },
 };
 

@@ -72,22 +72,25 @@ export function getStatusBadgeClass(status: string): string {
   const statusUpper = status?.toUpperCase() || "";
   
   if (statusUpper === BidRequestStatus.ACTIVE || statusUpper === BidRequestStatus.COMPETITIVE) {
-    return "bg-orange-500/20 text-orange-700 dark:text-orange-300";
+    return "bg-orange-100 text-orange-700 dark:bg-orange-900/50 dark:text-orange-300 border-orange-400";
   }
-  if (statusUpper === BidRequestStatus.COOLING || statusUpper === BidStatus.PENDING) {
-    return "bg-blue-500/20 text-blue-700 dark:text-blue-300";
+  if (statusUpper === BidRequestStatus.COOLING || statusUpper === BidStatus.PENDING || statusUpper === BidStatus.SUBMITTED) {
+    return "bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300 border-blue-400";
   }
-  if (statusUpper === BidRequestStatus.ACCEPTED || statusUpper === BidStatus.ACCEPTED) {
-    return "bg-green-500/20 text-green-700 dark:text-green-300";
+  if (statusUpper === BidStatus.REVISED) {
+    return "bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-300 border-purple-400";
+  }
+  if (statusUpper === BidRequestStatus.ACCEPTED || statusUpper === BidStatus.ACCEPTED || statusUpper === "CONFIRMED") {
+    return "bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300 border-green-400";
   }
   if (statusUpper === BidRequestStatus.EXPIRED || statusUpper === BidStatus.EXPIRED) {
-    return "bg-red-500/20 text-red-700 dark:text-red-300";
+    return "bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300 border-red-400";
   }
   if (statusUpper === BidRequestStatus.CANCELLED || statusUpper === BidStatus.REJECTED || statusUpper === BidStatus.WITHDRAWN) {
-    return "bg-gray-500/20 text-gray-700 dark:text-gray-300";
+    return "bg-gray-100 text-gray-700 dark:bg-gray-900/50 dark:text-gray-300 border-gray-400";
   }
   
-  return "bg-slate-500/20 text-slate-700 dark:text-slate-300";
+  return "bg-slate-100 text-slate-700 dark:bg-slate-900/50 dark:text-slate-300 border-slate-400";
 }
 
 /**

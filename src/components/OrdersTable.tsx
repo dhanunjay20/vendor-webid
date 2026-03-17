@@ -15,7 +15,10 @@ import { toast } from "@/hooks/use-toast";
 
 const statusConfig: Record<string, { label: string; className: string }> = {
   confirmed: { label: "Confirmed", className: "bg-success/10 text-success hover:bg-success/20" },
-  pending: { label: "Pending", className: "bg-warning/10 text-warning hover:bg-warning/20" },
+  in_preparation: { label: "In Preparation", className: "bg-warning/10 text-warning hover:bg-warning/20" },
+  ready_for_delivery: { label: "Ready for Delivery", className: "bg-info/10 text-info hover:bg-info/20" },
+  delivering: { label: "Delivering", className: "bg-sky-100 text-sky-700 hover:bg-sky-200" },
+  delivered: { label: "Delivered", className: "bg-emerald-100 text-emerald-700 hover:bg-emerald-200" },
   completed: { label: "Completed", className: "bg-accent/10 text-accent hover:bg-accent/20" },
   cancelled: { label: "Cancelled", className: "bg-destructive/10 text-destructive hover:bg-destructive/20" },
 };
@@ -67,7 +70,8 @@ export default function OrdersTable({ data = [] }: OrdersTableProps) {
             </TableRow>
           ) : (
             data.map((order) => {
-              const statusInfo = statusConfig[order.status] || statusConfig.pending;
+              const statusKey = (order.status || "").toLowerCase();
+              const statusInfo = statusConfig[statusKey] || statusConfig.confirmed;
               return (
                 <TableRow key={order.id} className="transition-smooth hover:bg-muted/50">
                   <TableCell className="font-medium">{order.id}</TableCell>
